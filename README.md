@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FinTwin
 
-## Getting Started
+Gestão financeira privada para dois utilizadores, com espaços pessoais separados e workspace conjunto por convite.
 
-First, run the development server:
+## Funcionalidades (Fases 1 a 12)
+
+- Autenticação local (Auth.js, Argon2id) e workspaces com cookie `fintwin_workspace`
+- Contas, transações, transferências e motor decimal (`Europe/Lisbon`)
+- Receitas (familiar, e-commerce, ténis) e despesas com categorias
+- Dashboard com KPIs e gráficos a partir da base de dados
+- Planeamento: objetivos, fundo de emergência, health score, simulador, registo CGD manual
+- Conta conjunta: convites, membros, objetivos partilhados (isolamento de dados pessoais)
+- Relatórios PDF/CSV e upload de documentos privados
+- Investimentos manuais e previsões determinísticas (sem ML)
+- Testes unitários (Vitest) e E2E (Playwright)
+
+## Stack
+
+- Next.js 16 (App Router) e TypeScript strict
+- Tailwind CSS 4
+- PostgreSQL 17 e Prisma ORM 7.10
+- Vitest e Playwright
+- pnpm
+
+## Requisitos
+
+- Node.js 24+ (Node 25 foi usado em desenvolvimento)
+- pnpm 10
+- Docker
+
+## Arranque
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+cp .env.example .env
+docker compose up -d
+pnpm install
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Contas de desenvolvimento:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `user1@example.local` / `demo-joao-2026` (João)
+- `user2@example.local` / `demo-maria-2026` (Maria)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+A aplicação fica em [http://localhost:3000](http://localhost:3000). Health: [http://localhost:3000/api/health](http://localhost:3000/api/health). Postgres em `localhost:5433`.
 
-## Learn More
+## Verificação (inclui Fase 13)
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm test:e2e
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Documentação de testes e auditoria: `docs/TESTING.md`, `docs/SECURITY_AUDIT.md`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O Playwright arranca o servidor de desenvolvimento se ainda não estiver a correr. Na primeira execução instala os browsers:
 
-## Deploy on Vercel
+```bash
+pnpm exec playwright install chromium
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Variáveis
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Nome | Função |
+| --- | --- |
+| `APP_NAME` | Nome na interface (omissão: FinTwin) |
+| `DATABASE_URL` | Ligação PostgreSQL |
+| `AUTH_SECRET` | Segredo da sessão (≥ 32 caracteres) |
+
+Documentação adicional: `docs/ARCHITECTURE.md`, `docs/FINANCIAL_RULES.md`, `docs/SECURITY.md`, `AGENTS.md`.
+
+Não commits o ficheiro `.env`.

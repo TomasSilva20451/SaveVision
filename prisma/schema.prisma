@@ -1,0 +1,814 @@
+// FinTwin — modelo de identidade e isolamento.
+// Cada agregado financeiro futuro tem de carregar workspaceId.
+// Um workspace conjunto não concede acesso aos workspaces pessoais.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SystemRole {
+  USER
+  ADMIN
+}
+
+enum WorkspaceType {
+  PERSONAL
+  JOINT
+}
+
+enum WorkspaceRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  DECLINED
+  REMOVED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  systemRole   SystemRole @default(USER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  memberships       WorkspaceMember[]
+  createdWorkspaces Workspace[]       @relation("WorkspaceCreator")
+  auditLogs         AuditLog[]        @relation("AuditActor")
+  alertUserStates   FinancialAlertUserState[]
+}
+
+model Workspace {
+  id          String        @id @default(cuid())
+  name        String
+  type        WorkspaceType
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  createdBy    User              @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  members      WorkspaceMember[]
+  accounts          FinancialAccount[]
+  categories        Category[]
+  transactions      Transaction[]
+  transfers         Transfer[]
+  auditLogs         AuditLog[]
+  incomeSeries      IncomeSeries[]
+  incomeOccurrences IncomeOccurrence[]
+  ecommerceSales    EcommerceSale[]
+  tournamentIncomes TournamentIncome[]
+  savingsGoals          SavingsGoal[]
+  savingsContributions  SavingsGoalContribution[]
+  planningSettings      WorkspacePlanningSettings?
+  cgdProducts           CgdProductRegistry[]
+  workspaceInvites      WorkspaceInvite[]
+  investmentPositions   InvestmentPosition[]
+  storedDocuments       StoredDocument[]
+  monthlyBudgets        MonthlyBudget[]
+  financialLiabilities  FinancialLiability[]
+  netWorthSnapshots     NetWorthSnapshot[]
+  financialAuditLogs    FinancialAuditLog[]
+  recurringExpenses           RecurringExpense[]
+  recurringExpenseOccurrences RecurringExpenseOccurrence[]
+  financialAlerts             FinancialAlert[]
+
+  @@index([type])
+  @@index([createdById])
+}
+
+enum AccountType {
+  CURRENT
+  SAVINGS
+  CASH
+  INVESTMENT
+  CRYPTO
+  LIABILITY
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  EXPECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum CategoryNature {
+  NECESSARY
+  DISCRETIONARY
+}
+
+enum CategoryBehavior {
+  FIXED
+  VARIABLE
+}
+
+enum IncomeSourceType {
+  FAMILY_TRANSFER
+  GIFT
+  ECOMMERCE
+  TENNIS_PRIZE
+  SALARY
+  FREELANCE
+  REFUND
+  INTEREST
+  OTHER
+}
+
+enum RecurringFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  YEARLY
+  CUSTOM
+  ONE_OFF
+}
+
+enum RecurringExpenseStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum RecurringExpenseOccurrenceStatus {
+  EXPECTED
+  PAID
+  SKIPPED
+  POSTPONED
+  CANCELLED
+}
+
+enum IncomeOccurrenceStatus {
+  EXPECTED
+  RECEIVED
+  MISSED
+  CANCELLED
+}
+
+enum IncomeCertainty {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model FinancialAccount {
+  id                  String      @id @default(cuid())
+  workspaceId         String
+  ownerUserId         String?
+  name                String
+  institution         String?
+  type                AccountType
+  currency            String      @default("EUR")
+  openingBalance      Decimal     @default(0) @db.Decimal(19, 4)
+  isIncludedInNetWorth Boolean    @default(true)
+  isArchived          Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  incomeSeries      IncomeSeries[]
+  incomeOccurrences IncomeOccurrence[]
+  ecommerceSales    EcommerceSale[]
+  tournamentIncomes TournamentIncome[]
+  savingsGoals      SavingsGoal[]
+  investmentPositions InvestmentPosition[]
+  liabilityPayments   LiabilityPayment[]
+  recurringExpenses   RecurringExpense[]
+
+  @@index([workspaceId, isArchived])
+}
+
+model Category {
+  id          String           @id @default(cuid())
+  workspaceId String
+  name        String
+  nature      CategoryNature   @default(NECESSARY)
+  behavior    CategoryBehavior @default(VARIABLE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgetLines  BudgetLine[]
+  recurringExpenses RecurringExpense[]
+
+  @@unique([workspaceId, name])
+}
+
+model Transfer {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  fromAccountId   String
+  toAccountId     String
+  amount          Decimal  @db.Decimal(19, 4)
+  currency        String   @default("EUR")
+  occurredAt      DateTime
+  description     String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([workspaceId, occurredAt])
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  workspaceId String
+  accountId   String
+  userId      String
+  type        TransactionType
+  status      TransactionStatus @default(COMPLETED)
+  amount      Decimal           @db.Decimal(19, 4)
+  currency    String            @default("EUR")
+  occurredAt  DateTime
+  description String?
+  categoryId  String?
+  notes       String?
+  transferId  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account   FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category  Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transfer  Transfer?        @relation(fields: [transferId], references: [id], onDelete: SetNull)
+
+  incomeOccurrence IncomeOccurrence?
+  ecommerceSale    EcommerceSale?
+  tournamentIncome TournamentIncome?
+  liabilityPrincipalPayment LiabilityPayment? @relation("LiabilityPrincipalTx")
+  liabilityExpensePayment   LiabilityPayment? @relation("LiabilityExpenseTx")
+  recurringExpenseOccurrence RecurringExpenseOccurrence?
+
+  @@index([workspaceId, occurredAt])
+  @@index([accountId, occurredAt])
+  @@index([workspaceId, type, status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String
+  workspaceId String
+  action      String
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  actor     User      @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model IncomeSeries {
+  id              String             @id @default(cuid())
+  workspaceId     String
+  userId          String
+  sourceType      IncomeSourceType
+  title           String
+  amount          Decimal            @db.Decimal(19, 4)
+  frequency       RecurringFrequency
+  accountId       String
+  familyOrigin    String?
+  certainty       IncomeCertainty?
+  nextDueAt       DateTime?
+  endAt           DateTime?
+  active          Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account     FinancialAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  occurrences IncomeOccurrence[]
+
+  @@index([workspaceId, active])
+}
+
+model IncomeOccurrence {
+  id            String                 @id @default(cuid())
+  workspaceId   String
+  userId        String
+  seriesId      String?
+  sourceType    IncomeSourceType
+  status        IncomeOccurrenceStatus @default(EXPECTED)
+  expectedAmount Decimal               @db.Decimal(19, 4)
+  scheduledFor  DateTime
+  accountId     String
+  title         String
+  transactionId String?                @unique
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  series      IncomeSeries?     @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  account     FinancialAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, scheduledFor, status])
+  @@index([seriesId])
+}
+
+model RecurringExpense {
+  id              String                   @id @default(cuid())
+  workspaceId     String
+  userId          String
+  name            String
+  description     String?
+  categoryId      String
+  expectedAmount  Decimal                  @db.Decimal(19, 4)
+  frequency       RecurringFrequency
+  startDate       DateTime
+  endDate         DateTime?
+  dueDayOfMonth   Int?
+  accountId           String?
+  linkedLiabilityId   String?
+  status              RecurringExpenseStatus   @default(ACTIVE)
+  pausedAt            DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  workspace         Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category          Category                     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  account           FinancialAccount?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  linkedLiability   FinancialLiability?          @relation(fields: [linkedLiabilityId], references: [id], onDelete: SetNull)
+  occurrences       RecurringExpenseOccurrence[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, linkedLiabilityId])
+}
+
+model RecurringExpenseOccurrence {
+  id                 String                           @id @default(cuid())
+  workspaceId        String
+  recurringExpenseId String
+  anchorDate         DateTime
+  dueDate            DateTime
+  expectedAmount     Decimal                          @db.Decimal(19, 4)
+  actualAmount       Decimal?                         @db.Decimal(19, 4)
+  status             RecurringExpenseOccurrenceStatus @default(EXPECTED)
+  paidAt             DateTime?
+  transactionId      String?                          @unique
+  idempotencyKey     String?
+  expectedAmountCustomized Boolean                      @default(false)
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
+
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  recurringExpense RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
+  transaction      Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@unique([recurringExpenseId, anchorDate])
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, dueDate, status])
+  @@index([recurringExpenseId, status])
+}
+
+model EcommerceSale {
+  id                   String   @id @default(cuid())
+  workspaceId          String
+  userId               String
+  accountId            String
+  marketplace          String?
+  orderReference       String?
+  grossAmount          Decimal  @db.Decimal(19, 4)
+  marketplaceFees      Decimal  @default(0) @db.Decimal(19, 4)
+  paymentFees          Decimal  @default(0) @db.Decimal(19, 4)
+  shippingCost         Decimal  @default(0) @db.Decimal(19, 4)
+  costOfGoods          Decimal  @default(0) @db.Decimal(19, 4)
+  otherCosts           Decimal  @default(0) @db.Decimal(19, 4)
+  netProceeds          Decimal  @db.Decimal(19, 4)
+  taxReservePercentage Decimal  @default(0) @db.Decimal(7, 4)
+  taxReserveAmount     Decimal  @default(0) @db.Decimal(19, 4)
+  saleDate             DateTime
+  payoutDate           DateTime?
+  notes                String?
+  transactionId        String?  @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, saleDate])
+}
+
+model TournamentIncome {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  userId             String
+  accountId          String
+  tournamentName     String
+  tournamentDate     DateTime
+  location           String?
+  category           String?
+  placement          String?
+  grossPrize         Decimal  @db.Decimal(19, 4)
+  registrationFee    Decimal  @default(0) @db.Decimal(19, 4)
+  travelCost         Decimal  @default(0) @db.Decimal(19, 4)
+  accommodationCost  Decimal  @default(0) @db.Decimal(19, 4)
+  foodCost           Decimal  @default(0) @db.Decimal(19, 4)
+  otherCosts         Decimal  @default(0) @db.Decimal(19, 4)
+  netPrize           Decimal  @db.Decimal(19, 4)
+  notes              String?
+  transactionId      String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, tournamentDate])
+}
+
+model WorkspaceMember {
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  status      MembershipStatus
+  joinedAt    DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId, status])
+}
+
+enum SavingsGoalKind {
+  GENERAL
+  EMERGENCY_FUND
+}
+
+model SavingsGoal {
+  id           String          @id @default(cuid())
+  workspaceId  String
+  userId       String
+  title        String
+  kind         SavingsGoalKind @default(GENERAL)
+  targetAmount Decimal         @db.Decimal(19, 4)
+  targetDate   DateTime?
+  accountId    String?
+  notes        String?
+  archived     Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  workspace     Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account       FinancialAccount?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contributions SavingsGoalContribution[]
+
+  @@index([workspaceId, archived])
+}
+
+model SavingsGoalContribution {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  goalId        String
+  userId        String
+  amount        Decimal  @db.Decimal(19, 4)
+  contributedAt DateTime
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goal      SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, contributedAt])
+}
+
+model WorkspacePlanningSettings {
+  workspaceId              String   @id
+  emergencyFundTargetMonths Int     @default(6)
+  monthlyEssentialExpenses Decimal? @db.Decimal(19, 4)
+  updatedAt                DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+enum CgdProductCategory {
+  DEPOSIT
+  SAVINGS
+  INVESTMENT
+  OTHER
+}
+
+model CgdProductRegistry {
+  id          String             @id @default(cuid())
+  workspaceId String
+  userId      String
+  label       String
+  category    CgdProductCategory @default(OTHER)
+  reference   String?
+  notes       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model WorkspaceInvite {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole @default(MEMBER)
+  token       String        @unique
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([workspaceId])
+}
+
+enum AssetClass {
+  STOCK
+  ETF
+  BOND
+  FUND
+  CRYPTO
+  OTHER
+}
+
+enum InvestmentValuationMode {
+  STANDALONE
+  ACCOUNT_COMPONENT
+}
+
+model InvestmentPosition {
+  id              String                  @id @default(cuid())
+  workspaceId     String
+  userId          String
+  assetClass      AssetClass              @default(OTHER)
+  symbol          String
+  name            String
+  quantity        Decimal                 @db.Decimal(19, 8)
+  costBasis       Decimal                 @db.Decimal(19, 4)
+  manualPrice     Decimal                 @db.Decimal(19, 4)
+  currency        String                  @default("EUR")
+  valuationMode   InvestmentValuationMode @default(STANDALONE)
+  linkedAccountId String?
+  notes           String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  linkedAccount FinancialAccount? @relation(fields: [linkedAccountId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([linkedAccountId])
+}
+
+model StoredDocument {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  userId          String
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  storageKey      String   @unique
+  sha256          String
+  createdAt       DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model MonthlyBudget {
+  id          String   @id @default(cuid())
+  workspaceId String
+  year        Int
+  month       Int
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  lines     BudgetLine[]
+
+  @@unique([workspaceId, year, month])
+  @@index([workspaceId, year, month])
+}
+
+model BudgetLine {
+  id              String  @id @default(cuid())
+  monthlyBudgetId String
+  categoryId      String
+  limitAmount     Decimal @db.Decimal(19, 4)
+
+  monthlyBudget MonthlyBudget @relation(fields: [monthlyBudgetId], references: [id], onDelete: Cascade)
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([monthlyBudgetId, categoryId])
+}
+
+enum LiabilityType {
+  PERSONAL_LOAN
+  AUTO_LOAN
+  MORTGAGE
+  FAMILY_LOAN
+  OTHER
+}
+
+model FinancialLiability {
+  id                 String        @id @default(cuid())
+  workspaceId        String
+  userId             String
+  title              String
+  type               LiabilityType @default(OTHER)
+  outstandingBalance Decimal       @db.Decimal(19, 4)
+  monthlyPayment         Decimal?      @db.Decimal(19, 4)
+  manualRatePercent      Decimal?      @db.Decimal(7, 4)
+  paymentDueDayOfMonth   Int?
+  currency               String        @default("EUR")
+  notes                  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  workspace               Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  payments                LiabilityPayment[]
+  linkedRecurringExpenses RecurringExpense[]
+
+  @@index([workspaceId])
+}
+
+model LiabilityPayment {
+  id                     String   @id @default(cuid())
+  workspaceId            String
+  liabilityId            String
+  userId                 String
+  paidAt                 DateTime
+  principalAmount        Decimal  @default(0) @db.Decimal(19, 4)
+  interestAmount         Decimal  @default(0) @db.Decimal(19, 4)
+  feesAmount             Decimal  @default(0) @db.Decimal(19, 4)
+  accountId              String?
+  principalTransactionId String?  @unique
+  expenseTransactionId   String?  @unique
+  idempotencyKey         String?
+  notes                  String?
+  createdAt              DateTime @default(now())
+
+  liability            FinancialLiability @relation(fields: [liabilityId], references: [id], onDelete: Cascade)
+  account              FinancialAccount?  @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  principalTransaction Transaction?       @relation("LiabilityPrincipalTx", fields: [principalTransactionId], references: [id], onDelete: SetNull)
+  expenseTransaction   Transaction?       @relation("LiabilityExpenseTx", fields: [expenseTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([liabilityId, paidAt])
+}
+
+model NetWorthSnapshot {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  userId             String
+  asOfDate           DateTime
+  cashTotal          Decimal  @db.Decimal(19, 4)
+  savingsTotal       Decimal  @db.Decimal(19, 4)
+  investmentsTotal   Decimal  @db.Decimal(19, 4)
+  manualAssetsTotal  Decimal  @default(0) @db.Decimal(19, 4)
+  liabilitiesTotal   Decimal  @db.Decimal(19, 4)
+  netWorth           Decimal  @db.Decimal(19, 4)
+  calculationVersion Int      @default(1)
+  createdAt          DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, asOfDate])
+}
+
+enum FinancialAuditAction {
+  ACCOUNT_CREATED
+  TRANSACTION_CREATED
+  INCOME_CONFIRMED
+  BUDGET_CHANGED
+  LIABILITY_CREATED
+  LIABILITY_PAYMENT_RECORDED
+  NET_WORTH_SNAPSHOT_CREATED
+  INVESTMENT_CHANGED
+  RECURRENT_EXPENSE_CREATED
+  RECURRENT_EXPENSE_UPDATED
+  RECURRENT_EXPENSE_PAUSED
+  RECURRENT_EXPENSE_RESUMED
+  RECURRENT_EXPENSE_ENDED
+  EXPENSE_OCCURRENCE_PAID
+  EXPENSE_OCCURRENCE_SKIPPED
+  EXPENSE_OCCURRENCE_POSTPONED
+}
+
+model FinancialAuditLog {
+  id          String               @id @default(cuid())
+  workspaceId String
+  actorUserId String
+  action      FinancialAuditAction
+  entityType  String
+  entityId    String
+  metadata    Json?
+  createdAt   DateTime             @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([entityType, entityId])
+}
+
+enum FinancialAlertSeverity {
+  INFO
+  ATTENTION
+  HIGH
+  CRITICAL
+}
+
+enum FinancialAlertStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum FinancialAlertType {
+  LOW_PROJECTED_BALANCE
+  NEGATIVE_PROJECTED_BALANCE
+  BUDGET_NEAR_LIMIT
+  BUDGET_EXCEEDED
+  RECURRING_EXPENSE_DUE
+  RECURRING_EXPENSE_OVERDUE
+  EXPECTED_INCOME_OVERDUE
+  UNUSUAL_EXPENSE
+  EMERGENCY_FUND_BELOW_TARGET
+  RECURRING_LIABILITY_CONFIGURATION
+  DUPLICATE_PAYMENT_RISK
+}
+
+model FinancialAlert {
+  id               String                 @id @default(cuid())
+  workspaceId      String
+  type             FinancialAlertType
+  severity         FinancialAlertSeverity
+  title            String
+  description      String
+  status           FinancialAlertStatus   @default(ACTIVE)
+  deduplicationKey String
+  sourceType       String?
+  sourceId         String?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  evidence         Json?
+  actionUrl        String?
+  detectedAt       DateTime               @default(now())
+  lastEvaluatedAt  DateTime               @default(now())
+  resolvedAt       DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  workspace  Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userStates FinancialAlertUserState[]
+
+  @@unique([workspaceId, deduplicationKey])
+  @@index([workspaceId, status, severity])
+}
+
+model FinancialAlertUserState {
+  id          String    @id @default(cuid())
+  alertId     String
+  userId      String
+  seenAt      DateTime?
+  dismissedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  alert FinancialAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([alertId, userId])
+  @@index([userId, dismissedAt])
+}
