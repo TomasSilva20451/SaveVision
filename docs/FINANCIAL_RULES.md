@@ -91,3 +91,10 @@ Numa prestação de 500 € com 450 € capital, 40 € juros e 10 € encargos:
 - **Esperado vs recebido:** ocorrências `EXPECTED` e transações `INCOME` com estado `EXPECTED` não entram no saldo. Confirmar receção cria uma transação `COMPLETED` ligada à ocorrência; repetir a confirmação é idempotente.
 - **E-commerce:** o movimento bancário registado é a **receita líquida** (`netProceeds`). Custos de marketplace, portes e COGS são deduzidos no cálculo, não como despesas separadas, salvo registo manual adicional pelo utilizador. A **reserva fiscal de planeamento** é informativa e não substitui imposto legal.
 - **Ténis:** o movimento registado é o **prémio líquido** após custos do torneio. Se os mesmos custos forem também lançados como despesas, os indicadores agregados podem contar duas vezes; evita duplicar.
+
+## Simulações (Fase 19)
+
+- **Hipótese vs realidade:** `/simulacoes` nunca cria `Transaction`, `LiabilityPayment`, orçamentos nem altera passivos.
+- **BASE:** saldos e meses observados vêm da BD autorizada; parâmetros hipotéticos são explícitos.
+- **Tesouraria simulada:** reutiliza eventos do forecast 17b; alterações extra são uma camada sobreposta (`financial-simulation-forecast.ts`).
+- **Taxas e prazos:** só entram se o utilizador (ou o passivo registado) os fornecer; não há taxas inventadas.

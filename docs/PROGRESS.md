@@ -1,5 +1,13 @@
 # Progresso FinTwin
 
+## Fase 19 (simulações financeiras)
+
+Estado: **COMPLETED** (após portão).
+
+- Motor `src/lib/finance/financial-simulator.ts` + forecast `financial-simulation-forecast.ts`.
+- UI `/simulacoes` com formulários reais e comparação BASE/A/B.
+- Commit alertas: `03a8e4f`.
+
 ## Fase 18 (alertas financeiros)
 
 Estado: **COMPLETED**.
@@ -29,4 +37,4 @@ pnpm gate
 CI=1 pnpm test:e2e:strict
 ```
 
-Última verificação: **152** unitários; **53** E2E strict ×3 (0 failed, 0 skipped, 0 retries).
+Última verificação: **165** unitários; **69** E2E strict ×3 (0 failed, 0 skipped, 0 retries).

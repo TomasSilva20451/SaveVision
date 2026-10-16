@@ -26,7 +26,7 @@ Cada fase fecha com `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build`.
 17c. Análises financeiras (`/analises`) — **concluída**.
 17c.1. UI passivos ↔ recorrências (previsões) — **concluída**.
 18. Alertas financeiros persistentes e priorizados — **concluída** (`/alertas`, `docs/FINANCIAL_ALERTS.md`).
-19. Planeamento avançado e simulação de decisões — planeado.
+19. Planeamento avançado e simulação de decisões — **concluída** (`/simulacoes`, `docs/FINANCIAL_SIMULATIONS.md`).
 20. ML opcional — condicional.
 
 Machine learning e Open Banking ficam atrás dos contratos em `src/server/providers/contracts.ts`.

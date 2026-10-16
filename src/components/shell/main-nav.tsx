@@ -21,6 +21,7 @@ const links = [
   { href: "/relatorios", label: "Relatórios" },
   { href: "/investimentos", label: "Investimentos" },
   { href: "/previsoes", label: "Previsões" },
+  { href: "/simulacoes", label: "Simulações" },
 ] as const;
 
 function isActive(pathname: string, href: string) {

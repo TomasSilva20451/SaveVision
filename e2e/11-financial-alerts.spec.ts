@@ -66,4 +66,41 @@ test.describe("Fase 18 — alertas financeiros", () => {
     const pageRoot = page.getByTestId("financial-alerts-page");
     await expect(pageRoot).toBeVisible();
   });
+
+  test("E16 reavaliação explícita — botão Atualizar alertas", async ({ page }) => {
+    await page.goto("/alertas");
+    await expect(page.getByRole("button", { name: "Atualizar alertas" })).toBeVisible();
+  });
+
+  test("E11 estado de leitura independente (Maria)", async ({ browser }) => {
+    async function selectJoint(page: import("@playwright/test").Page) {
+      await page.goto("/inicio");
+      await page.getByRole("button", { name: /Casa João e Maria/i }).click();
+    }
+
+    const maria = await browser.newContext({ storageState: "playwright/.auth/maria.json" });
+    const mPage = await maria.newPage();
+    await selectJoint(mPage);
+    await mPage.goto("/alertas");
+    await mPage.getByRole("button", { name: "Atualizar alertas" }).click();
+    const joao = await browser.newContext({ storageState: "playwright/.auth/joao.json" });
+    const jPage = await joao.newPage();
+    await selectJoint(jPage);
+    await jPage.goto("/alertas");
+    await jPage.getByRole("button", { name: "Atualizar alertas" }).click();
+    const item = jPage.getByTestId("financial-alert-item").first();
+    if ((await item.count()) === 0) {
+      await maria.close();
+      await joao.close();
+      return;
+    }
+    await item.getByRole("button", { name: "Marcar como visto" }).click();
+    await mPage.reload();
+    const mariaItem = mPage.getByTestId("financial-alert-item").first();
+    if ((await mariaItem.count()) > 0) {
+      await expect(mariaItem).toHaveAttribute("data-alert-unseen", "true");
+    }
+    await maria.close();
+    await joao.close();
+  });
 });

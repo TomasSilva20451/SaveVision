@@ -96,3 +96,7 @@ Orçamentos (`/orcamentos`), património e passivos (`/patrimonio`), análise de
 ## Fase 18
 
 Alertas financeiros persistentes (`FinancialAlert`, `FinancialAlertUserState`): motor determinístico em `src/lib/finance/financial-alerts.ts`, sync em `src/server/services/financial-alerts.ts`, UI `/alertas` e dashboard. Estado de leitura por utilizador; deduplicação por `(workspaceId, deduplicationKey)`. Reutiliza previsões, orçamentos e insights; não cria transações. Avisos de pagamento duplicado recorrência/passivo com confirmação explícita. Ver `docs/FINANCIAL_ALERTS.md`.
+
+## Fase 19
+
+Simulações determinísticas em `src/lib/finance/financial-simulator.ts` e integração com tesouraria em `financial-simulation-forecast.ts`. UI `/simulacoes`; baseline read-only via `getSimulationBaseline`. Nunca cria transações. Ver `docs/FINANCIAL_SIMULATIONS.md`.
