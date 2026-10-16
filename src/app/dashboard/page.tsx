@@ -15,7 +15,6 @@ import { getDashboardMetrics } from "@/server/services/dashboard";
 import { getFinancialInsightsOverview } from "@/server/services/financial-insights";
 import {
   countUnseenFinancialAlerts,
-  evaluateAndSyncFinancialAlerts,
   listFinancialAlerts,
 } from "@/server/services/financial-alerts";
 import Link from "next/link";
@@ -32,8 +31,6 @@ async function DashboardContent() {
 
   const membership = await requireWorkspaceAccess(user.id, selected.id);
   if (!membership) redirect("/inicio");
-
-  await evaluateAndSyncFinancialAlerts(user.id, selected.id);
 
   const [metrics, insightsOverview, alerts, unseenCount] = await Promise.all([
     getDashboardMetrics(user.id, selected.id),

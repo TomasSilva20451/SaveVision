@@ -33,7 +33,7 @@ Constraint única `(workspaceId, deduplicationKey)`. Chave estável: workspace +
 
 ## Reavaliação
 
-`evaluateAndSyncFinancialAlerts` ao abrir `/alertas` e `/dashboard` (escrita idempotente). Botão «Atualizar alertas» em `/alertas`.
+A listagem em `/alertas` e no dashboard **não** reavalia alertas (sem escritas na BD). A reavaliação idempotente faz-se apenas via ação explícita «Atualizar alertas» (`syncFinancialAlertsAction`), com autorização de workspace.
 
 ## Pagamento duplicado (17c.1)
 

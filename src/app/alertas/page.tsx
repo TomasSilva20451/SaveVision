@@ -9,7 +9,6 @@ import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import { readPageFlash } from "@/lib/ui/page-shell";
 import {
   countUnseenFinancialAlerts,
-  evaluateAndSyncFinancialAlerts,
   listFinancialAlerts,
 } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
@@ -25,8 +24,6 @@ async function AlertasContent({ resolved }: { resolved: boolean }) {
 
   const membership = await requireWorkspaceAccess(user.id, selected.id);
   if (!membership) redirect("/inicio");
-
-  await evaluateAndSyncFinancialAlerts(user.id, selected.id);
 
   const [alerts, unseenCount] = await Promise.all([
     listFinancialAlerts(user.id, selected.id, {
@@ -47,8 +44,8 @@ async function AlertasContent({ resolved }: { resolved: boolean }) {
     >
       <h1 className="text-2xl font-semibold tracking-tight">Alertas financeiros</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Notificações persistentes e explicáveis · sem alteração de saldos · workspace «
-        {selected.name}»
+        Notificações persistentes e explicáveis · use «Atualizar alertas» para reavaliar ·
+        workspace «{selected.name}»
       </p>
 
       <nav className="mt-6 flex gap-4 text-sm" aria-label="Vistas de alertas">
