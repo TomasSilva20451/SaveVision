@@ -87,7 +87,7 @@ jobs:
             exit 1
           fi
       - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ vars.FINTWIN_DAST_TARGET_URL }}
           allow_issue_writing: false
