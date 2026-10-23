@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:24-bookworm-slim AS base
+FROM node:25-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN apt-get update \
@@ -24,7 +24,7 @@ ENV AUTH_SECRET=build-only-auth-secret-not-used-at-runtime
 RUN pnpm db:generate
 RUN pnpm build
 
-FROM node:24-bookworm-slim AS runner
+FROM node:25-bookworm-slim AS runner
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
