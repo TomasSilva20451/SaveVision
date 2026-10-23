@@ -13,14 +13,18 @@
 # testing
 /coverage
 /playwright/.auth/
+/test-results/
 /storage/backups/
 
 # next.js
 /.next/
+/.next-production/
+/.next-production-*/
 /out/
 
 # production
 /build
+/dist/sbom
 
 # misc
 .DS_Store
@@ -35,6 +39,9 @@ yarn-error.log*
 # env files
 .env*
 !.env.example
+!.env.*.example
+.rclone.conf
+/secrets/
 
 # uploads stay outside public/
 /storage

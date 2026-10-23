@@ -11,13 +11,21 @@ import {
   markFinancialAlertSeen,
 } from "@/server/services/financial-alerts";
 
+const ALERTS_PATH = "/alertas";
+
 export async function syncFinancialAlertsAction(): Promise<void> {
   const user = await requireAuthenticatedUser();
   if (!user) return;
   const { selected } = await resolveWorkspaceContext(user.id);
   if (!selected) return;
 
-  await evaluateAndSyncFinancialAlerts(user.id, selected.id);
+  try {
+    const count = await evaluateAndSyncFinancialAlerts(user.id, selected.id);
+    await flashSuccess(`${count} alerta${count === 1 ? "" : "s"} ativo${count === 1 ? "" : "s"} após a atualização.`, ALERTS_PATH);
+  } catch {
+    await flashError("Não foi possível atualizar os alertas.", ALERTS_PATH);
+    return;
+  }
   revalidatePath("/alertas");
   revalidatePath("/dashboard");
 }
@@ -34,9 +42,10 @@ export async function markFinancialAlertSeenAction(formData: FormData): Promise<
     String(formData.get("alertId")),
   );
   if (!ok) {
-    await flashError("Alerta não encontrado.");
+    await flashError("Alerta não encontrado.", ALERTS_PATH);
     return;
   }
+  await flashSuccess("Alerta marcado como visto para ti.", ALERTS_PATH);
   revalidatePath("/alertas");
   revalidatePath("/dashboard");
 }
@@ -53,10 +62,10 @@ export async function dismissFinancialAlertAction(formData: FormData): Promise<v
     String(formData.get("alertId")),
   );
   if (!ok) {
-    await flashError("Alerta não encontrado.");
+    await flashError("Alerta não encontrado.", ALERTS_PATH);
     return;
   }
-  await flashSuccess("Alerta dispensado na tua lista.");
+  await flashSuccess("Alerta dispensado na tua lista.", ALERTS_PATH);
   revalidatePath("/alertas");
   revalidatePath("/dashboard");
 }
@@ -67,7 +76,8 @@ export async function markAllFinancialAlertsSeenAction(): Promise<void> {
   const { selected } = await resolveWorkspaceContext(user.id);
   if (!selected) return;
 
-  await markAllFinancialAlertsSeen(user.id, selected.id);
+  const count = await markAllFinancialAlertsSeen(user.id, selected.id);
+  await flashSuccess(`${count} alerta${count === 1 ? "" : "s"} marcado${count === 1 ? "" : "s"} como visto${count === 1 ? "" : "s"}.`, ALERTS_PATH);
   revalidatePath("/alertas");
   revalidatePath("/dashboard");
 }

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  analysisSavingsRate,
+  averageDailyExpense,
+  budgetCompliancePercent,
   buildFinancialInsights,
   computeConcentration,
   detectExpenseAnomaly,
+  essentialityRatio,
   hasThreeMonthIncreasingTrend,
   medianAmount,
   recurringAnnualEquivalent,
@@ -11,6 +15,29 @@ import {
 import { safePercentChange } from "@/lib/finance/kpi";
 
 describe("financial-insights", () => {
+  it("calcula taxa de poupança económica e trata receita zero", () => {
+    expect(analysisSavingsRate("2000", "500")).toBe(25);
+    expect(analysisSavingsRate("0", "0")).toBeNull();
+  });
+
+  it("calcula despesa média apenas com dias observados válidos", () => {
+    expect(averageDailyExpense("310", 31)).toBe("10.00");
+    expect(() => averageDailyExpense("100", 0)).toThrow("INVALID_OBSERVED_DAYS");
+  });
+
+  it("calcula essencialidade apenas quando existem despesas", () => {
+    expect(essentialityRatio("720", "1000")).toBe(72);
+    expect(essentialityRatio("0", "0")).toBeNull();
+  });
+
+  it("cumprimento orçamental mede categorias dentro do limite", () => {
+    expect(budgetCompliancePercent([
+      { limitAmount: "100", spentAmount: "90" },
+      { limitAmount: "100", spentAmount: "120" },
+    ])).toBe(50);
+    expect(budgetCompliancePercent([])).toBeNull();
+  });
+
   it("safePercentChange com zero anterior", () => {
     expect(safePercentChange("100", "0")).toBeNull();
   });

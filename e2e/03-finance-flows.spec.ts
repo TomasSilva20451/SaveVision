@@ -11,21 +11,24 @@ test("E. página de contas", async ({ page }) => {
 });
 
 test("F. registo de despesa", async ({ page }) => {
+  const description = `E2E despesa ${Date.now()}`;
   await page.goto("/despesas");
-  const accountSelect = page.locator('select[name="accountId"]');
-  await expect(accountSelect).toHaveCount(1, { timeout: 10_000 });
+  await page.getByRole("button", { name: "＋ Nova despesa" }).click();
+  const drawer = page.getByRole("dialog", { name: "Nova despesa" });
+  const accountSelect = drawer.locator('select[name="accountId"]');
+  await expect(accountSelect).toBeVisible({ timeout: 10_000 });
   await accountSelect.selectOption({ index: 0 });
-  await page.getByLabel("Descrição").fill("E2E despesa");
-  await page.getByLabel("Montante (EUR)").fill("12.34");
-  await page.getByRole("button", { name: "Registar despesa" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Despesa registada" })).toBeVisible({
-    timeout: 15_000,
-  });
+  await drawer.getByLabel("Descrição").fill(description);
+  await drawer.getByLabel("Montante (€)").fill("12.34");
+  await drawer.getByRole("button", { name: "Registar despesa" }).click();
+  await expect(page.getByRole("row").filter({ hasText: description })).toBeVisible({ timeout: 15_000 });
 });
 
 test("G. receitas carregam formulários", async ({ page }) => {
   await page.goto("/receitas");
   await expect(page.getByRole("heading", { name: "Receitas", level: 1 })).toBeVisible();
+  await page.getByRole("button", { name: "+ Nova receita" }).click();
+  await expect(page.getByRole("dialog", { name: "Nova receita" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Registar receita" })).toBeVisible();
 });
 
@@ -36,6 +39,8 @@ test("G2. confirmar receita familiar esperada (determinístico + idempotente)", 
   const today = new Date().toISOString().slice(0, 10);
 
   await page.goto("/receitas");
+  await page.getByRole("button", { name: "+ Nova receita" }).click();
+  await page.getByText("Transferência familiar", { exact: true }).click();
   const familyForm = page.locator("form").filter({ has: page.locator('input[name="familyOrigin"]') });
   await familyForm.locator('select[name="accountId"]').selectOption({ index: 0 });
   await familyForm.locator('input[name="familyOrigin"]').fill(uniqueOrigin);
@@ -44,30 +49,32 @@ test("G2. confirmar receita familiar esperada (determinístico + idempotente)", 
   await familyForm.getByRole("button", { name: "Criar série familiar" }).click();
 
   await page.goto("/contas");
-  const balanceLocator = page.locator("a.rounded-xl.border").first().locator("p.text-lg");
+  const balanceLocator = page
+    .locator("tr")
+    .filter({ has: page.locator('a[href^="/contas/"]') })
+    .first()
+    .getByTestId("account-balance");
   const balanceBefore = await balanceLocator.textContent();
 
   await page.goto("/receitas");
-  const row = page.locator("li").filter({ hasText: uniqueOrigin }).first();
+  const row = page.getByRole("row").filter({ hasText: uniqueOrigin }).first();
   await expect(row).toBeVisible({ timeout: 15_000 });
-  await expect(row).toContainText("EXPECTED");
+  await expect(row).toContainText("Prevista");
 
-  await row.getByRole("button", { name: "Confirmar receção" }).click();
-  await expect(
-    page.getByRole("status").filter({ hasText: /Receção confirmada/i }),
-  ).toBeVisible({ timeout: 15_000 });
+  await row.getByRole("button", { name: "Confirmar" }).click();
+  await expect(row).toContainText("Confirmada", { timeout: 15_000 });
 
   await page.goto("/contas");
   const balanceAfterFirst = await balanceLocator.textContent();
   expect(balanceAfterFirst).not.toEqual(balanceBefore);
 
   await page.goto("/receitas");
-  const rowAfter = page.locator("li").filter({ hasText: uniqueOrigin }).first();
-  await expect(rowAfter).toContainText("RECEIVED");
-  await expect(rowAfter.getByRole("button", { name: "Confirmar receção" })).toHaveCount(0);
+  const rowAfter = page.getByRole("row").filter({ hasText: uniqueOrigin }).first();
+  await expect(rowAfter).toContainText("Confirmada");
+  await expect(rowAfter.getByRole("button", { name: "Confirmar" })).toHaveCount(0);
 
   await page.goto("/transacoes");
-  await expect(page.locator("li").filter({ hasText: uniqueOrigin })).toHaveCount(1);
+  await expect(page.getByRole("row").filter({ hasText: uniqueOrigin })).toHaveCount(1);
 
   await page.goto("/contas");
   await page.reload();
@@ -83,13 +90,13 @@ test("I. transferências", async ({ page }) => {
 test("J. objetivo de poupança", async ({ page }) => {
   const title = `E2E objetivo ${Date.now()}`;
   await page.goto("/planeamento");
+  await page.getByText("＋ Novo objetivo", { exact: true }).click();
   await page.getByPlaceholder("Título").fill(title);
   await page.getByPlaceholder("Montante alvo").fill("500");
   await page.getByRole("button", { name: "Criar objetivo" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Objetivo criado" })).toBeVisible({
+  await expect(page.getByRole("heading", { name: title, level: 3 })).toBeVisible({
     timeout: 15_000,
   });
-  await expect(page.getByText(title)).toBeVisible();
 });
 
 test("T. estado vazio amigável em investimentos sem posições novas", async ({ page }) => {

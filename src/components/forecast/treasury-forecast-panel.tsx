@@ -1,169 +1,81 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import Link from "next/link";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChartCard } from "@/components/ui/chart-card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
+import { FinanceTable, FinanceTableBody, FinanceTableCell, FinanceTableHead, FinanceTableHeaderCell, FinanceTableRow } from "@/components/ui/finance-table";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { formatEUR } from "@/lib/finance/money";
-import { treasuryEventSourceLabel, type TreasuryEventSource } from "@/lib/finance/treasury-forecast";
 
-type TimelinePoint = {
-  civilDate: string;
-  projectedBalance: string;
+type Projection = { startingBalance:string; projectedBalance:string; expectedInflows:string; expectedOutflows:string; netExpected:string; horizonEndCivil:string; timeline:{civilDate:string;projectedBalance:string}[] };
+type MonthlyFlow = { key:string; label:string; periodLabel:string; isPartial:boolean; expectedInflows:string; expectedOutflows:string; netExpected:string; projectedBalance:string };
+
+export type TreasuryForecastDashboardData = {
+  horizonDays:number; asOf:string; realBalance:string; base:Projection;
+  scenarios:{ optimistic:{projection:Projection;assumptions:string}; pessimistic:{projection:Projection;assumptions:string} };
+  monthlyFlows:MonthlyFlow[]; optimisticMonthlyFlows:MonthlyFlow[]; pessimisticMonthlyFlows:MonthlyFlow[];
+  outflowDistribution:{label:string;amount:string;percent:number}[];
+  goals:{id:string;title:string;kind:"GENERAL"|"EMERGENCY_FUND";targetAmount:string;currentAmount:string;progressPercent:number;targetDate:string|null}[];
+  insights:{id:string;tone:"info"|"warning"|"success";title:string;description:string}[];
+  configurationWarnings:string[]; sourcesIncluded:string[]; sourcesExcluded:string[];
 };
 
-type EventRow = {
-  label: string;
-  civilDate: string;
-  amount: string;
-  direction: "inflow" | "outflow";
-  source: TreasuryEventSource;
-  movementKind: "PREVISTO";
-  balanceAfter: string;
-};
+const COLORS=["#2f8cf4","#f5ae2e","#9a4df0","#20bfa3","#fb5962","#94a3b8"];
 
-type TreasuryForecastPanelProps = {
-  horizonDays: number;
-  realBalance: string;
-  projectedBalance: string;
-  expectedInflows: string;
-  expectedOutflows: string;
-  limitationNotice: string;
-  sourcesIncluded: string[];
-  sourcesExcluded: string[];
-  timeline: TimelinePoint[];
-  events: EventRow[];
-};
+function Icon({kind}:{kind:"trend"|"calendar"|"down"|"cash"|"goal"|"idea"}) {
+  const common={fill:"none",stroke:"currentColor",strokeWidth:2,strokeLinecap:"round" as const,strokeLinejoin:"round" as const};
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>{kind==="trend"?<><path {...common} d="m4 16 5-5 4 3 7-8"/><path {...common} d="M15 6h5v5"/></>:kind==="calendar"?<><rect {...common} x="4" y="5" width="16" height="15" rx="2"/><path {...common} d="M8 3v4m8-4v4M4 10h16"/></>:kind==="down"?<><path {...common} d="m5 6 14 14m0-7v7h-7"/></>:kind==="cash"?<><path {...common} d="M4 7h16v11H4zM7 4h10"/><circle {...common} cx="12" cy="12.5" r="2.5"/></>:kind==="goal"?<><circle {...common} cx="12" cy="12" r="8"/><circle {...common} cx="12" cy="12" r="4"/><path {...common} d="m15 9 5-5m-1 0h1v1"/></>:<><path {...common} d="M9 18h6m-5 3h4M8.5 14.5a6 6 0 1 1 7 0c-.9.7-1.5 1.5-1.5 2.5h-4c0-1-.6-1.8-1.5-2.5Z"/></>}</svg>;
+}
 
-export function TreasuryForecastPanel({
-  horizonDays,
-  realBalance,
-  projectedBalance,
-  expectedInflows,
-  expectedOutflows,
-  limitationNotice,
-  sourcesIncluded,
-  sourcesExcluded,
-  timeline,
-  events,
-}: TreasuryForecastPanelProps) {
-  const chartData = timeline.map((point) => ({
-    date: point.civilDate,
-    saldo: Number.parseFloat(point.projectedBalance),
-  }));
+function shortCivilDate(value:string){const [year,month,day]=value.split("-");return `${day}/${month}/${year.slice(2)}`;}
+function targetDate(value:string|null){if(!value)return "Sem data-alvo";return new Intl.DateTimeFormat("pt-PT",{timeZone:"Europe/Lisbon",month:"short",year:"numeric"}).format(new Date(value)).replace(" de "," ").replace(".","");}
+function MoneyTooltip({active,payload,label}:{active?:boolean;payload?:{name?:string;value?:number;color?:string}[];label?:string}){if(!active||!payload?.length)return null;return <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs shadow-lg"><p className="mb-2 font-medium text-slate-700">{label}</p>{payload.map((item)=><p key={item.name} style={{color:item.color}}>{item.name}: {formatEUR(String(item.value??0))}</p>)}</div>;}
 
-  return (
-    <div className="space-y-8">
-      <div
-        className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
-        role="note"
-      >
-        {limitationNotice}
-      </div>
+export function TreasuryForecastPanel({data}:{data:TreasuryForecastDashboardData}) {
+  const variation=Number(data.base.netExpected);
+  const lineData=data.horizonDays<=30?data.base.timeline.map((row,index)=>({label:shortCivilDate(row.civilDate),Base:Number(row.projectedBalance),Otimista:Number(data.scenarios.optimistic.projection.timeline[index]?.projectedBalance??row.projectedBalance),Pessimista:Number(data.scenarios.pessimistic.projection.timeline[index]?.projectedBalance??row.projectedBalance)})):data.monthlyFlows.map((row,index)=>({label:row.label,Base:Number(row.projectedBalance),Otimista:Number(data.optimisticMonthlyFlows[index]?.projectedBalance??row.projectedBalance),Pessimista:Number(data.pessimisticMonthlyFlows[index]?.projectedBalance??row.projectedBalance)}));
+  const scenarioBars=[
+    {metric:"Entradas",Base:Number(data.base.expectedInflows),Otimista:Number(data.scenarios.optimistic.projection.expectedInflows),Pessimista:Number(data.scenarios.pessimistic.projection.expectedInflows)},
+    {metric:"Saídas",Base:Number(data.base.expectedOutflows),Otimista:Number(data.scenarios.optimistic.projection.expectedOutflows),Pessimista:Number(data.scenarios.pessimistic.projection.expectedOutflows)},
+    {metric:"Variação",Base:Number(data.base.netExpected),Otimista:Number(data.scenarios.optimistic.projection.netExpected),Pessimista:Number(data.scenarios.pessimistic.projection.netExpected)},
+    {metric:"Saldo final",Base:Number(data.base.projectedBalance),Otimista:Number(data.scenarios.optimistic.projection.projectedBalance),Pessimista:Number(data.scenarios.pessimistic.projection.projectedBalance)},
+  ];
+  const primaryButton="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600";
+  return <div className="space-y-5">
+    <MetricGrid>
+      <FinanceMetricCard label={`Saldo projetado (${data.horizonDays} dias)`} value={data.base.projectedBalance} hint={`Saldo real: ${formatEUR(data.realBalance)}`} tone="income" icon={<Icon kind="trend"/>}/>
+      <FinanceMetricCard label="Receitas projetadas" value={data.base.expectedInflows} hint="Entradas EXPECTED incluídas" tone="accent" icon={<Icon kind="calendar"/>}/>
+      <FinanceMetricCard label="Saídas de caixa projetadas" value={data.base.expectedOutflows} hint="Inclui obrigações conhecidas" tone="expense" icon={<Icon kind="down"/>}/>
+      <FinanceMetricCard label="Variação de tesouraria prevista" value={data.base.netExpected} hint={variation===0?"Saldo estável no horizonte":variation>0?"Entradas superiores às saídas":"Saídas superiores às entradas"} tone={variation>=0?"income":"warning"} icon={<Icon kind="cash"/>}/>
+    </MetricGrid>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Saldo real (realizado)</p>
-          <p className="text-xl font-semibold" data-testid="treasury-real-balance">
-            {formatEUR(realBalance)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Saldo projetado ({horizonDays} dias)</p>
-          <p className="text-xl font-semibold" data-testid="treasury-projected-balance">
-            {formatEUR(projectedBalance)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Entradas previstas</p>
-          <p className="text-xl font-semibold">{formatEUR(expectedInflows)}</p>
-        </div>
-        <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-          <p className="text-xs text-zinc-500">Saídas previstas</p>
-          <p className="text-xl font-semibold">{formatEUR(expectedOutflows)}</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-        <h3 className="text-sm font-medium">Evolução projetada do saldo</h3>
-        <div className="mt-4 h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip
-                formatter={(value) =>
-                  formatEUR(String(typeof value === "number" ? value : Number(value)))
-                }
-              />
-              <Line type="monotone" dataKey="saldo" stroke="#2563eb" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-        <h3 className="text-sm font-medium">Cronologia de movimentos previstos</h3>
-        <ul className="mt-3 divide-y text-sm dark:divide-zinc-800">
-          {events.length === 0 ? (
-            <li className="py-2 text-zinc-500">Sem movimentos previstos neste horizonte.</li>
-          ) : (
-            events.map((event) => (
-              <li
-                key={`${event.source}-${event.label}-${event.civilDate}-${event.amount}`}
-                className="grid gap-1 py-3 sm:grid-cols-[1fr_auto]"
-              >
-                <div>
-                  <p className="font-medium">
-                    {event.label} · {event.civilDate}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    {treasuryEventSourceLabel(event.source)} · {event.movementKind}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p
-                    className={
-                      event.direction === "inflow" ? "text-emerald-700" : "text-rose-700"
-                    }
-                  >
-                    {event.direction === "inflow" ? "+" : "−"}
-                    {formatEUR(event.amount)}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    Saldo projetado: {formatEUR(event.balanceAfter)}
-                  </p>
-                </div>
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 p-4 text-sm dark:border-zinc-800">
-          <h3 className="font-medium">Fontes incluídas</h3>
-          <ul className="mt-2 list-disc pl-5 text-zinc-600 dark:text-zinc-400">
-            {sourcesIncluded.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="rounded-xl border border-zinc-200 p-4 text-sm dark:border-zinc-800">
-          <h3 className="font-medium">Excluído da projeção</h3>
-          <ul className="mt-2 list-disc pl-5 text-zinc-600 dark:text-zinc-400">
-            {sourcesExcluded.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,2.1fr)_minmax(18rem,0.9fr)]">
+      <ChartCard title="Evolução da tesouraria projetada" description="Projeção do saldo de caixa com base nos movimentos conhecidos." action={<span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">Hoje → {shortCivilDate(data.base.horizonEndCivil)}</span>}>
+        <div className="h-80 min-w-0" data-testid="treasury-forecast-chart" role="img" aria-label="Gráfico da evolução projetada do saldo nos cenários base, otimista e pessimista"><ResponsiveContainer width="100%" height="100%"><LineChart data={lineData} margin={{top:10,right:12,left:4,bottom:0}}><CartesianGrid stroke="#dbe5f1" strokeDasharray="3 3"/><XAxis dataKey="label" tick={{fontSize:11}}/><YAxis tick={{fontSize:11}} tickFormatter={(v)=>`${Math.round(Number(v)/1000)}k €`}/><Tooltip content={<MoneyTooltip/>}/><Legend wrapperStyle={{fontSize:12}}/><Line type="monotone" dataKey="Base" stroke="#2f8cf4" strokeWidth={3} dot={{r:3}}/><Line type="monotone" dataKey="Otimista" stroke="#16b88a" strokeWidth={2} strokeDasharray="7 4" dot={false}/><Line type="monotone" dataKey="Pessimista" stroke="#fb5962" strokeWidth={2} strokeDasharray="3 4" dot={false}/></LineChart></ResponsiveContainer></div>
+      </ChartCard>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]" aria-labelledby="forecast-scenarios-title"><div className="flex items-center justify-between gap-2"><div><h2 id="forecast-scenarios-title" className="font-semibold">Cenários de previsão</h2><p className="mt-0.5 text-xs text-slate-500">Hipóteses read-only, não garantias.</p></div><Link href="/simulacoes" className="text-xs font-semibold text-blue-600">Explorar →</Link></div><div className="mt-4 space-y-3"><ScenarioCard label="Cenário base" value={data.base.projectedBalance} description="Movimentos conhecidos, sem ajustes." tone="base" testId="treasury-projected-balance"/><ScenarioCard label="Cenário otimista" value={data.scenarios.optimistic.projection.projectedBalance} description={data.scenarios.optimistic.assumptions} tone="optimistic"/><ScenarioCard label="Cenário pessimista" value={data.scenarios.pessimistic.projection.projectedBalance} description={data.scenarios.pessimistic.assumptions} tone="pessimistic"/></div><p className="mt-4 text-xs leading-5 text-slate-500">O saldo inicial real não muda. As prestações contratuais fixas nunca recebem ajustes percentuais.</p></section>
     </div>
-  );
+
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+      <ChartCard title="Fluxos mensais projetados" description="Entradas, saídas, variação de caixa e saldo previsto no cenário base." action={<span className="text-xs text-slate-500">{data.monthlyFlows.length} períodos civis</span>}><FinanceTable caption="Fluxos mensais projetados"><FinanceTableHead><FinanceTableHeaderCell>Mês</FinanceTableHeaderCell><FinanceTableHeaderCell align="right">Entradas</FinanceTableHeaderCell><FinanceTableHeaderCell align="right">Saídas</FinanceTableHeaderCell><FinanceTableHeaderCell align="right">Variação</FinanceTableHeaderCell><FinanceTableHeaderCell align="right">Saldo projetado</FinanceTableHeaderCell></FinanceTableHead><FinanceTableBody>{data.monthlyFlows.map((row)=><FinanceTableRow key={row.key}><FinanceTableCell className="whitespace-nowrap font-medium">{row.periodLabel}{row.isPartial?<span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">parcial</span>:null}</FinanceTableCell><FinanceTableCell align="right" className="text-blue-700">{formatEUR(row.expectedInflows)}</FinanceTableCell><FinanceTableCell align="right" className="text-rose-600">{formatEUR(row.expectedOutflows)}</FinanceTableCell><FinanceTableCell align="right" className={Number(row.netExpected)>=0?"text-emerald-700":"text-rose-600"}>{formatEUR(row.netExpected)}</FinanceTableCell><FinanceTableCell align="right" className="font-semibold">{formatEUR(row.projectedBalance)}</FinanceTableCell></FinanceTableRow>)}</FinanceTableBody></FinanceTable></ChartCard>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Principais marcos financeiros</h2><p className="mt-0.5 text-xs text-slate-500">Objetivos realmente registados.</p></div><Link href="/planeamento" className="text-xs font-semibold text-blue-600">Gerir →</Link></div>{data.goals.length===0?<div className="mt-4"><EmptyState title="Sem objetivos ativos" description="Cria um objetivo no Planeamento para acompanhar aqui o progresso real." action={<Link className={primaryButton} href="/planeamento">Abrir planeamento</Link>}/></div>:<ul className="mt-4 divide-y divide-[var(--border)]">{data.goals.map((goal)=><li key={goal.id} className="py-3"><div className="flex gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600"><Icon kind="goal"/></span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><div><p className="truncate text-sm font-semibold">{goal.title}</p><p className="text-xs text-slate-500">{formatEUR(goal.currentAmount)} de {formatEUR(goal.targetAmount)}</p></div><div className="text-right"><p className="text-xs text-slate-500">{targetDate(goal.targetDate)}</p><p className="text-xs font-semibold text-blue-700">{goal.progressPercent.toLocaleString("pt-PT")} %</p></div></div><ProgressBar className="mt-2" value={goal.progressPercent}/></div></div></li>)}</ul>}</section>
+    </div>
+
+    <div className="grid min-w-0 gap-5 lg:grid-cols-3">
+      <ChartCard title="Distribuição das saídas projetadas" description="Saídas de tesouraria por categoria ou fonte real.">{data.outflowDistribution.length===0?<EmptyState title="Sem saídas previstas" description="Não existem recorrências ou obrigações conhecidas neste horizonte."/>:<div className="grid items-center gap-3 sm:grid-cols-[0.9fr_1.1fr] lg:grid-cols-1 xl:grid-cols-[0.9fr_1.1fr]"><div className="h-48" role="img" aria-label="Gráfico circular da distribuição das saídas previstas"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data.outflowDistribution} dataKey="amount" nameKey="label" innerRadius="58%" outerRadius="82%" paddingAngle={1}>{data.outflowDistribution.map((row,index)=><Cell key={row.label} fill={COLORS[index%COLORS.length]}/>)}</Pie><Tooltip formatter={(value)=>formatEUR(String(value))}/></PieChart></ResponsiveContainer></div><ul className="space-y-2 text-xs">{data.outflowDistribution.map((row,index)=><li key={row.label} className="grid grid-cols-[auto_1fr_auto] items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{background:COLORS[index%COLORS.length]}}/><span className="truncate">{row.label}</span><span className="font-semibold tabular-nums">{row.percent.toLocaleString("pt-PT")} %</span></li>)}</ul></div>}</ChartCard>
+      <ChartCard title="Comparação de cenários" description="Impacto dos pressupostos nas entradas, saídas e saldo."><div className="h-64" role="img" aria-label="Gráfico de barras comparativo dos três cenários"><ResponsiveContainer width="100%" height="100%"><BarChart data={scenarioBars}><CartesianGrid stroke="#dbe5f1" strokeDasharray="3 3"/><XAxis dataKey="metric" tick={{fontSize:10}}/><YAxis tick={{fontSize:10}} tickFormatter={(v)=>`${Math.round(Number(v)/1000)}k`}/><Tooltip content={<MoneyTooltip/>}/><Legend wrapperStyle={{fontSize:11}}/><Bar dataKey="Base" fill="#2f8cf4" radius={[4,4,0,0]}/><Bar dataKey="Otimista" fill="#16b88a" radius={[4,4,0,0]}/><Bar dataKey="Pessimista" fill="#fb5962" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div></ChartCard>
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]"><div className="flex items-center gap-2"><span className="text-blue-600"><Icon kind="idea"/></span><div><h2 className="font-semibold">Dicas e insights</h2><p className="text-xs text-slate-500">Conclusões determinísticas com evidência.</p></div></div><div className="mt-4 space-y-3">{data.insights.map((insight)=><div key={insight.id} className="rounded-xl border border-[var(--border)] p-3"><p className={`text-sm font-semibold ${insight.tone==="warning"?"text-amber-700":insight.tone==="success"?"text-emerald-700":"text-blue-700"}`}>{insight.title}</p><p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">{insight.description}</p></div>)}</div><Link href="/alertas" className="mt-4 inline-flex text-xs font-semibold text-blue-600">Ver alertas persistidos →</Link></section>
+    </div>
+
+    <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm shadow-[var(--shadow-card)]"><summary className="cursor-pointer font-semibold">Âmbito, fontes e limitações da projeção</summary><div className="mt-4 grid gap-5 md:grid-cols-3"><div><h3 className="font-medium text-emerald-700">Incluído</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">{data.sourcesIncluded.map((line)=><li key={line}>{line}</li>)}</ul></div><div><h3 className="font-medium text-slate-700">Excluído</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">{data.sourcesExcluded.map((line)=><li key={line}>{line}</li>)}</ul></div><div><h3 className="font-medium text-amber-700">Configuração</h3>{data.configurationWarnings.length?<ul className="mt-2 list-disc space-y-1 pl-5 text-slate-600">{data.configurationWarnings.map((line)=><li key={line}>{line}</li>)}</ul>:<p className="mt-2 text-slate-600">Sem avisos de configuração.</p>}</div></div><p className="mt-4 border-t border-[var(--border)] pt-3 text-xs text-slate-500">Saldo projetado = saldo real + entradas previstas − saídas previstas. A consulta é exclusivamente read-only e não confirma pagamentos nem cria movimentos.</p></details>
+    <span className="sr-only" data-testid="treasury-real-balance">{formatEUR(data.realBalance)}</span>
+  </div>;
+}
+
+function ScenarioCard({label,value,description,tone,testId}:{label:string;value:string;description:string;tone:"base"|"optimistic"|"pessimistic";testId?:string}) {
+  const styles={base:"border-blue-500 bg-blue-50/70",optimistic:"border-emerald-200 bg-emerald-50/60",pessimistic:"border-rose-200 bg-rose-50/60"};
+  const dots={base:"border-blue-500",optimistic:"border-emerald-500",pessimistic:"border-rose-500"};
+  return <div className={`forecast-scenario-card rounded-xl border p-3 ${styles[tone]}`} data-tone={tone}><div className="flex items-start gap-3"><span className={`scenario-dot mt-1 h-4 w-4 shrink-0 rounded-full border-[3px] bg-white ${dots[tone]}`}/><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><h3 className="text-sm font-semibold">{label}</h3><p className="shrink-0 text-lg font-bold tabular-nums" data-testid={testId}>{formatEUR(value)}</p></div><p className="mt-1 text-[11px] leading-4 text-slate-600">{description}</p></div></div></div>;
 }

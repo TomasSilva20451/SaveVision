@@ -79,6 +79,7 @@ export async function getPatrimonyOverview(userId: string, workspaceId: string) 
     id: account.id,
     name: account.name,
     type: account.type,
+    isIncludedInNetWorth: account.isIncludedInNetWorth,
     balance: calculateAccountBalance(
       account.openingBalance.toString(),
       movements,
@@ -90,8 +91,10 @@ export async function getPatrimonyOverview(userId: string, workspaceId: string) 
     id: p.id,
     symbol: p.symbol,
     name: p.name,
+    assetClass: p.assetClass,
     valuationMode: p.valuationMode,
     linkedAccountId: p.linkedAccountId,
+    isCountedSeparately: p.valuationMode !== "ACCOUNT_COMPONENT" && !p.linkedAccountId,
     marketValue: positionMarketValue(p.quantity.toString(), p.manualPrice.toString()),
   }));
 
@@ -129,16 +132,24 @@ export async function createLiability(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
+  const outstandingBalance = decimal(input.outstandingBalance).toString();
+  const monthlyPayment = input.monthlyPayment
+    ? decimal(input.monthlyPayment).toString()
+    : undefined;
+  const manualRatePercent = input.manualRatePercent
+    ? decimal(input.manualRatePercent).toString()
+    : undefined;
+
   const row = await db.financialLiability.create({
     data: {
       workspaceId,
       userId,
       title: input.title,
       type: input.type,
-      outstandingBalance: input.outstandingBalance,
-      monthlyPayment: input.monthlyPayment,
+      outstandingBalance,
+      monthlyPayment,
       paymentDueDayOfMonth: input.paymentDueDayOfMonth ?? null,
-      manualRatePercent: input.manualRatePercent,
+      manualRatePercent,
       notes: input.notes,
     },
   });

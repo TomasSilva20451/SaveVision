@@ -17,6 +17,10 @@ vi.mock("@/lib/auth/workspace-access", () => ({
   requireWorkspaceManager: vi.fn(),
 }));
 
+vi.mock("@/server/audit/audit-ledger", () => ({
+  appendAuditEvent: vi.fn().mockResolvedValue({ id: "audit-1" }),
+}));
+
 import { db } from "@/lib/db";
 import {
   acceptWorkspaceInvite,

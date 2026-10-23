@@ -1,0 +1,12 @@
+# FinTwin — agendamento recomendado (ver pnpm backup:install-cron)
+#
+# Instalação automática (macOS/Linux, crontab do utilizador):
+#   pnpm backup:setup
+#   pnpm backup:setup -- --dev-offsite    # simula off-site com ~/FinTwin-backups-offsite
+#   pnpm backup:install-cron
+#
+# Entrada equivalente (02:15 Lisboa ≈ 01:15 UTC no inverno):
+#   15 1 * * * cd /path/to/SaveVision && bash scripts/backup-cron-entrypoint.sh >> ~/Library/Logs/fintwin-backup.log 2>&1
+#
+# Drill trimestral: GitHub Actions backup-restore-drill.yml ou:
+#   FINTWIN_ENV=e2e pnpm db:backup:drill

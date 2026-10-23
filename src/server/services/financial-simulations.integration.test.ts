@@ -12,6 +12,13 @@ describe("getSimulationBaseline (PostgreSQL)", () => {
   beforeAll(async () => {
     await import("dotenv/config");
     if (!process.env.DATABASE_URL) return;
+    const dbName = process.env.DATABASE_URL.split("/").pop()?.split("?")[0]?.toLowerCase();
+    if (
+      dbName === "fintwin" &&
+      process.env.FINTWIN_ALLOW_INTEGRATION_ON_PRIMARY !== "yes"
+    ) {
+      return;
+    }
     try {
       ({ db } = await import("@/lib/db"));
       await db.$queryRaw`SELECT 1`;

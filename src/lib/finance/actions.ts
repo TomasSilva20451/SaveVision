@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
-import { createAccount } from "@/server/services/accounts";
+import { archiveAccount, createAccount } from "@/server/services/accounts";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
 import { createTransfer } from "@/server/services/transfers";
 
@@ -92,4 +92,32 @@ export async function createTransferAction(formData: FormData): Promise<void> {
 
   revalidatePath("/contas");
   revalidatePath("/transacoes");
+}
+
+export async function archiveAccountAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+
+  const { selected } = await resolveWorkspaceContext(user.id);
+  if (!selected) return;
+
+  const result = await archiveAccount(
+    user.id,
+    selected.id,
+    String(formData.get("accountId") ?? ""),
+  );
+  if (!result.ok) {
+    await flashError(result.error, "/contas");
+    return;
+  }
+
+  await flashSuccess(
+    `A conta «${result.name}» foi eliminada da vista. O histórico financeiro foi preservado.`,
+    "/contas",
+  );
+  revalidatePath("/contas");
+  revalidatePath("/dashboard");
+  revalidatePath("/transacoes");
+  revalidatePath("/patrimonio");
+  revalidatePath("/previsoes");
 }

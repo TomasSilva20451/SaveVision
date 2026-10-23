@@ -1,0 +1,76 @@
+name: Quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: lint, types, tests, build and E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: fintwin
+          POSTGRES_PASSWORD: fintwin
+          POSTGRES_DB: fintwin_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintwin -d fintwin_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      FINTWIN_SKIP_DOCKER: "1"
+      FINTWIN_SKIP_DATABASE_PROVISION: "1"
+      FINTWIN_ENV: e2e
+      FINTWIN_SEED_PROFILE: e2e
+      FINTWIN_ALLOW_E2E_CLEANUP: "yes"
+      FINTWIN_E2E_DATABASE_URL: postgresql://fintwin:fintwin@127.0.0.1:5432/fintwin_e2e?schema=public
+      FINTWIN_PRIMARY_DATABASE_URL: postgresql://fintwin:fintwin@127.0.0.1:5432/fintwin_ci_primary?schema=public
+      DATABASE_URL: postgresql://fintwin:fintwin@127.0.0.1:5432/fintwin_e2e?schema=public
+      AUTH_SECRET: ci-only-auth-secret-with-at-least-32-characters
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Verify clean-clone gate
+        run: pnpm ci:verify
+
+      - name: Upload Playwright diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-diagnostics
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7

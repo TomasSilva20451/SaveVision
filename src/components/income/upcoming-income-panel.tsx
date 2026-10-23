@@ -1,0 +1,11 @@
+import Link from "next/link";
+import { IncomeIcon } from "@/components/income/income-icon";
+import { confirmOccurrenceAction } from "@/lib/finance/income-actions";
+import { formatEUR } from "@/lib/finance/money";
+
+type Upcoming = { id:string; title:string; sourceType:string; amount:string; scheduledFor:Date };
+const shortDate=(date:Date)=>new Intl.DateTimeFormat("pt-PT",{timeZone:"Europe/Lisbon",day:"2-digit",month:"short",year:"numeric"}).format(date).replaceAll(" de "," ").replace(".","");
+
+export function UpcomingIncomePanel({ rows, expectedTotal }: { rows:Upcoming[]; expectedTotal:string }) {
+  return <aside className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]"><div className="flex items-center justify-between gap-3"><h2 className="text-base font-semibold">Próximas receitas</h2><Link href="/previsoes" className="text-xs font-medium text-blue-700">Ver previsões →</Link></div>{rows.length===0?<p className="mt-5 text-sm text-slate-500">Não existem receitas previstas futuras.</p>:<ul className="mt-3 divide-y divide-[var(--border)]">{rows.map((row)=><li key={row.id} className="flex items-center gap-3 py-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700"><IncomeIcon kind={row.sourceType} className="h-4 w-4"/></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{row.title}</p><p className="text-xs text-slate-500">{shortDate(row.scheduledFor)}</p></div><div className="text-right"><p className="whitespace-nowrap text-sm font-semibold text-emerald-700">+ {formatEUR(row.amount)}</p><form action={confirmOccurrenceAction}><input type="hidden" name="occurrenceId" value={row.id}/><button className="text-xs font-medium text-blue-700">Confirmar</button></form></div></li>)}</ul>}<div className="mt-4 rounded-xl bg-blue-50 p-4 text-blue-950"><p className="text-sm font-semibold">Sugestão</p><p className="mt-1 text-xs leading-5">Tens {formatEUR(expectedTotal)} em receitas previstas para o mês selecionado. Confirma-as quando entrarem para manter a tesouraria atualizada.</p><Link href="/previsoes" className="mt-3 inline-flex rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white">Ver previsões →</Link></div></aside>;
+}

@@ -1,0 +1,15 @@
+.git
+.github
+.next
+.next-*
+node_modules
+coverage
+playwright
+test-results
+storage
+dashboard_image
+docs/visual-audit
+.env*
+!.env.example
+npm-debug.log*
+pnpm-debug.log*

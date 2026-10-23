@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addMoney, formatEUR, roundMoney } from "@/lib/finance/money";
+import {
+  addMoney,
+  decimal,
+  formatEUR,
+  normalizeDecimalInput,
+  roundMoney,
+} from "@/lib/finance/money";
 
 const NBSP = "\u00a0";
 
@@ -26,5 +32,25 @@ describe("addMoney", () => {
     expect(addMoney(["0.1", "0.2"]).equals("0.3")).toBe(true);
     expect(addMoney(pennies).equals("1.00")).toBe(true);
     expect(addMoney(["10.10", "0.20"]).equals("10.30")).toBe(true);
+  });
+});
+
+describe("normalizeDecimalInput", () => {
+  it("aceita vírgula e ponto como separador decimal", () => {
+    expect(normalizeDecimalInput("45,60")).toBe("45.60");
+    expect(normalizeDecimalInput("45.60")).toBe("45.60");
+    expect(decimal("-12,5").toFixed(2)).toBe("-12.50");
+  });
+
+  it("aceita os formatos comuns com separador de milhares", () => {
+    expect(normalizeDecimalInput("1.234,56")).toBe("1234.56");
+    expect(normalizeDecimalInput("1,234.56")).toBe("1234.56");
+    expect(normalizeDecimalInput("1 234,56")).toBe("1234.56");
+  });
+
+  it("rejeita valores vazios ou malformados", () => {
+    expect(() => normalizeDecimalInput("")).toThrow("Montante vazio");
+    expect(() => normalizeDecimalInput("12,3,4")).toThrow("Montante inválido");
+    expect(() => normalizeDecimalInput("12 euros")).toThrow("Montante inválido");
   });
 });

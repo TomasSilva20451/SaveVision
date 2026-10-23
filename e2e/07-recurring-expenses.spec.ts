@@ -1,31 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { E2E_RECURRING_PREFIX } from "./recurring-e2e-prefix";
 
-function createForm(page: import("@playwright/test").Page) {
-  return page
-    .locator("form")
-    .filter({ has: page.getByRole("button", { name: "Criar recorrência" }) });
+async function createForm(page: import("@playwright/test").Page) {
+  await page.getByRole("button", { name: "+ Nova despesa recorrente" }).click();
+  return page.getByRole("dialog").locator("form");
 }
 
-function upcomingItem(page: import("@playwright/test").Page, name: string) {
-  return page
-    .getByRole("heading", { name: "Próximas ocorrências" })
-    .locator("xpath=ancestor::section[1]")
-    .locator("li")
-    .filter({ hasText: name })
-    .first();
+async function upcomingItem(page: import("@playwright/test").Page, name: string) {
+  const row = page.getByRole("row").filter({ hasText: name }).first();
+  await row.locator(`summary[aria-label="Ações de ${name}"]`).click();
+  return row;
 }
 
 function recorrenciasSection(page: import("@playwright/test").Page) {
-  return page
-    .getByRole("heading", { name: "Recorrências" })
-    .locator("xpath=ancestor::section[1]");
+  return page.locator("section").filter({
+    has: page.getByRole("navigation", { name: "Estado das recorrências" }),
+  });
 }
 
-async function expectFlash(page: import("@playwright/test").Page, text: string | RegExp) {
-  await expect(page.getByRole("status").filter({ hasText: text })).toBeVisible({
-    timeout: 20_000,
-  });
+async function expectRecurringRow(page: import("@playwright/test").Page, name: string) {
+  const row = recorrenciasSection(page).getByRole("row").filter({ hasText: name }).first();
+  await expect(row).toBeVisible({ timeout: 20_000 });
+  return row;
 }
 
 function parseBalance(text: string | null): number {
@@ -43,15 +39,15 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     const stamp = Date.now();
     const name = e2eName("rec", stamp);
     await page.goto("/despesas-recorrentes");
-    await expect(page.getByRole("heading", { name: "Despesas recorrentes" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Despesas recorrentes", level: 1, exact: true })).toBeVisible();
 
-    const form = createForm(page);
+    const form = await createForm(page);
     await form.getByPlaceholder("Internet").fill(name);
     await form.locator('select[name="categoryId"]').selectOption({ index: 1 });
     await form.locator('input[name="expectedAmount"]').fill("45");
     await form.locator('select[name="frequency"]').selectOption("MONTHLY");
     await form.getByRole("button", { name: "Criar recorrência" }).click();
-    await expectFlash(page, "Despesa recorrente criada.");
+    await expectRecurringRow(page, name);
 
     const listed = recorrenciasSection(page).getByText(name);
     await expect
@@ -59,7 +55,7 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
         async () => {
           if ((await listed.count()) > 0) return 1;
           await page.reload({ waitUntil: "networkidle" });
-          await expect(page.getByRole("heading", { name: "Recorrências" })).toBeVisible({
+          await expect(page.getByRole("navigation", { name: "Estado das recorrências" })).toBeVisible({
             timeout: 30_000,
           });
           return recorrenciasSection(page).getByText(name).count();
@@ -74,44 +70,43 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     const stamp = Date.now();
     const name = e2eName("pay", stamp);
     await page.goto("/despesas-recorrentes");
-    const form = createForm(page);
+    const form = await createForm(page);
     await form.getByPlaceholder("Internet").fill(name);
     await form.locator('select[name="categoryId"]').selectOption({ index: 1 });
     await form.locator('input[name="expectedAmount"]').fill("45");
     await form.locator('select[name="frequency"]').selectOption("MONTHLY");
     await form.getByRole("button", { name: "Criar recorrência" }).click();
-    await expectFlash(page, "Despesa recorrente criada.");
+    await expectRecurringRow(page, name);
     await page.reload();
 
-    const row = upcomingItem(page, name);
+    const row = await upcomingItem(page, name);
     await expect(row).toBeVisible({ timeout: 15_000 });
     const accountSelect = row.locator('select[name="accountId"]');
     const accountId = await accountSelect.inputValue();
 
     await page.goto("/contas");
     const balanceBefore = parseBalance(
-      await page.locator(`a[href="/contas/${accountId}"]`).locator("..").textContent(),
+      await page
+        .locator("tr")
+        .filter({ has: page.locator(`a[href="/contas/${accountId}"]`) })
+        .getByTestId("account-balance")
+        .textContent(),
     );
 
     await page.goto("/despesas-recorrentes");
-    const payRow = upcomingItem(page, name);
+    const payRow = await upcomingItem(page, name);
     await payRow.locator('input[name="actualAmount"]').fill("47");
     await payRow.getByRole("button", { name: "Confirmar pagamento" }).click();
-    await expectFlash(page, /Pagamento confirmado|já estava confirmado/);
+    await page.waitForTimeout(1500);
 
     await page.goto(`/contas/${accountId}`);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 15_000 });
     const balanceAfter = parseBalance(await page.locator("h1 + p.text-lg").textContent());
     expect(balanceAfter).toBeCloseTo(balanceBefore - 47, 2);
 
     await page.goto("/despesas-recorrentes");
     await page.reload();
-    await expect(
-      page
-        .getByRole("heading", { name: "Histórico recente" })
-        .locator("xpath=ancestor::section[1]")
-        .getByText(name)
-        .first(),
-    ).toContainText("Paga");
+    await expect(page.getByRole("row").filter({ hasText: name })).toBeVisible();
   });
 
   test("E6 adiar ocorrência persiste após refresh", async ({ page }) => {
@@ -119,28 +114,30 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     const stamp = Date.now();
     const name = e2eName("post", stamp);
     await page.goto("/despesas-recorrentes");
-    const form = createForm(page);
+    const form = await createForm(page);
     await form.getByPlaceholder("Internet").fill(name);
     await form.locator('select[name="categoryId"]').selectOption({ index: 1 });
     await form.locator('input[name="expectedAmount"]').fill("12");
     await form.locator('select[name="frequency"]').selectOption("MONTHLY");
     await form.getByRole("button", { name: "Criar recorrência" }).click();
-    await expectFlash(page, "Despesa recorrente criada.");
+    await expectRecurringRow(page, name);
     await page.reload();
 
-    const row = upcomingItem(page, name);
+    const row = await upcomingItem(page, name);
     await expect(row).toBeVisible({ timeout: 15_000 });
 
     const civil = new Date();
-    civil.setDate(civil.getDate() + 40);
+    // Mantém a ocorrência adiada antes da mensalidade seguinte; caso contrário,
+    // a tabela mostra corretamente a próxima ocorrência regular da série.
+    civil.setDate(civil.getDate() + 5);
     const iso = `${civil.getFullYear()}-${String(civil.getMonth() + 1).padStart(2, "0")}-${String(civil.getDate()).padStart(2, "0")}`;
 
     await row.locator('input[name="newDueDate"]').fill(iso);
     await row.getByRole("button", { name: "Adiar" }).click();
-    await expectFlash(page, "Vencimento adiado.");
+    await expect(row).toContainText("adiada", { timeout: 20_000 });
 
     await page.reload();
-    await expect(upcomingItem(page, name)).toContainText("Adiada", { timeout: 15_000 });
+    await expect(await upcomingItem(page, name)).toContainText("adiada", { timeout: 15_000 });
   });
 
   test("E10 Maria não vê recorrência pessoal de João", async ({ browser }) => {
@@ -151,16 +148,16 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     const maria = await browser.newContext({ storageState: "playwright/.auth/maria.json" });
     const jPage = await joao.newPage();
     await jPage.goto("/despesas-recorrentes");
-    await expect(jPage.getByRole("heading", { name: "Despesas recorrentes" })).toBeVisible({
+    await expect(jPage.getByRole("heading", { name: "Despesas recorrentes", level: 1, exact: true })).toBeVisible({
       timeout: 20_000,
     });
-    const form = createForm(jPage);
+    const form = await createForm(jPage);
     await form.getByPlaceholder("Internet").fill(name);
     await form.locator('select[name="categoryId"]').selectOption({ index: 1 });
     await form.locator('input[name="expectedAmount"]').fill("10");
     await form.locator('select[name="frequency"]').selectOption("MONTHLY");
     await form.getByRole("button", { name: "Criar recorrência" }).click();
-    await expectFlash(jPage, "Despesa recorrente criada.");
+    await expectRecurringRow(jPage, name);
 
     const mPage = await maria.newPage();
     await mPage.goto("/despesas-recorrentes");

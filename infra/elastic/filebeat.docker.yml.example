@@ -1,0 +1,21 @@
+# Alternativa Elastic: Filebeat → Elasticsearch
+# Copiar para filebeat.yml e montar no compose elastic (não incluído por omissão — stack Loki é mais leve).
+
+filebeat.inputs:
+  - type: container
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    processors:
+      - add_docker_metadata: ~
+      - decode_json_fields:
+          fields: ["message"]
+          target: "fintwin"
+          overwrite_keys: true
+
+output.elasticsearch:
+  hosts: ["https://elastic.example:9200"]
+  username: "${ELASTIC_USER}"
+  password: "${ELASTIC_PASSWORD}"
+
+setup.template.name: "fintwin"
+setup.template.pattern: "fintwin-*"

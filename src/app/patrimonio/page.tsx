@@ -1,321 +1,44 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Card } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import {
-  inputClassName,
-  labelClassName,
-  primaryButtonClassName,
-} from "@/components/ui/form-styles";
-import { PageHeader } from "@/components/ui/page-header";
+import { NewPatrimonyDrawer } from "@/components/patrimony/new-patrimony-drawer";
+import { PatrimonyOverviewCharts,PatrimonySecondaryCharts } from "@/components/patrimony/patrimony-charts";
+import { PatrimonyIcon } from "@/components/patrimony/patrimony-icon";
+import { AssetsTable,LiabilitiesTable } from "@/components/patrimony/patrimony-tables";
+import { FinanceMetricCard,MetricGrid } from "@/components/ui/finance-metric-card";
+import { filterApplyButtonClassName, primaryButtonClassName } from "@/components/ui/form-styles";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
-import {
-  createLiabilityAction,
-  captureNetWorthSnapshotAction,
-  recordLiabilityPaymentAction,
-  updateLiabilityScheduleAction,
-} from "@/lib/finance/patrimony-actions";
-import { formatEUR } from "@/lib/finance/money";
+import { civilDateFromInstant,formatCivilDateIso } from "@/lib/datetime/civil-date";
+import { captureNetWorthSnapshotAction } from "@/lib/finance/patrimony-actions";
+import { decimal,formatEUR } from "@/lib/finance/money";
 import { readPageFlash } from "@/lib/ui/page-shell";
+import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { getPatrimonyOverview } from "@/server/services/patrimony";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-async function PatrimonioContent() {
-  await ensureRequestDynamic();
-  const flash = await readPageFlash();
-  const user = await requireAuthenticatedUser();
-  if (!user) redirect("/login");
+type PageProps={searchParams:Promise<{history?:string}>};
+const ACCOUNT_LABEL:Record<string,string>={CURRENT:"Contas à ordem",SAVINGS:"Poupança",CASH:"Numerário",BROKERAGE:"Contas de investimento",OTHER:"Outras contas"};
+function snapshotLabel(date:Date){return new Intl.DateTimeFormat("pt-PT",{month:"short",year:"2-digit",timeZone:"Europe/Lisbon"}).format(date).replace(".","");}
 
-  const { workspaces, selected } = await resolveWorkspaceContext(user.id);
-  if (!selected) redirect("/inicio");
-
-  const membership = await requireWorkspaceAccess(user.id, selected.id);
-  if (!membership) redirect("/inicio");
-
-  const data = await getPatrimonyOverview(user.id, selected.id);
-  if (!data) redirect("/inicio");
-
-  return (
-    <AppShell
-      userName={user.name}
-      workspaces={workspaces}
-      activeWorkspaceId={selected.id}
-      flash={flash}
-    >
-      <PageHeader
-        title="Património"
-        description="Ativos (contas e investimentos manuais) menos passivos registados. Objetivos de poupança não contam como ativos extra."
-      />
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card title="Património líquido">
-          <p className="text-2xl font-semibold">{formatEUR(data.netPatrimony)}</p>
-        </Card>
-        <Card title="Contas (incl. poupança)">
-          <p className="text-2xl font-semibold">{formatEUR(data.accountNetWorthFromEngine)}</p>
-        </Card>
-        <Card title="Investimentos (manual)">
-          <p className="text-2xl font-semibold">{formatEUR(data.investmentsValue)}</p>
-        </Card>
-        <Card title="Passivos">
-          <p className="text-2xl font-semibold">{formatEUR(data.manualLiabilities)}</p>
-        </Card>
-      </div>
-
-      <Card title="Contas" className="mt-8">
-        {data.accounts.length === 0 ? (
-          <EmptyState
-            title="Sem contas"
-            description="Cria contas para ver saldos agregados."
-            action={
-              <Link href="/contas" className={primaryButtonClassName}>
-                Ir para contas
-              </Link>
-            }
-          />
-        ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {data.accounts.map((account) => (
-              <li key={account.id} className="flex justify-between gap-4">
-                <span>
-                  {account.name} · {account.type}
-                </span>
-                <span className="font-medium">{formatEUR(account.balance)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card title="Posições de investimento" className="mt-6">
-        {data.investments.length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            Sem posições.{" "}
-            <Link href="/investimentos" className="underline">
-              Registar investimentos
-            </Link>
-            .
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2 text-sm">
-            {data.investments.map((row) => (
-              <li key={row.id} className="flex justify-between gap-4">
-                <span>
-                  {row.symbol} · {row.name}
-                </span>
-                <span className="font-medium">{formatEUR(row.marketValue)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card title="Nova responsabilidade" className="mt-8">
-        <form action={createLiabilityAction} className="grid max-w-lg gap-4">
-          <label className={labelClassName}>
-            Título
-            <input name="title" required className={inputClassName} />
-          </label>
-          <label className={labelClassName}>
-            Tipo
-            <select name="type" className={inputClassName}>
-              <option value="PERSONAL_LOAN">Crédito pessoal</option>
-              <option value="AUTO_LOAN">Crédito automóvel</option>
-              <option value="MORTGAGE">Crédito habitação</option>
-              <option value="FAMILY_LOAN">Empréstimo familiar</option>
-              <option value="OTHER">Outro</option>
-            </select>
-          </label>
-          <label className={labelClassName}>
-            Saldo em dívida (EUR)
-            <input name="outstandingBalance" required className={inputClassName} />
-          </label>
-          <label className={labelClassName}>
-            Prestação mensal (opcional)
-            <input name="monthlyPayment" className={inputClassName} />
-          </label>
-          <label className={labelClassName}>
-            Dia de vencimento da prestação (1–31, opcional)
-            <input
-              name="paymentDueDayOfMonth"
-              type="number"
-              min={1}
-              max={31}
-              className={inputClassName}
-              data-testid="liability-due-day-create"
-            />
-          </label>
-          <p className="text-xs text-zinc-500">
-            Meses mais curtos usam o último dia válido (ex.: 31 → 28/29 em fevereiro). Sem dia
-            definido, a prestação não entra nas previsões (salvo via recorrência associada).
-          </p>
-          <label className={labelClassName}>
-            Taxa manual % (opcional)
-            <input name="manualRatePercent" className={inputClassName} />
-          </label>
-          <label className={labelClassName}>
-            Notas
-            <textarea name="notes" rows={2} className={inputClassName} />
-          </label>
-          <button type="submit" className={primaryButtonClassName}>
-            Criar responsabilidade
-          </button>
-        </form>
-      </Card>
-
-      <Card title="Histórico patrimonial" className="mt-6">
-        <form action={captureNetWorthSnapshotAction}>
-          <button type="submit" className={primaryButtonClassName}>
-            Registar snapshot (hoje)
-          </button>
-        </form>
-        {(data.snapshots?.length ?? 0) >= 2 ? (
-          <ul className="mt-4 flex flex-col gap-1 text-sm">
-            {data.snapshots.map((snap) => (
-              <li key={snap.id}>
-                {snap.asOfDate.toLocaleDateString("pt-PT")} · PL{" "}
-                {formatEUR(snap.netWorth.toString())}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-3 text-sm text-zinc-500">
-            Regista pelo menos dois snapshots para ver evolução (sem inventar histórico).
-          </p>
-        )}
-      </Card>
-
-      <Card title="Responsabilidades" className="mt-6">
-        {data.liabilities.length === 0 ? (
-          <EmptyState title="Sem passivos registados" description="Regista empréstimos ou créditos manualmente." />
-        ) : (
-          <ul className="flex flex-col gap-6">
-            {data.liabilities.map((liability) => (
-              <li key={liability.id} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-                <p className="font-medium">{liability.title}</p>
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  {liability.type} · Saldo: {formatEUR(liability.outstandingBalance)}
-                  {liability.monthlyPayment
-                    ? ` · Prestação: ${formatEUR(liability.monthlyPayment)}`
-                    : null}
-                  {liability.paymentDueDayOfMonth
-                    ? ` · Vencimento: dia ${liability.paymentDueDayOfMonth}`
-                    : liability.monthlyPayment
-                      ? " · Vencimento: não definido"
-                      : null}
-                </p>
-                {liability.monthlyPayment && !liability.paymentDueDayOfMonth ? (
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
-                    Defina o dia de vencimento para incluir esta prestação nas previsões.
-                  </p>
-                ) : null}
-                <form
-                  action={updateLiabilityScheduleAction}
-                  className="mt-3 flex flex-wrap items-end gap-2"
-                  data-testid="liability-due-day-form"
-                >
-                  <input type="hidden" name="liabilityId" value={liability.id} />
-                  <label className={labelClassName}>
-                    Dia de vencimento
-                    <input
-                      name="paymentDueDayOfMonth"
-                      type="number"
-                      min={1}
-                      max={31}
-                      defaultValue={liability.paymentDueDayOfMonth ?? ""}
-                      className={inputClassName}
-                    />
-                  </label>
-                  <button type="submit" className={primaryButtonClassName}>
-                    Guardar vencimento
-                  </button>
-                  {liability.paymentDueDayOfMonth ? (
-                    <button
-                      type="submit"
-                      name="clearDueDay"
-                      value="1"
-                      className={primaryButtonClassName}
-                    >
-                      Remover vencimento
-                    </button>
-                  ) : null}
-                </form>
-                <form action={recordLiabilityPaymentAction} className="mt-4 grid max-w-md gap-2">
-                  <input type="hidden" name="liabilityId" value={liability.id} />
-                  <label className={labelClassName}>
-                    Capital amortizado
-                    <input name="principalAmount" defaultValue="0" className={inputClassName} />
-                  </label>
-                  <label className={labelClassName}>
-                    Juros (despesa possível)
-                    <input name="interestAmount" defaultValue="0" className={inputClassName} />
-                  </label>
-                  <label className={labelClassName}>
-                    Outros encargos
-                    <input name="feesAmount" defaultValue="0" className={inputClassName} />
-                  </label>
-                  <label className={labelClassName}>
-                    Data
-                    <input name="paidAt" type="date" className={inputClassName} />
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" name="recordBankMovement" />
-                    Registar movimento bancário (atómico)
-                  </label>
-                  <label className={labelClassName}>
-                    Conta (se movimento bancário)
-                    <select name="accountId" className={inputClassName}>
-                      <option value="">—</option>
-                      {data.accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {liability.hasActiveLinkedRecurring ? (
-                    <label className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-200">
-                      <input
-                        type="checkbox"
-                        name="acknowledgeLinkedLiabilityRisk"
-                        className="mt-0.5"
-                        data-testid="ack-linked-liability-payment"
-                      />
-                      Compreendo que existe uma recorrência associada a este passivo e que um
-                      movimento bancário aqui pode duplicar a saída se a recorrência também
-                      tiver sido confirmada com movimento.
-                    </label>
-                  ) : null}
-                  <button type="submit" className={primaryButtonClassName}>
-                    Registar pagamento
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <p className="mt-6 text-sm text-zinc-500">
-        A amortização de capital reduz caixa e passivo com impacto nulo no património líquido (antes de
-        juros). Regista juros como despesa em{" "}
-        <Link href="/despesas" className="underline">
-          despesas
-        </Link>{" "}
-        se aplicável.
-      </p>
-    </AppShell>
-  );
+async function PatrimonioContent({history}:{history:string}){
+  await ensureRequestDynamic();const user=await requireAuthenticatedUser();if(!user)redirect("/login");const {workspaces,selected}=await resolveWorkspaceContext(user.id);if(!selected)redirect("/inicio");if(!(await requireWorkspaceAccess(user.id,selected.id)))redirect("/inicio");
+  const [data,flash,unseenAlertsCount]=await Promise.all([getPatrimonyOverview(user.id,selected.id),readPageFlash("/patrimonio"),countUnseenFinancialAlerts(user.id,selected.id)]);if(!data)redirect("/inicio");
+  const assetsTotal=decimal(data.accountNetWorthFromEngine).plus(data.investmentsValue);const liabilitiesTotal=decimal(data.manualLiabilities);const debtRatio=assetsTotal.gt(0)?liabilitiesTotal.div(assetsTotal).times(100).toDecimalPlaces(1).toNumber():null;
+  const distributionMap=new Map<string,ReturnType<typeof decimal>>();for(const account of data.accounts.filter((row)=>row.isIncludedInNetWorth)){const label=ACCOUNT_LABEL[account.type]??account.type;distributionMap.set(label,(distributionMap.get(label)??decimal(0)).plus(account.balance));}for(const position of data.investments.filter((row)=>row.isCountedSeparately)){const label="Investimentos autónomos";distributionMap.set(label,(distributionMap.get(label)??decimal(0)).plus(position.marketValue.toString()));}
+  const distribution=[...distributionMap.entries()].map(([name,value])=>({name,value:value.toString()}));const distributionTotal=distribution.filter((row)=>decimal(row.value).gt(0)).reduce((sum,row)=>sum.plus(row.value),decimal(0)).toString();
+  const limit=history==="all"?data.snapshots.length:history==="6"?6:12;const selectedSnapshots=data.snapshots.slice(-limit);const snapshots=selectedSnapshots.map((row)=>({label:snapshotLabel(row.asOfDate),assets:decimal(row.cashTotal.toString()).plus(row.savingsTotal.toString()).plus(row.investmentsTotal.toString()).plus(row.manualAssetsTotal.toString()).toNumber(),liabilities:decimal(row.liabilitiesTotal.toString()).toNumber(),net:decimal(row.netWorth.toString()).toNumber()}));
+  const annualMap=new Map<string,number>();for(const row of data.snapshots){annualMap.set(String(civilDateFromInstant(row.asOfDate).year),decimal(row.netWorth.toString()).toNumber());}const annual=[...annualMap.entries()].map(([year,net])=>({year,net}));
+  const assets=[...data.accounts.filter((row)=>row.isIncludedInNetWorth).map((row)=>({id:row.id,name:row.name,type:ACCOUNT_LABEL[row.type]??row.type,value:row.balance,href:`/contas/${row.id}`,kind:"ACCOUNT" as const})),...data.investments.filter((row)=>row.isCountedSeparately).map((row)=>({id:row.id,name:`${row.symbol} · ${row.name}`,type:row.assetClass,value:row.marketValue.toString(),href:"/investimentos",kind:"INVESTMENT" as const}))];
+  const todayIso=formatCivilDateIso(civilDateFromInstant(new Date()));
+  return <AppShell visualTheme="aurora" userName={user.name} workspaces={workspaces} activeWorkspaceId={selected.id} flash={flash} unseenAlertsCount={unseenAlertsCount} headerLeading={<div><h1 className="text-2xl font-bold tracking-tight">Património</h1><p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">Visão global dos teus bens, investimentos e passivos.</p></div>} headerActions={<><form method="get" className="flex items-center"><label htmlFor="history" className="sr-only">Período do histórico</label><select id="history" name="history" defaultValue={history} className="h-10 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"><option value="6">Últimos 6 registos</option><option value="12">Últimos 12 registos</option><option value="all">Todo o histórico</option></select><button className={filterApplyButtonClassName}>Ver</button></form><NewPatrimonyDrawer/></>}>
+    <p className="mb-4 text-xs text-slate-500">Os KPI apresentam valores atuais. O seletor aplica-se apenas aos snapshots históricos.</p><MetricGrid><FinanceMetricCard label="Valor total dos ativos" value={assetsTotal.toString()} tone="income" icon={<PatrimonyIcon kind="ASSETS"/>} hint="Contas incluídas + investimentos autónomos"/><FinanceMetricCard label="Total de passivos" value={liabilitiesTotal.isZero()?formatEUR("0"): `− ${formatEUR(liabilitiesTotal.toString())}`} rawValue tone="expense" icon={<PatrimonyIcon kind="LIABILITIES"/>} hint="Capital atual em dívida"/><FinanceMetricCard label="Património líquido" value={data.netPatrimony} tone="accent" icon={<PatrimonyIcon kind="NET"/>} hint="Ativos − passivos" labelHeadingLevel={2}/><FinanceMetricCard label="Rácio de endividamento" value={debtRatio===null?"N/D":`${debtRatio.toFixed(1)}%`} rawValue tone="analytic" icon={<PatrimonyIcon kind="RATIO"/>} hint="Passivos / ativos"/></MetricGrid>
+    <div className="mt-5"><PatrimonyOverviewCharts snapshots={snapshots} distribution={distribution} distributionTotal={distributionTotal}/></div>{selectedSnapshots.length<2?<form action={captureNetWorthSnapshotAction} className="mt-3 flex justify-end"><button className={primaryButtonClassName}>Registar snapshot atual</button></form>:null}
+    <div className="mt-5 grid min-w-0 items-start gap-5 2xl:grid-cols-2"><AssetsTable assets={assets} total={assetsTotal.toString()}/><LiabilitiesTable liabilities={data.liabilities} total={liabilitiesTotal.toString()} accounts={data.accounts} todayIso={todayIso}/></div>
+    <div className="mt-5"><PatrimonySecondaryCharts distribution={distribution} ratio={debtRatio} assets={assetsTotal.toString()} liabilities={liabilitiesTotal.toString()} annual={annual}/></div>
+    <p className="mt-5 text-xs leading-5 text-slate-500">As posições `ACCOUNT_COMPONENT` não são somadas separadamente às contas. Objetivos de poupança e prestações futuras não são contabilizados como ativos ou passivos adicionais.</p>
+  </AppShell>;
 }
-
-export default function PatrimonioPage() {
-  return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar património…</p>}>
-      <PatrimonioContent />
-    </Suspense>
-  );
-}
+async function PatrimonioInner({searchParams}:PageProps){const params=await searchParams;const history=["6","12","all"].includes(params.history??"")?params.history!:"12";return <PatrimonioContent history={history}/>;}
+export default function PatrimonioPage(props:PageProps){return <Suspense fallback={<p className="p-6 text-sm">A carregar património…</p>}><PatrimonioInner searchParams={props.searchParams}/></Suspense>;}

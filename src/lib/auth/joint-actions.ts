@@ -7,7 +7,9 @@ import { setActiveWorkspace } from "@/server/services/workspace-context";
 import {
   acceptWorkspaceInvite,
   createJointWorkspace,
+  declineWorkspaceInvite,
   inviteToJointWorkspace,
+  revokeWorkspaceInvite,
 } from "@/server/services/joint-workspace";
 
 export async function createJointWorkspaceAction(formData: FormData): Promise<void> {
@@ -60,5 +62,24 @@ export async function acceptInviteAction(formData: FormData): Promise<void> {
   if (workspaceId) {
     await setActiveWorkspace(user.id, workspaceId);
   }
+  revalidatePath("/conta-conjunta");
+}
+
+export async function declineInviteAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const token = String(formData.get("token") || "");
+  if (!token) return;
+  await declineWorkspaceInvite(user.id, token);
+  revalidatePath("/conta-conjunta");
+}
+
+export async function revokeInviteAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const workspaceId = String(formData.get("workspaceId") || "");
+  const inviteId = String(formData.get("inviteId") || "");
+  if (!workspaceId || !inviteId) return;
+  await revokeWorkspaceInvite(user.id, workspaceId, inviteId);
   revalidatePath("/conta-conjunta");
 }

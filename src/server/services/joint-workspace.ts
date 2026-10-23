@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { requireWorkspaceAccess, requireWorkspaceManager } from "@/lib/auth/workspace-access";
 import { db } from "@/lib/db";
+import { appendAuditEvent } from "@/server/audit/audit-ledger";
 
 function inviteToken(): string {
   return randomBytes(32).toString("hex");
@@ -10,7 +11,7 @@ export async function createJointWorkspace(
   userId: string,
   name: string,
 ) {
-  return db.$transaction(async (tx) => {
+  const workspace = await db.$transaction(async (tx) => {
     const workspace = await tx.workspace.create({
       data: {
         name,
@@ -31,6 +32,17 @@ export async function createJointWorkspace(
 
     return workspace;
   });
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId: workspace.id,
+    action: "WORKSPACE_CREATED",
+    resourceType: "Workspace",
+    resourceId: workspace.id,
+    outcome: "SUCCESS",
+    source: "permission-service",
+    metadata: { type: "JOINT" },
+  });
+  return workspace;
 }
 
 export async function inviteToJointWorkspace(
@@ -51,7 +63,7 @@ export async function inviteToJointWorkspace(
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const token = inviteToken();
 
-  await db.workspaceInvite.create({
+  const createdInvite = await db.workspaceInvite.create({
     data: {
       workspaceId,
       email: normalized,
@@ -80,6 +92,17 @@ export async function inviteToJointWorkspace(
     });
   }
 
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId,
+    action: "WORKSPACE_INVITE_CREATED",
+    resourceType: "WorkspaceInvite",
+    resourceId: createdInvite.id,
+    outcome: "SUCCESS",
+    source: "permission-service",
+    metadata: { role, inviteeExists: Boolean(invitee) },
+  });
+
   return { token, email: normalized, invitePath: `/conta-conjunta?convite=${token}` };
 }
 
@@ -105,6 +128,16 @@ export async function declineWorkspaceInvite(userId: string, token: string) {
       where: { id: invite.id },
       data: { expiresAt: new Date() },
     });
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId: invite.workspaceId,
+    action: "WORKSPACE_INVITE_DECLINED",
+    resourceType: "WorkspaceInvite",
+    resourceId: invite.id,
+    outcome: "SUCCESS",
+    source: "permission-service",
   });
 
   return true;
@@ -136,6 +169,16 @@ export async function revokeWorkspaceInvite(
       },
       data: { status: "REMOVED" },
     });
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId,
+    action: "WORKSPACE_INVITE_REVOKED",
+    resourceType: "WorkspaceInvite",
+    resourceId: invite.id,
+    outcome: "SUCCESS",
+    source: "permission-service",
   });
 
   return true;
@@ -198,6 +241,17 @@ export async function acceptWorkspaceInvite(userId: string, token: string) {
       where: { id: invite.id },
       data: { acceptedAt: new Date() },
     });
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId: invite.workspaceId,
+    action: "WORKSPACE_MEMBERSHIP_ACTIVATED",
+    resourceType: "WorkspaceMember",
+    resourceId: `${invite.workspaceId}:${userId}`,
+    outcome: "SUCCESS",
+    source: "permission-service",
+    metadata: { role: invite.role },
   });
 
   return invite.workspaceId;

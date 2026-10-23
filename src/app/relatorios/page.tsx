@@ -2,78 +2,24 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
+import { MonthlyReportNarrativePanel } from "@/components/reports/monthly-report-narrative-panel";
+import { ReportExportForms } from "@/components/reports/report-export-forms";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
+import { inputClassName, primaryButtonClassName } from "@/components/ui/form-styles";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
-import { readPageFlash } from "@/lib/ui/page-shell";
-import { civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { ReportExportForms } from "@/components/reports/report-export-forms";
+import { civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import { uploadDocumentAction } from "@/lib/finance/document-actions";
+import { decimal, formatEUR } from "@/lib/finance/money";
+import { readPageFlash } from "@/lib/ui/page-shell";
 import { listDocuments } from "@/server/services/documents";
+import { getLatestMonthlyReportNarrative } from "@/server/services/monthly-report-narrative";
+import { loadReportData } from "@/server/services/reports";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-async function RelatoriosContent() {
-  await ensureRequestDynamic();
-  const flash = await readPageFlash();
-  const user = await requireAuthenticatedUser();
-  if (!user) redirect("/login");
-
-  const { workspaces, selected } = await resolveWorkspaceContext(user.id);
-  if (!selected) redirect("/inicio");
-
-  const membership = await requireWorkspaceAccess(user.id, selected.id);
-  if (!membership) redirect("/inicio");
-
-  const documents = (await listDocuments(user.id, selected.id)) ?? [];
-  const civil = civilDateFromInstant(new Date());
-  const defaultFrom = formatCivilDateIso({ year: civil.year, month: civil.month, day: 1 });
-  const defaultTo = formatCivilDateIso(civil);
-
-  return (
-    <AppShell
-      userName={user.name}
-      workspaces={workspaces}
-      activeWorkspaceId={selected.id}
-      flash={flash}
-    >
-      <h1 className="text-2xl font-semibold tracking-tight">Relatórios e documentos</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Exportações geradas no servidor. Uploads privados (sem URLs públicas previsíveis).
-      </p>
-
-      <ReportExportForms defaultFrom={defaultFrom} defaultTo={defaultTo} />
-      <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-        Os totais e a listagem PDF/CSV correspondem ao mesmo intervalo de datas.
-      </p>
-
-      <section className="mt-8">
-        <h2 className="text-lg font-medium">Carregar documento</h2>
-        <form action={uploadDocumentAction} className="mt-3 flex max-w-md flex-col gap-2">
-          <input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.csv,.txt" required />
-          <button type="submit" className="w-fit rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-            Enviar
-          </button>
-        </form>
-      </section>
-
-      <ul className="mt-6 flex flex-col gap-2 text-sm">
-        {documents.map((doc) => (
-          <li key={doc.id}>
-            <Link href={`/api/documents/${doc.id}`} className="underline">
-              {doc.originalName}
-            </Link>{" "}
-            ({doc.mimeType}, {doc.sizeBytes} bytes)
-          </li>
-        ))}
-      </ul>
-    </AppShell>
-  );
-}
-
-export default function RelatoriosPage() {
-  return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar…</p>}>
-      <RelatoriosContent />
-    </Suspense>
-  );
-}
+function bytes(value:number){if(value<1024)return `${value} B`;if(value<1024*1024)return `${(value/1024).toFixed(1)} KB`;return `${(value/1024/1024).toFixed(1)} MB`}
+async function RelatoriosContent(){await ensureRequestDynamic();const flash=await readPageFlash();const user=await requireAuthenticatedUser();if(!user)redirect("/login");const {workspaces,selected}=await resolveWorkspaceContext(user.id);if(!selected)redirect("/inicio");const membership=await requireWorkspaceAccess(user.id,selected.id);if(!membership)redirect("/inicio");const civil=civilDateFromInstant(new Date());const defaultFrom=formatCivilDateIso({year:civil.year,month:civil.month,day:1});const defaultTo=formatCivilDateIso(civil);const periodKey=`${civil.year}-${String(civil.month).padStart(2,"0")}`;const [documents,report,narrative]=await Promise.all([listDocuments(user.id,selected.id),loadReportData(user.id,selected.id,{from:defaultFrom,to:defaultTo}),getLatestMonthlyReportNarrative(user.id,selected.id,periodKey)]);if(!report)redirect("/inicio");return <AppShell userName={user.name} workspaces={workspaces} activeWorkspaceId={selected.id} flash={flash}><PageHeader title="Relatórios e documentos" description="Revê o período, exporta dados consistentes e guarda documentos privados do workspace."/><div className="mt-6"><MetricGrid><FinanceMetricCard label="Receitas do período" value={report.totals.income} hint={report.periodLabel} tone="income" icon="↗"/><FinanceMetricCard label="Despesas do período" value={report.totals.expenses} hint={report.periodLabel} tone="expense" icon="↘"/><FinanceMetricCard label="Resultado" value={report.totals.cashFlow} hint={`${report.movementCount} movimentos`} tone={decimal(report.totals.cashFlow).gte(0)?"income":"expense"} icon="="/><FinanceMetricCard label="Saldo final" value={report.balances.closing} hint={`Inicial: ${formatEUR(report.balances.opening)}`} tone="accent" icon="€"/></MetricGrid></div><div className="mt-5 grid gap-5 lg:grid-cols-5"><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] lg:col-span-2"><h2 className="font-semibold">Criar exportação</h2><p className="mt-1 text-sm text-slate-500">O PDF e o CSV usam exatamente o mesmo intervalo e os mesmos totais.</p><div className="mt-5"><ReportExportForms defaultFrom={defaultFrom} defaultTo={defaultTo}/></div><div className="mt-5 rounded-xl bg-blue-50 p-4 text-xs leading-5 text-blue-900 dark:bg-blue-950/30 dark:text-blue-100">Os ficheiros são gerados no servidor com autorização do workspace. As datas civis são calculadas em Europe/Lisbon.</div></section><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] lg:col-span-3"><div className="flex items-center justify-between"><div><h2 className="font-semibold">Resumo do período</h2><p className="mt-1 text-sm text-slate-500">Pré-visualização do relatório a exportar.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">{report.periodLabel}</span></div><dl className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><dt className="text-xs text-slate-500">Património líquido inicial</dt><dd className="mt-1 text-lg font-semibold">{formatEUR(report.balances.netWorthOpening)}</dd></div><div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><dt className="text-xs text-slate-500">Património líquido final</dt><dd className="mt-1 text-lg font-semibold">{formatEUR(report.balances.netWorthClosing)}</dd></div><div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><dt className="text-xs text-slate-500">Volume de transferências</dt><dd className="mt-1 text-lg font-semibold">{formatEUR(report.totals.transferVolume)}</dd></div><div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><dt className="text-xs text-slate-500">Documentos guardados</dt><dd className="mt-1 text-lg font-semibold">{documents?.length??0}</dd></div></dl></section></div><div className="mt-5"><MonthlyReportNarrativePanel year={civil.year} month={civil.month} initialNarrative={narrative?.narrativeText??null} initialModel={narrative?.model??null} initialPromptVersion={narrative?.promptVersion??null} initialGeneratedAt={narrative?.generatedAt.toISOString()??null}/></div><section className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-card)]"><div className="flex flex-col gap-4 border-b border-[var(--border)] p-5 md:flex-row md:items-center md:justify-between"><div><h2 className="font-semibold">Arquivo privado</h2><p className="mt-1 text-sm text-slate-500">Comprovativos e exportações acessíveis apenas aos membros autorizados.</p></div><form action={uploadDocumentAction} className="flex flex-col gap-2 sm:flex-row"><input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.csv,.txt" required className={`${inputClassName} mt-0 max-w-xs`}/><button className={primaryButtonClassName}>Carregar documento</button></form></div>{documents?.length?<ul className="divide-y divide-[var(--border)] px-5">{documents.map(doc=><li key={doc.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-700">▤</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{doc.originalName}</p><p className="text-xs text-slate-500">{doc.mimeType} · {bytes(doc.sizeBytes)} · {new Intl.DateTimeFormat("pt-PT",{timeZone:"Europe/Lisbon",day:"2-digit",month:"short",year:"numeric"}).format(doc.createdAt).replaceAll(" de "," ").replace(".","")}</p></div><Link href={`/api/documents/${doc.id}`} className="text-sm font-medium text-blue-600">Descarregar ↓</Link></li>)}</ul>:<div className="p-5"><EmptyState title="Arquivo vazio" description="Carrega um documento para o manter associado a este workspace."/></div>}</section></AppShell>}
+export default function RelatoriosPage(){return <Suspense fallback={<p className="p-6 text-sm">A preparar relatórios…</p>}><RelatoriosContent/></Suspense>}

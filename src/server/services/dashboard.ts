@@ -2,6 +2,7 @@ import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import {
   civilDateFromInstant,
   isInstantInCivilMonth,
+  startOfNextCivilMonth,
 } from "@/lib/datetime/civil-date";
 import {
   calculateAccountBalance,
@@ -18,6 +19,7 @@ import { db } from "@/lib/db";
 import { listWorkspaceMovements } from "@/server/repositories/ledger";
 import { summarizeBudgetMonth } from "@/lib/finance/budget";
 import { calculatePatrimonyNet } from "@/lib/finance/patrimony";
+import { getTreasuryForecastAllHorizons } from "@/server/services/treasury-forecast";
 
 function txToMovement(tx: {
   accountId: string;
@@ -35,6 +37,105 @@ function txToMovement(tx: {
   };
 }
 
+const MONTH_LABELS_PT = [
+  "Jan",
+  "Fev",
+  "Mar",
+  "Abr",
+  "Mai",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Set",
+  "Out",
+  "Nov",
+  "Dez",
+] as const;
+
+function balanceAtCutoff(
+  accounts: { id: string; openingBalance: { toString(): string } }[],
+  transactions: {
+    accountId: string;
+    type: LedgerMovement["type"];
+    status: LedgerMovement["status"];
+    amount: { toString(): string };
+    deletedAt: Date | null;
+    occurredAt: Date;
+  }[],
+  cutoff: Date,
+): string {
+  const slice = transactions
+    .filter((tx) => tx.occurredAt < cutoff)
+    .map((tx) =>
+      txToMovement({
+        accountId: tx.accountId,
+        type: tx.type,
+        status: tx.status,
+        amount: tx.amount,
+        deletedAt: tx.deletedAt,
+      }),
+    );
+
+  return accounts
+    .map((account) =>
+      calculateAccountBalance(account.openingBalance.toString(), slice, account.id),
+    )
+    .reduce((sum, value) => sum.plus(value), decimal(0))
+    .toFixed(2);
+}
+
+function buildBalanceSeries(
+  accounts: { id: string; openingBalance: { toString(): string } }[],
+  transactions: {
+    accountId: string;
+    type: LedgerMovement["type"];
+    status: LedgerMovement["status"];
+    amount: { toString(): string };
+    deletedAt: Date | null;
+    occurredAt: Date;
+  }[],
+  months: number,
+) {
+  const now = civilDateFromInstant(new Date());
+  const points: { label: string; balance: number }[] = [];
+
+  for (let offset = months - 1; offset >= 0; offset -= 1) {
+    let month = now.month - offset;
+    let year = now.year;
+    while (month < 1) {
+      month += 12;
+      year -= 1;
+    }
+    const cutoff = startOfNextCivilMonth(year, month);
+    const balance = balanceAtCutoff(accounts, transactions, cutoff);
+    points.push({
+      label: MONTH_LABELS_PT[month - 1] ?? String(month),
+      balance: Number(balance),
+    });
+  }
+
+  return points;
+}
+
+function buildIncomeCategoryBreakdown(
+  transactions: {
+    type: string;
+    amount: { toString(): string };
+    category: { name: string } | null;
+  }[],
+) {
+  const map = new Map<string, number>();
+  for (const tx of transactions) {
+    if (tx.type !== "INCOME") continue;
+    const name = tx.category?.name ?? "Outros";
+    const prev = map.get(name) ?? 0;
+    map.set(name, prev + Math.abs(Number(tx.amount.toString())));
+  }
+  return [...map.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+}
+
 export async function getDashboardMetrics(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
@@ -47,8 +148,19 @@ export async function getDashboardMetrics(userId: string, workspaceId: string) {
 
   const thirtyDaysAhead = new Date(Date.now() + 30 * 86_400_000);
 
-  const [accounts, rawMovements, transactions, expectedRows, budget, liabilities, positions, recurringDue30, recurringExpectedMonthRows] =
-    await Promise.all([
+  const [
+    accounts,
+    rawMovements,
+    transactions,
+    expectedRows,
+    budget,
+    liabilities,
+    positions,
+    recurringDue30,
+    recurringExpectedMonthRows,
+    upcomingRecurring,
+    treasuryHorizons,
+  ] = await Promise.all([
     db.financialAccount.findMany({
       where: { workspaceId, isArchived: false },
     }),
@@ -80,6 +192,17 @@ export async function getDashboardMetrics(userId: string, workspaceId: string) {
         status: { in: ["EXPECTED", "POSTPONED", "PAID"] },
       },
     }),
+    db.recurringExpenseOccurrence.findMany({
+      where: {
+        workspaceId,
+        status: { in: ["EXPECTED", "POSTPONED"] },
+        dueDate: { gte: new Date() },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      include: { recurringExpense: { select: { name: true } } },
+    }),
+    getTreasuryForecastAllHorizons(userId, workspaceId),
   ]);
 
   const accountSnapshots = accounts.map((account) => ({
@@ -180,6 +303,55 @@ export async function getDashboardMetrics(userId: string, workspaceId: string) {
     decimal(0),
   );
 
+  const accountRows = accounts
+    .map((account) => ({
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      institution: account.institution,
+      balance: calculateAccountBalance(
+        account.openingBalance.toString(),
+        rawMovements,
+        account.id,
+      ).toFixed(2),
+    }))
+    .sort((a, b) => decimal(b.balance).minus(decimal(a.balance)).toNumber())
+    .slice(0, 4);
+
+  const budgetCategories = budgetLines
+    .map((line) => {
+      const limit = decimal(line.limitAmount);
+      const spent = decimal(line.spentAmount);
+      const percent =
+        limit.isZero() ? 0 : spent.div(limit).times(100).toDecimalPlaces(0).toNumber();
+      return {
+        name: line.categoryName,
+        spent: line.spentAmount,
+        limit: line.limitAmount,
+        percent,
+      };
+    })
+    .sort((a, b) => b.percent - a.percent)
+    .slice(0, 5);
+
+  const budgetUtilization =
+    decimal(budgetSummary.totalLimit).isZero()
+      ? null
+      : decimal(budgetSummary.totalSpent)
+          .div(budgetSummary.totalLimit)
+          .times(100)
+          .toDecimalPlaces(0)
+          .toNumber();
+
+  const balanceSeries = buildBalanceSeries(accounts, transactions, 6);
+  const incomeByCategory = buildIncomeCategoryBreakdown(monthTx);
+
+  const treasuryBars =
+    treasuryHorizons?.map((row) => ({
+      label: row.horizonDays === 7 ? "+7d" : `+${row.horizonDays}d`,
+      projectedBalance: Number(row.projectedBalance),
+    })) ?? [];
+
   return {
     kpis: {
       totalBalance: totalBalance.toFixed(2),
@@ -219,9 +391,32 @@ export async function getDashboardMetrics(userId: string, workspaceId: string) {
     previous: {
       incomeMonth: calculateIncome(prevMovements).toFixed(2),
       expenseMonth: calculateExpenses(prevMovements).toFixed(2),
+      economicResultMonth: calculateCashFlow(prevMovements).toFixed(2),
     },
     monthlyBuckets: buildMonthlySeries(transactions, 6),
     expenseByCategory: buildCategoryBreakdown(monthTx),
+    widgets: {
+      topAccounts: accountRows,
+      budgetUtilization,
+      budgetCategories,
+      budgetSummary,
+      treasuryBars,
+      realBalance: totalBalance.toFixed(2),
+      upcomingRecurring: upcomingRecurring.map((row) => ({
+        name: row.recurringExpense.name,
+        dueDate: row.dueDate.toISOString(),
+        amount: row.expectedAmount.toString(),
+        status: row.status,
+      })),
+      balanceSeries,
+      incomeByCategory,
+      patrimony: {
+        accountsEngine: patrimony.accountNetWorth,
+        investments: patrimony.investmentsValue,
+        liabilities: liabilitiesTotal.toFixed(2),
+        netPatrimony: patrimony.netPatrimony,
+      },
+    },
   };
 }
 

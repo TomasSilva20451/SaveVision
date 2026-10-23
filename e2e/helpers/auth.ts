@@ -15,15 +15,17 @@ export async function loginAs(page: Page, user: typeof JOAO) {
   const health = await page.request.get("/api/health");
   expect(health.ok()).toBeTruthy();
 
-  await page.goto("/login");
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
-  await page.getByLabel("Email").fill(user.email);
-  await page.getByLabel("Palavra-passe").fill(user.password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page).toHaveURL(/\/inicio/, { timeout: 30_000 });
+  await page.locator("#email").fill(user.email);
+  await page.locator("#password").fill(user.password);
+  await Promise.all([
+    page.waitForURL(/\/inicio/, { timeout: 60_000 }),
+    page.locator('form button[type="submit"]').click(),
+  ]);
 }
 
 export async function logoutFromShell(page: Page) {
-  await page.getByRole("button", { name: "Sair" }).click();
+  await page.getByRole("button", { name: "Terminar sessão" }).click();
   await expect(page).toHaveURL(/\/login/);
 }

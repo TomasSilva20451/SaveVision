@@ -3,6 +3,41 @@ import { demoUsers } from "../src/lib/auth/demo-users";
 import { hashPassword } from "../src/lib/auth/password";
 import { db } from "../src/lib/db";
 
+const seedProfile = process.env.FINTWIN_SEED_PROFILE;
+const environment = process.env.FINTWIN_ENV;
+const databaseUrl = process.env.DATABASE_URL;
+
+if (seedProfile !== "demo" && seedProfile !== "e2e") {
+  throw new Error(
+    "Seed bloqueado: define FINTWIN_SEED_PROFILE=demo ou FINTWIN_SEED_PROFILE=e2e. " +
+      "Staging e produção nunca recebem dados fictícios.",
+  );
+}
+
+if (environment !== seedProfile) {
+  throw new Error(
+    `Seed bloqueado: FINTWIN_ENV=${environment ?? "(vazio)"} não corresponde a ` +
+      `FINTWIN_SEED_PROFILE=${seedProfile}.`,
+  );
+}
+
+if (!databaseUrl) {
+  throw new Error("Seed bloqueado: DATABASE_URL em falta.");
+}
+
+const seedDatabaseName = new URL(databaseUrl).pathname.replace(/^\//, "");
+const expectedSeedDatabase = seedProfile === "demo" ? "fintwin_demo_ui" : "fintwin_e2e";
+const matchesSeedDatabase =
+  seedProfile === "demo"
+    ? seedDatabaseName === expectedSeedDatabase
+    : seedDatabaseName === expectedSeedDatabase || seedDatabaseName.endsWith("_e2e");
+if (!matchesSeedDatabase) {
+  throw new Error(
+    `Seed bloqueado: ${seedProfile} só pode escrever em ${expectedSeedDatabase}, ` +
+      `não em ${seedDatabaseName || "uma base sem nome"}.`,
+  );
+}
+
 async function ensurePersonalWorkspace(userId: string, name: string) {
   const existing = await db.workspaceMember.findFirst({
     where: {
@@ -237,11 +272,13 @@ async function main() {
       update: {
         name: demoUser.name,
         passwordHash,
+        emailVerifiedAt: new Date(),
       },
       create: {
         email: demoUser.email,
         name: demoUser.name,
         passwordHash,
+        emailVerifiedAt: new Date(),
       },
     });
 

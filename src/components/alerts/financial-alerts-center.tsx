@@ -1,0 +1,44 @@
+import Link from "next/link";
+import { AlertExplainButton } from "@/components/alerts/alert-explain-button";
+import { AlertIcon } from "@/components/alerts/alert-icon";
+import { EmptyState } from "@/components/ui/empty-state";
+import { inputClassName, primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { dismissFinancialAlertAction, markAllFinancialAlertsSeenAction, markFinancialAlertSeenAction } from "@/lib/finance/financial-alert-actions";
+import type { FinancialAlertView } from "@/server/services/financial-alerts";
+
+export const SEVERITY_META = {
+  CRITICAL: { label: "Crítica", variant: "danger" as const, icon: "CRITICAL", iconClass: "bg-rose-50 text-rose-600" },
+  HIGH: { label: "Alta", variant: "danger" as const, icon: "HIGH", iconClass: "bg-orange-50 text-orange-600" },
+  ATTENTION: { label: "Atenção", variant: "warning" as const, icon: "ATTENTION", iconClass: "bg-amber-50 text-amber-700" },
+  INFO: { label: "Informativa", variant: "info" as const, icon: "INFO", iconClass: "bg-blue-50 text-blue-600" },
+};
+
+export const TYPE_LABELS: Record<string, string> = {
+  LOW_PROJECTED_BALANCE: "Saldo projetado baixo",
+  NEGATIVE_PROJECTED_BALANCE: "Saldo projetado negativo",
+  BUDGET_NEAR_LIMIT: "Orçamento próximo do limite",
+  BUDGET_EXCEEDED: "Orçamento ultrapassado",
+  RECURRING_EXPENSE_DUE: "Despesa recorrente a vencer",
+  RECURRING_EXPENSE_OVERDUE: "Despesa recorrente vencida",
+  EXPECTED_INCOME_OVERDUE: "Receita prevista atrasada",
+  UNUSUAL_EXPENSE: "Despesa invulgar",
+  EMERGENCY_FUND_BELOW_TARGET: "Fundo de emergência",
+  RECURRING_LIABILITY_CONFIGURATION: "Configuração de passivo",
+  DUPLICATE_PAYMENT_RISK: "Risco de pagamento duplicado",
+};
+
+function formatDate(date: Date) { return new Intl.DateTimeFormat("pt-PT", { timeZone:"Europe/Lisbon", day:"2-digit", month:"short", year:"numeric" }).format(date).replaceAll(" de "," ").replace(".",""); }
+function actionLabel(url: string) { if(url.startsWith("/orcamentos"))return "Ver orçamento"; if(url.startsWith("/contas"))return "Ver conta"; if(url.startsWith("/despesas-recorrentes"))return "Ver despesa"; if(url.startsWith("/receitas"))return "Ver receitas"; if(url.startsWith("/analises"))return "Ver análise"; if(url.startsWith("/previsoes"))return "Ver previsão"; if(url.startsWith("/patrimonio"))return "Ver património"; return "Ver detalhes"; }
+function queryHref(view:string, type:string, severity:string, sort:string, q:string) { const params=new URLSearchParams(); if(view!=="all")params.set("view",view); if(type)params.set("type",type); if(severity)params.set("severity",severity); if(sort!=="relevance")params.set("sort",sort); if(q)params.set("q",q); const search=params.toString(); return `/alertas${search?`?${search}`:""}`; }
+
+export function FinancialAlertsCenter({ alerts, allAlerts, dueSoonIds, view, type, severity, sort, query }: { alerts:FinancialAlertView[]; allAlerts:FinancialAlertView[]; dueSoonIds:string[]; view:string; type:string; severity:string; sort:string; query:string }) {
+  const counts={ all:allAlerts.length, immediate:allAlerts.filter((a)=>a.status==="ACTIVE"&&(a.severity==="CRITICAL"||a.severity==="HIGH")).length, due:allAlerts.filter((a)=>dueSoonIds.includes(a.id)).length, info:allAlerts.filter((a)=>a.status==="ACTIVE"&&a.severity==="INFO").length, resolved:allAlerts.filter((a)=>a.status==="RESOLVED").length };
+  const tabs=[{value:"all",label:"Todos",count:counts.all},{value:"immediate",label:"Ação imediata",count:counts.immediate},{value:"due",label:"A vencer",count:counts.due},{value:"info",label:"Informativos",count:counts.info},{value:"resolved",label:"Resolvidos",count:counts.resolved}];
+  const types=[...new Set(allAlerts.map((alert)=>alert.type))].sort();
+  return <section className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-card)]" data-testid="financial-alerts-page">
+    <div className="border-b border-[var(--border)] px-5 pt-4"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold">Todos os alertas ({counts.all})</h2>{allAlerts.some((alert)=>alert.status==="ACTIVE"&&!alert.seenAt&&!alert.dismissedAt)?<form action={markAllFinancialAlertsSeenAction}><button className={secondaryButtonClassName}>Marcar todos como vistos</button></form>:null}</div><nav className="mt-3 flex max-w-full gap-5 overflow-x-auto" aria-label="Estado dos alertas">{tabs.map((tab)=><Link key={tab.value} href={queryHref(tab.value,type,severity,sort,query)} aria-current={view===tab.value?"page":undefined} className={`shrink-0 border-b-2 pb-3 text-sm font-medium ${view===tab.value?"border-blue-600 text-blue-700":"border-transparent text-slate-500"}`}>{tab.label} ({tab.count})</Link>)}</nav></div>
+    <form method="get" className="grid gap-2 border-b border-[var(--border)] px-5 py-3 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_auto_auto_auto_auto]"><input type="hidden" name="view" value={view}/><input name="q" type="search" defaultValue={query} aria-label="Pesquisar alertas" placeholder="Pesquisar alertas…" className={`${inputClassName} mt-0`}/><select name="type" defaultValue={type} aria-label="Filtrar por tipo" className={`${inputClassName} mt-0`}><option value="">Todos os tipos</option>{types.map((item)=><option key={item} value={item}>{TYPE_LABELS[item]??item}</option>)}</select><select name="severity" defaultValue={severity} aria-label="Filtrar por prioridade" className={`${inputClassName} mt-0`}><option value="">Todas as prioridades</option>{Object.entries(SEVERITY_META).map(([value,meta])=><option key={value} value={value}>{meta.label}</option>)}</select><select name="sort" defaultValue={sort} aria-label="Ordenar alertas" className={`${inputClassName} mt-0`}><option value="relevance">Maior prioridade</option><option value="newest">Mais recentes</option><option value="oldest">Mais antigos</option></select><button className={secondaryButtonClassName}>Filtrar</button></form>
+    {alerts.length===0?<div className="p-5"><EmptyState title={allAlerts.length===0?"Não tens alertas ativos.":"Sem alertas neste filtro."} description={allAlerts.length===0?"Quando o FinTwin identificar situações importantes, aparecerão aqui.":"Altera os filtros para consultar outros alertas."}/></div>:<ul className="divide-y divide-[var(--border)] px-3 sm:px-5">{alerts.map((alert)=>{const meta=SEVERITY_META[alert.severity]; const unseen=!alert.seenAt&&!alert.dismissedAt; return <li key={alert.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center" data-testid="financial-alert-item" data-alert-severity={alert.severity} data-alert-unseen={unseen?"true":"false"}><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${alert.status==="RESOLVED"?"bg-emerald-50 text-emerald-600":meta.iconClass}`}><AlertIcon kind={alert.status==="RESOLVED"?"RESOLVED":meta.icon}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold text-slate-900 dark:text-white">{alert.title}</p>{unseen?<span className="h-2 w-2 rounded-full bg-blue-600" aria-label="Não visto"/>:null}</div><p className="mt-0.5 text-sm leading-5 text-slate-600 dark:text-slate-300">{alert.description}</p><p className="mt-1 text-xs text-slate-500">{TYPE_LABELS[alert.type]??alert.type}</p><AlertExplainButton alertId={alert.id}/></div><div className="flex flex-wrap items-center gap-2 sm:justify-end"><time className="whitespace-nowrap text-xs text-slate-500" dateTime={alert.detectedAt.toISOString()}>{formatDate(alert.status==="RESOLVED"&&alert.resolvedAt?alert.resolvedAt:alert.detectedAt)}</time><StatusBadge variant={alert.status==="RESOLVED"?"success":meta.variant}>{alert.status==="RESOLVED"?"Resolvido":meta.label}</StatusBadge>{alert.actionUrl?<Link href={alert.actionUrl} className={primaryButtonClassName}>{actionLabel(alert.actionUrl)}</Link>:null}{alert.status==="ACTIVE"?<details className="relative"><summary className="grid h-9 w-9 cursor-pointer list-none place-items-center rounded-lg border border-[var(--border)] text-lg" aria-label={`Ações de ${alert.title}`}>⋮</summary><div className="absolute right-0 z-20 mt-2 w-52 space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-xl">{!alert.seenAt?<form action={markFinancialAlertSeenAction}><input type="hidden" name="alertId" value={alert.id}/><button className={`${secondaryButtonClassName} w-full`}>Marcar como visto</button></form>:<p className="text-xs text-slate-500">Já visto por ti</p>}<form action={dismissFinancialAlertAction}><input type="hidden" name="alertId" value={alert.id}/><button className={`${secondaryButtonClassName} w-full`}>Dispensar da minha lista</button></form><p className="text-[11px] leading-4 text-slate-500">Dispensar não resolve a situação financeira.</p></div></details>:null}</div></li>})}</ul>}
+  </section>;
+}

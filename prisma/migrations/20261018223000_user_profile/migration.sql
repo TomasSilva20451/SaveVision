@@ -1,0 +1,4 @@
+ALTER TABLE "User"
+ADD COLUMN "phone" TEXT,
+ADD COLUMN "birthDate" DATE,
+ADD COLUMN "avatarUrl" TEXT;

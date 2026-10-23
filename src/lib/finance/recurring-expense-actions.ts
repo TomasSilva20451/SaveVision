@@ -8,6 +8,7 @@ import {
   confirmRecurringExpenseOccurrence,
   createRecurringExpense,
   postponeExpenseOccurrence,
+  restoreRecurringExpenseOccurrence,
   setRecurringExpenseStatus,
   skipExpenseOccurrence,
   setRecurringLiabilityLink,
@@ -15,6 +16,21 @@ import {
 } from "@/server/services/recurring-expenses";
 import { civilDateIsoToInstant } from "@/lib/datetime/civil-date";
 import type { RecurrenceFrequency } from "@/lib/finance/recurring-schedule";
+import {
+  blockRecurringPatternMerchant,
+  createRecurringExpenseFromPatternSuggestion,
+  dismissRecurringPatternSuggestion,
+} from "@/server/services/recurring-pattern-suggestions";
+
+const RECURRING_PATH = "/despesas-recorrentes";
+
+async function recurringSuccess(text: string) {
+  await flashSuccess(text, RECURRING_PATH);
+}
+
+async function recurringError(text: string) {
+  await flashError(text, RECURRING_PATH);
+}
 
 async function workspaceOrAbort(userId: string) {
   return resolveWorkspaceContext(userId);
@@ -45,10 +61,10 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
   });
 
   if (!created) {
-    await flashError("Não foi possível criar a recorrência. Verifica categoria e montante.");
+    await recurringError("Não foi possível criar a recorrência. Verifica categoria e montante.");
     return;
   }
-  await flashSuccess("Despesa recorrente criada.");
+  await recurringSuccess("Despesa recorrente criada.");
   revalidatePath("/despesas-recorrentes");
   revalidatePath("/dashboard");
   revalidatePath("/previsoes");
@@ -71,11 +87,11 @@ export async function updateRecurringLiabilityLinkAction(formData: FormData): Pr
   );
 
   if (!result.ok) {
-    await flashError(result.error);
+    await recurringError(result.error);
     return;
   }
 
-  await flashSuccess(
+  await recurringSuccess(
     linkedLiabilityId
       ? "Associação ao passivo guardada. A previsão evita dupla contagem."
       : "Associação ao passivo removida.",
@@ -104,13 +120,13 @@ export async function confirmRecurringExpenseAction(formData: FormData): Promise
 
   if (!result.ok) {
     if (result.reason === "linked_liability_ack_required" && "message" in result) {
-      await flashError(result.message);
+      await recurringError(result.message);
     } else {
-      await flashError("Confirmação falhou. Verifica conta, montante e estado da ocorrência.");
+      await recurringError("Confirmação falhou. Verifica conta, montante e estado da ocorrência.");
     }
     return;
   }
-  await flashSuccess(
+  await recurringSuccess(
     result.alreadyConfirmed ? "Pagamento já estava confirmado." : "Pagamento confirmado.",
   );
   revalidatePath("/despesas-recorrentes");
@@ -132,10 +148,10 @@ export async function postponeRecurringExpenseAction(formData: FormData): Promis
     civilDateIsoToInstant(String(formData.get("newDueDate"))),
   );
   if (!ok) {
-    await flashError("Não foi possível adiar a ocorrência.");
+    await recurringError("Não foi possível adiar a ocorrência.");
     return;
   }
-  await flashSuccess("Vencimento adiado.");
+  await recurringSuccess("Vencimento adiado.");
   revalidatePath("/despesas-recorrentes");
 }
 
@@ -151,10 +167,10 @@ export async function skipRecurringExpenseAction(formData: FormData): Promise<vo
     String(formData.get("occurrenceId")),
   );
   if (!ok) {
-    await flashError("Não foi possível ignorar a ocorrência.");
+    await recurringError("Não foi possível ignorar a ocorrência.");
     return;
   }
-  await flashSuccess("Ocorrência ignorada.");
+  await recurringSuccess("Ocorrência ignorada.");
   revalidatePath("/despesas-recorrentes");
 }
 
@@ -172,10 +188,10 @@ export async function pauseRecurringExpenseAction(formData: FormData): Promise<v
     status,
   );
   if (!ok) {
-    await flashError("Não foi possível alterar o estado da recorrência.");
+    await recurringError("Não foi possível alterar o estado da recorrência.");
     return;
   }
-  await flashSuccess(status === "PAUSED" ? "Recorrência pausada." : "Recorrência retomada.");
+  await recurringSuccess(status === "PAUSED" ? "Recorrência pausada." : "Recorrência retomada.");
   revalidatePath("/despesas-recorrentes");
 }
 
@@ -192,10 +208,10 @@ export async function endRecurringExpenseAction(formData: FormData): Promise<voi
     "ENDED",
   );
   if (!ok) {
-    await flashError("Não foi possível terminar a recorrência.");
+    await recurringError("Não foi possível terminar a recorrência.");
     return;
   }
-  await flashSuccess("Recorrência terminada.");
+  await recurringSuccess("Recorrência terminada.");
   revalidatePath("/despesas-recorrentes");
 }
 
@@ -212,9 +228,109 @@ export async function updateRecurringAmountAction(formData: FormData): Promise<v
     String(formData.get("expectedAmount")),
   );
   if (!ok) {
-    await flashError("Não foi possível atualizar o valor futuro.");
+    await recurringError("Não foi possível atualizar o valor futuro.");
     return;
   }
-  await flashSuccess("Valor futuro atualizado (histórico pago preservado).");
+  await recurringSuccess("Valor futuro atualizado (histórico pago preservado).");
   revalidatePath("/despesas-recorrentes");
+}
+
+export async function restoreRecurringExpenseOccurrenceAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const result = await restoreRecurringExpenseOccurrence(
+    user.id,
+    selected.id,
+    String(formData.get("occurrenceId") ?? ""),
+  );
+  if (!result.ok) {
+    await recurringError(result.error);
+    return;
+  }
+
+  const message = result.restoredFrom === "PAID"
+    ? `Pagamento anulado${result.accountName ? `; o saldo foi reposto em «${result.accountName}»` : ""}.`
+    : "Ocorrência ignorada reposta como pendente.";
+  await recurringSuccess(message);
+  revalidatePath("/despesas-recorrentes");
+  revalidatePath("/dashboard");
+  revalidatePath("/contas");
+  revalidatePath("/despesas");
+  revalidatePath("/transacoes");
+  revalidatePath("/previsoes");
+  revalidatePath("/analises");
+}
+
+export async function dismissRecurringPatternSuggestionAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const ok = await dismissRecurringPatternSuggestion(user.id, selected.id, {
+    suggestionKey: String(formData.get("suggestionKey") ?? ""),
+    merchantPattern: String(formData.get("merchantPattern") ?? ""),
+  });
+  if (!ok) {
+    await recurringError("Não foi possível ignorar a sugestão.");
+    return;
+  }
+  await recurringSuccess("Sugestão ignorada.");
+  revalidatePath("/despesas-recorrentes");
+}
+
+export async function blockRecurringPatternMerchantAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const merchantPattern = String(formData.get("merchantPattern") ?? "");
+  const ok = await blockRecurringPatternMerchant(user.id, selected.id, merchantPattern);
+  if (!ok) {
+    await recurringError("Não foi possível bloquear este comerciante.");
+    return;
+  }
+  await recurringSuccess("Este comerciante deixará de ser sugerido neste workspace.");
+  revalidatePath("/despesas-recorrentes");
+}
+
+export async function acceptRecurringPatternSuggestionAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const transactionIds = String(formData.get("transactionIds") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const accountRaw = String(formData.get("accountId") ?? "");
+
+  const result = await createRecurringExpenseFromPatternSuggestion(user.id, selected.id, {
+    suggestionKey: String(formData.get("suggestionKey") ?? ""),
+    name: String(formData.get("name") ?? ""),
+    categoryId: String(formData.get("categoryId") ?? ""),
+    accountId: accountRaw || undefined,
+    transactionIds,
+  });
+
+  if (!result.ok) {
+    const message =
+      result.reason === "DUPLICATE"
+        ? "Já existe uma recorrência semelhante. Revê a lista antes de confirmar."
+        : result.reason === "EVIDENCE_CHANGED"
+          ? "Os movimentos de evidência mudaram. Atualiza a página e revê a sugestão."
+          : "Não foi possível criar a recorrência a partir da sugestão.";
+    await recurringError(message);
+    return;
+  }
+
+  await recurringSuccess("Despesa recorrente criada a partir da sugestão.");
+  revalidatePath("/despesas-recorrentes");
+  revalidatePath("/dashboard");
+  revalidatePath("/previsoes");
 }

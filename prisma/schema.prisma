@@ -35,18 +35,219 @@ enum MembershipStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  email        String     @unique
-  name         String
-  passwordHash String
-  systemRole   SystemRole @default(USER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id              String     @id @default(cuid())
+  email           String     @unique
+  name            String
+  passwordHash    String
+  phone           String?
+  birthDate       DateTime?  @db.Date
+  avatarUrl       String?
+  systemRole      SystemRole @default(USER)
+  emailVerifiedAt DateTime?
+  disabledAt      DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
-  memberships       WorkspaceMember[]
-  createdWorkspaces Workspace[]       @relation("WorkspaceCreator")
-  auditLogs         AuditLog[]        @relation("AuditActor")
-  alertUserStates   FinancialAlertUserState[]
+  memberships             WorkspaceMember[]
+  totpCredential          UserTotpCredential?
+  recoveryCodes           RecoveryCode[]
+  emailChallenges         EmailChallenge[]
+  authSessions            AuthSession[]
+  securityEvents          SecurityEvent[]
+  passkeys                PasskeyCredential[]
+  createdWorkspaces       Workspace[]               @relation("WorkspaceCreator")
+  auditLogs               AuditLog[]                @relation("AuditActor")
+  alertUserStates         FinancialAlertUserState[]
+  monthlyReportNarratives MonthlyReportNarrative[]  @relation("MonthlyReportNarrativeAuthor")
+  localAiSettings         UserLocalAiSettings?
+  privacyConsents         PrivacyConsent[]
+  erasureRequests         SubjectErasureRequest[]
+}
+
+/// Ledger de auditoria transversal. Não tem foreign keys deliberadamente:
+/// eliminações operacionais nunca podem apagar a identidade histórica do evento.
+model AuditEvent {
+  sequence       BigInt   @id @default(autoincrement())
+  id             String   @unique @default(cuid())
+  occurredAt     DateTime @default(now())
+  actorUserId    String?
+  actorReference String
+  workspaceId    String?
+  action         String
+  resourceType   String
+  resourceId     String
+  outcome        String
+  source         String
+  requestId      String?
+  ipHash         String?
+  userAgentHash  String?
+  metadata       Json?
+  previousHash   String
+  eventHash      String   @unique
+  signature      String
+  signingKeyId   String
+
+  @@index([workspaceId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([action, occurredAt])
+}
+
+/// Uma tentativa de UPDATE/DELETE ao ledger é bloqueada por trigger e registada aqui.
+model AuditTamperAttempt {
+  id           String   @id
+  detectedAt   DateTime @default(now())
+  operation    String
+  targetId     String?
+  databaseUser String
+  source       String
+
+  @@index([detectedAt])
+}
+
+model UserLocalAiSettings {
+  userId         String   @id
+  localAiEnabled Boolean  @default(true)
+  ollamaBaseUrl  String?  @db.VarChar(512)
+  textModel      String?  @db.VarChar(128)
+  imageModel     String?  @db.VarChar(128)
+  helpModel      String?  @db.VarChar(128)
+  storePrompts   Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserTotpCredential {
+  userId           String    @id
+  secretCiphertext String
+  enabledAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+}
+
+model EmailChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  email      String
+  purpose    String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+}
+
+model AuthSession {
+  id          String    @id @default(cuid())
+  userId      String
+  deviceLabel String
+  userAgent   String?
+  ipHash      String?
+  deviceHash  String?
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  revokedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+}
+
+model SecurityEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  email      String?
+  type       String
+  ipHash     String?
+  deviceHash String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model PrivacyConsent {
+  id             String   @id @default(cuid())
+  userId         String
+  consentKey     String
+  version        String
+  acceptedAt     DateTime @default(now())
+  ipHash         String?
+  userAgentHash  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, consentKey, version])
+  @@index([userId, acceptedAt])
+}
+
+model SubjectErasureRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  status         String
+  consentVersion String
+  proofSha256    String?
+  requestedAt    DateTime  @default(now())
+  completedAt    DateTime?
+  metadata       Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, requestedAt])
+}
+
+model AuthRateBucket {
+  key             String    @id
+  failures        Int       @default(0)
+  subjects        Json      @default("[]")
+  windowStartedAt DateTime
+  blockedUntil    DateTime?
+  updatedAt       DateTime  @updatedAt
+}
+
+model PasskeyCredential {
+  id           String    @id @default(cuid())
+  userId       String
+  credentialId String    @unique
+  publicKey    String
+  counter      Int       @default(0)
+  transports   String?
+  deviceLabel  String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WebAuthnChallenge {
+  id        String   @id @default(cuid())
+  userId    String?
+  purpose   String
+  challenge String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model Workspace {
@@ -57,31 +258,36 @@ model Workspace {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  createdBy    User              @relation("WorkspaceCreator", fields: [createdById], references: [id])
-  members      WorkspaceMember[]
-  accounts          FinancialAccount[]
-  categories        Category[]
-  transactions      Transaction[]
-  transfers         Transfer[]
-  auditLogs         AuditLog[]
-  incomeSeries      IncomeSeries[]
-  incomeOccurrences IncomeOccurrence[]
-  ecommerceSales    EcommerceSale[]
-  tournamentIncomes TournamentIncome[]
-  savingsGoals          SavingsGoal[]
-  savingsContributions  SavingsGoalContribution[]
-  planningSettings      WorkspacePlanningSettings?
-  cgdProducts           CgdProductRegistry[]
-  workspaceInvites      WorkspaceInvite[]
-  investmentPositions   InvestmentPosition[]
-  storedDocuments       StoredDocument[]
-  monthlyBudgets        MonthlyBudget[]
-  financialLiabilities  FinancialLiability[]
-  netWorthSnapshots     NetWorthSnapshot[]
-  financialAuditLogs    FinancialAuditLog[]
-  recurringExpenses           RecurringExpense[]
-  recurringExpenseOccurrences RecurringExpenseOccurrence[]
-  financialAlerts             FinancialAlert[]
+  createdBy                            User                                  @relation("WorkspaceCreator", fields: [createdById], references: [id])
+  members                              WorkspaceMember[]
+  accounts                             FinancialAccount[]
+  categories                           Category[]
+  transactions                         Transaction[]
+  transfers                            Transfer[]
+  auditLogs                            AuditLog[]
+  incomeSeries                         IncomeSeries[]
+  incomeOccurrences                    IncomeOccurrence[]
+  ecommerceSales                       EcommerceSale[]
+  tournamentIncomes                    TournamentIncome[]
+  savingsGoals                         SavingsGoal[]
+  savingsContributions                 SavingsGoalContribution[]
+  planningSettings                     WorkspacePlanningSettings?
+  cgdProducts                          CgdProductRegistry[]
+  workspaceInvites                     WorkspaceInvite[]
+  investmentPositions                  InvestmentPosition[]
+  storedDocuments                      StoredDocument[]
+  monthlyReportNarratives              MonthlyReportNarrative[]
+  monthlyBudgets                       MonthlyBudget[]
+  financialLiabilities                 FinancialLiability[]
+  netWorthSnapshots                    NetWorthSnapshot[]
+  financialAuditLogs                   FinancialAuditLog[]
+  recurringExpenses                    RecurringExpense[]
+  recurringExpenseOccurrences          RecurringExpenseOccurrence[]
+  financialAlerts                      FinancialAlert[]
+  transactionCategorizationRules       TransactionCategorizationRule[]
+  categorizationSuggestions            TransactionCategorizationSuggestion[]
+  recurringPatternSuggestionDismissals RecurringPatternSuggestionDismissal[]
+  recurringPatternMerchantBlocks       RecurringPatternMerchantBlock[]
 
   @@index([type])
   @@index([createdById])
@@ -172,26 +378,26 @@ enum IncomeCertainty {
 }
 
 model FinancialAccount {
-  id                  String      @id @default(cuid())
-  workspaceId         String
-  ownerUserId         String?
-  name                String
-  institution         String?
-  type                AccountType
-  currency            String      @default("EUR")
-  openingBalance      Decimal     @default(0) @db.Decimal(19, 4)
-  isIncludedInNetWorth Boolean    @default(true)
-  isArchived          Boolean     @default(false)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
+  id                   String      @id @default(cuid())
+  workspaceId          String
+  ownerUserId          String?
+  name                 String
+  institution          String?
+  type                 AccountType
+  currency             String      @default("EUR")
+  openingBalance       Decimal     @default(0) @db.Decimal(19, 4)
+  isIncludedInNetWorth Boolean     @default(true)
+  isArchived           Boolean     @default(false)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
 
-  workspace         Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  transactions      Transaction[]
-  incomeSeries      IncomeSeries[]
-  incomeOccurrences IncomeOccurrence[]
-  ecommerceSales    EcommerceSale[]
-  tournamentIncomes TournamentIncome[]
-  savingsGoals      SavingsGoal[]
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions        Transaction[]
+  incomeSeries        IncomeSeries[]
+  incomeOccurrences   IncomeOccurrence[]
+  ecommerceSales      EcommerceSale[]
+  tournamentIncomes   TournamentIncome[]
+  savingsGoals        SavingsGoal[]
   investmentPositions InvestmentPosition[]
   liabilityPayments   LiabilityPayment[]
   recurringExpenses   RecurringExpense[]
@@ -208,12 +414,94 @@ model Category {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-  budgetLines  BudgetLine[]
-  recurringExpenses RecurringExpense[]
+  workspace                      Workspace                             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions                   Transaction[]
+  budgetLines                    BudgetLine[]
+  recurringExpenses              RecurringExpense[]
+  transactionCategorizationRules TransactionCategorizationRule[]
+  categorizationSuggestions      TransactionCategorizationSuggestion[]
 
   @@unique([workspaceId, name])
+}
+
+model TransactionCategorizationRule {
+  id                    String          @id @default(cuid())
+  workspaceId           String
+  pattern               String
+  merchant              String
+  categoryId            String?
+  transactionType       TransactionType
+  nature                CategoryNature?
+  appliedCount          Int             @default(1)
+  correctionCount       Int             @default(0)
+  lastConfirmedByUserId String
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, pattern, transactionType])
+  @@index([workspaceId, updatedAt])
+}
+
+enum CategorizationSuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum CategorizationSuggestionSource {
+  RULE
+  OLLAMA
+}
+
+model TransactionCategorizationSuggestion {
+  id                  String                         @id @default(cuid())
+  workspaceId         String
+  transactionId       String                         @unique
+  suggestedCategoryId String?
+  suggestedMerchant   String
+  confidence          Float
+  source              CategorizationSuggestionSource
+  provider            String
+  status              CategorizationSuggestionStatus @default(PENDING)
+  rejectedUntil       DateTime?
+  computedAt          DateTime                       @default(now())
+  decidedAt           DateTime?
+  decidedByUserId     String?
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [suggestedCategoryId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, status, computedAt])
+}
+
+model RecurringPatternSuggestionDismissal {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  suggestionKey     String
+  merchantPattern   String
+  dismissedByUserId String
+  createdAt         DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, suggestionKey])
+  @@index([workspaceId, merchantPattern])
+}
+
+model RecurringPatternMerchantBlock {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  merchantPattern String
+  blockedByUserId String
+  createdAt       DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, merchantPattern])
 }
 
 model Transfer {
@@ -257,12 +545,13 @@ model Transaction {
   category  Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   transfer  Transfer?        @relation(fields: [transferId], references: [id], onDelete: SetNull)
 
-  incomeOccurrence IncomeOccurrence?
-  ecommerceSale    EcommerceSale?
-  tournamentIncome TournamentIncome?
-  liabilityPrincipalPayment LiabilityPayment? @relation("LiabilityPrincipalTx")
-  liabilityExpensePayment   LiabilityPayment? @relation("LiabilityExpenseTx")
+  incomeOccurrence           IncomeOccurrence?
+  ecommerceSale              EcommerceSale?
+  tournamentIncome           TournamentIncome?
+  liabilityPrincipalPayment  LiabilityPayment?                    @relation("LiabilityPrincipalTx")
+  liabilityExpensePayment    LiabilityPayment?                    @relation("LiabilityExpenseTx")
   recurringExpenseOccurrence RecurringExpenseOccurrence?
+  categorizationSuggestion   TransactionCategorizationSuggestion?
 
   @@index([workspaceId, occurredAt])
   @@index([accountId, occurredAt])
@@ -286,21 +575,21 @@ model AuditLog {
 }
 
 model IncomeSeries {
-  id              String             @id @default(cuid())
-  workspaceId     String
-  userId          String
-  sourceType      IncomeSourceType
-  title           String
-  amount          Decimal            @db.Decimal(19, 4)
-  frequency       RecurringFrequency
-  accountId       String
-  familyOrigin    String?
-  certainty       IncomeCertainty?
-  nextDueAt       DateTime?
-  endAt           DateTime?
-  active          Boolean            @default(true)
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  id           String             @id @default(cuid())
+  workspaceId  String
+  userId       String
+  sourceType   IncomeSourceType
+  title        String
+  amount       Decimal            @db.Decimal(19, 4)
+  frequency    RecurringFrequency
+  accountId    String
+  familyOrigin String?
+  certainty    IncomeCertainty?
+  nextDueAt    DateTime?
+  endAt        DateTime?
+  active       Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   account     FinancialAccount   @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -310,73 +599,73 @@ model IncomeSeries {
 }
 
 model IncomeOccurrence {
-  id            String                 @id @default(cuid())
-  workspaceId   String
-  userId        String
-  seriesId      String?
-  sourceType    IncomeSourceType
-  status        IncomeOccurrenceStatus @default(EXPECTED)
-  expectedAmount Decimal               @db.Decimal(19, 4)
-  scheduledFor  DateTime
-  accountId     String
-  title         String
-  transactionId String?                @unique
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  id             String                 @id @default(cuid())
+  workspaceId    String
+  userId         String
+  seriesId       String?
+  sourceType     IncomeSourceType
+  status         IncomeOccurrenceStatus @default(EXPECTED)
+  expectedAmount Decimal                @db.Decimal(19, 4)
+  scheduledFor   DateTime
+  accountId      String
+  title          String
+  transactionId  String?                @unique
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
-  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  series      IncomeSeries?     @relation(fields: [seriesId], references: [id], onDelete: SetNull)
-  account     FinancialAccount  @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  series      IncomeSeries?    @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction Transaction?     @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, scheduledFor, status])
   @@index([seriesId])
 }
 
 model RecurringExpense {
-  id              String                   @id @default(cuid())
-  workspaceId     String
-  userId          String
-  name            String
-  description     String?
-  categoryId      String
-  expectedAmount  Decimal                  @db.Decimal(19, 4)
-  frequency       RecurringFrequency
-  startDate       DateTime
-  endDate         DateTime?
-  dueDayOfMonth   Int?
-  accountId           String?
-  linkedLiabilityId   String?
-  status              RecurringExpenseStatus   @default(ACTIVE)
-  pausedAt            DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  id                String                 @id @default(cuid())
+  workspaceId       String
+  userId            String
+  name              String
+  description       String?
+  categoryId        String
+  expectedAmount    Decimal                @db.Decimal(19, 4)
+  frequency         RecurringFrequency
+  startDate         DateTime
+  endDate           DateTime?
+  dueDayOfMonth     Int?
+  accountId         String?
+  linkedLiabilityId String?
+  status            RecurringExpenseStatus @default(ACTIVE)
+  pausedAt          DateTime?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
-  workspace         Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  category          Category                     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  account           FinancialAccount?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  linkedLiability   FinancialLiability?          @relation(fields: [linkedLiabilityId], references: [id], onDelete: SetNull)
-  occurrences       RecurringExpenseOccurrence[]
+  workspace       Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category        Category                     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  account         FinancialAccount?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  linkedLiability FinancialLiability?          @relation(fields: [linkedLiabilityId], references: [id], onDelete: SetNull)
+  occurrences     RecurringExpenseOccurrence[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, linkedLiabilityId])
 }
 
 model RecurringExpenseOccurrence {
-  id                 String                           @id @default(cuid())
-  workspaceId        String
-  recurringExpenseId String
-  anchorDate         DateTime
-  dueDate            DateTime
-  expectedAmount     Decimal                          @db.Decimal(19, 4)
-  actualAmount       Decimal?                         @db.Decimal(19, 4)
-  status             RecurringExpenseOccurrenceStatus @default(EXPECTED)
-  paidAt             DateTime?
-  transactionId      String?                          @unique
-  idempotencyKey     String?
-  expectedAmountCustomized Boolean                      @default(false)
-  createdAt          DateTime                         @default(now())
-  updatedAt          DateTime                         @updatedAt
+  id                       String                           @id @default(cuid())
+  workspaceId              String
+  recurringExpenseId       String
+  anchorDate               DateTime
+  dueDate                  DateTime
+  expectedAmount           Decimal                          @db.Decimal(19, 4)
+  actualAmount             Decimal?                         @db.Decimal(19, 4)
+  status                   RecurringExpenseOccurrenceStatus @default(EXPECTED)
+  paidAt                   DateTime?
+  transactionId            String?                          @unique
+  idempotencyKey           String?
+  expectedAmountCustomized Boolean                          @default(false)
+  createdAt                DateTime                         @default(now())
+  updatedAt                DateTime                         @updatedAt
 
   workspace        Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   recurringExpense RecurringExpense @relation(fields: [recurringExpenseId], references: [id], onDelete: Cascade)
@@ -389,27 +678,27 @@ model RecurringExpenseOccurrence {
 }
 
 model EcommerceSale {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   workspaceId          String
   userId               String
   accountId            String
   marketplace          String?
   orderReference       String?
-  grossAmount          Decimal  @db.Decimal(19, 4)
-  marketplaceFees      Decimal  @default(0) @db.Decimal(19, 4)
-  paymentFees          Decimal  @default(0) @db.Decimal(19, 4)
-  shippingCost         Decimal  @default(0) @db.Decimal(19, 4)
-  costOfGoods          Decimal  @default(0) @db.Decimal(19, 4)
-  otherCosts           Decimal  @default(0) @db.Decimal(19, 4)
-  netProceeds          Decimal  @db.Decimal(19, 4)
-  taxReservePercentage Decimal  @default(0) @db.Decimal(7, 4)
-  taxReserveAmount     Decimal  @default(0) @db.Decimal(19, 4)
+  grossAmount          Decimal   @db.Decimal(19, 4)
+  marketplaceFees      Decimal   @default(0) @db.Decimal(19, 4)
+  paymentFees          Decimal   @default(0) @db.Decimal(19, 4)
+  shippingCost         Decimal   @default(0) @db.Decimal(19, 4)
+  costOfGoods          Decimal   @default(0) @db.Decimal(19, 4)
+  otherCosts           Decimal   @default(0) @db.Decimal(19, 4)
+  netProceeds          Decimal   @db.Decimal(19, 4)
+  taxReservePercentage Decimal   @default(0) @db.Decimal(7, 4)
+  taxReserveAmount     Decimal   @default(0) @db.Decimal(19, 4)
   saleDate             DateTime
   payoutDate           DateTime?
   notes                String?
-  transactionId        String?  @unique
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  transactionId        String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -419,26 +708,26 @@ model EcommerceSale {
 }
 
 model TournamentIncome {
-  id                 String   @id @default(cuid())
-  workspaceId        String
-  userId             String
-  accountId          String
-  tournamentName     String
-  tournamentDate     DateTime
-  location           String?
-  category           String?
-  placement          String?
-  grossPrize         Decimal  @db.Decimal(19, 4)
-  registrationFee    Decimal  @default(0) @db.Decimal(19, 4)
-  travelCost         Decimal  @default(0) @db.Decimal(19, 4)
-  accommodationCost  Decimal  @default(0) @db.Decimal(19, 4)
-  foodCost           Decimal  @default(0) @db.Decimal(19, 4)
-  otherCosts         Decimal  @default(0) @db.Decimal(19, 4)
-  netPrize           Decimal  @db.Decimal(19, 4)
-  notes              String?
-  transactionId      String?  @unique
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                String   @id @default(cuid())
+  workspaceId       String
+  userId            String
+  accountId         String
+  tournamentName    String
+  tournamentDate    DateTime
+  location          String?
+  category          String?
+  placement         String?
+  grossPrize        Decimal  @db.Decimal(19, 4)
+  registrationFee   Decimal  @default(0) @db.Decimal(19, 4)
+  travelCost        Decimal  @default(0) @db.Decimal(19, 4)
+  accommodationCost Decimal  @default(0) @db.Decimal(19, 4)
+  foodCost          Decimal  @default(0) @db.Decimal(19, 4)
+  otherCosts        Decimal  @default(0) @db.Decimal(19, 4)
+  netPrize          Decimal  @db.Decimal(19, 4)
+  notes             String?
+  transactionId     String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -504,10 +793,10 @@ model SavingsGoalContribution {
 }
 
 model WorkspacePlanningSettings {
-  workspaceId              String   @id
-  emergencyFundTargetMonths Int     @default(6)
-  monthlyEssentialExpenses Decimal? @db.Decimal(19, 4)
-  updatedAt                DateTime @updatedAt
+  workspaceId               String   @id
+  emergencyFundTargetMonths Int      @default(6)
+  monthlyEssentialExpenses  Decimal? @db.Decimal(19, 4)
+  updatedAt                 DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
@@ -591,19 +880,36 @@ model InvestmentPosition {
 }
 
 model StoredDocument {
-  id              String   @id @default(cuid())
-  workspaceId     String
-  userId          String
-  originalName    String
-  mimeType        String
-  sizeBytes       Int
-  storageKey      String   @unique
-  sha256          String
-  createdAt       DateTime @default(now())
+  id           String   @id @default(cuid())
+  workspaceId  String
+  userId       String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   @unique
+  sha256       String
+  createdAt    DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+}
+
+model MonthlyReportNarrative {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  periodKey       String
+  promptVersion   String
+  model           String
+  sourceFactsJson Json
+  narrativeText   String
+  generatedById   String
+  generatedAt     DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  generatedBy User      @relation("MonthlyReportNarrativeAuthor", fields: [generatedById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, periodKey, generatedAt])
 }
 
 model MonthlyBudget {
@@ -615,7 +921,7 @@ model MonthlyBudget {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   lines     BudgetLine[]
 
   @@unique([workspaceId, year, month])
@@ -643,19 +949,19 @@ enum LiabilityType {
 }
 
 model FinancialLiability {
-  id                 String        @id @default(cuid())
-  workspaceId        String
-  userId             String
-  title              String
-  type               LiabilityType @default(OTHER)
-  outstandingBalance Decimal       @db.Decimal(19, 4)
-  monthlyPayment         Decimal?      @db.Decimal(19, 4)
-  manualRatePercent      Decimal?      @db.Decimal(7, 4)
-  paymentDueDayOfMonth   Int?
-  currency               String        @default("EUR")
-  notes                  String?
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  workspaceId          String
+  userId               String
+  title                String
+  type                 LiabilityType @default(OTHER)
+  outstandingBalance   Decimal       @db.Decimal(19, 4)
+  monthlyPayment       Decimal?      @db.Decimal(19, 4)
+  manualRatePercent    Decimal?      @db.Decimal(7, 4)
+  paymentDueDayOfMonth Int?
+  currency             String        @default("EUR")
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   workspace               Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   payments                LiabilityPayment[]
@@ -710,6 +1016,7 @@ model NetWorthSnapshot {
 
 enum FinancialAuditAction {
   ACCOUNT_CREATED
+  ACCOUNT_ARCHIVED
   TRANSACTION_CREATED
   INCOME_CONFIRMED
   BUDGET_CHANGED
@@ -723,6 +1030,7 @@ enum FinancialAuditAction {
   RECURRENT_EXPENSE_RESUMED
   RECURRENT_EXPENSE_ENDED
   EXPENSE_OCCURRENCE_PAID
+  EXPENSE_OCCURRENCE_PAYMENT_REVERSED
   EXPENSE_OCCURRENCE_SKIPPED
   EXPENSE_OCCURRENCE_POSTPONED
 }
@@ -790,7 +1098,7 @@ model FinancialAlert {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
-  workspace  Workspace                   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   userStates FinancialAlertUserState[]
 
   @@unique([workspaceId, deduplicationKey])
@@ -807,7 +1115,7 @@ model FinancialAlertUserState {
   updatedAt   DateTime  @updatedAt
 
   alert FinancialAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
-  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([alertId, userId])
   @@index([userId, dismissedAt])

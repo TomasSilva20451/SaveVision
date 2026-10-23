@@ -1,5 +1,6 @@
 import type { FinancialAuditAction } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { appendAuditEvent } from "@/server/audit/audit-ledger";
 
 export async function writeFinancialAuditLog(input: {
   workspaceId: string;
@@ -18,5 +19,15 @@ export async function writeFinancialAuditLog(input: {
       entityId: input.entityId,
       metadata: input.metadata ?? undefined,
     },
+  });
+  await appendAuditEvent({
+    actorUserId: input.actorUserId,
+    workspaceId: input.workspaceId,
+    action: input.action,
+    resourceType: input.entityType,
+    resourceId: input.entityId,
+    outcome: "SUCCESS",
+    source: "financial-service",
+    metadata: input.metadata,
   });
 }

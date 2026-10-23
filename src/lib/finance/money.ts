@@ -11,6 +11,41 @@ export const MONEY_DISPLAY_SCALE = 2;
 /** Casas guardadas na base de dados. */
 export const MONEY_STORAGE_SCALE = 4;
 
+/**
+ * Normaliza montantes introduzidos pelo utilizador para o formato decimal
+ * canónico usado pelo domínio e pela base de dados. Aceita tanto a vírgula
+ * portuguesa como o ponto decimal, incluindo agrupamento comum de milhares.
+ */
+export function normalizeDecimalInput(value: string): string {
+  const compact = value.trim().replace(/[\s\u00a0\u202f]/g, "");
+  if (!compact) throw new Error("Montante vazio.");
+
+  const commaCount = (compact.match(/,/g) ?? []).length;
+  const dotCount = (compact.match(/\./g) ?? []).length;
+  let normalized = compact;
+
+  if (commaCount > 0 && dotCount > 0) {
+    const commaIsDecimal = compact.lastIndexOf(",") > compact.lastIndexOf(".");
+    const decimalSeparator = commaIsDecimal ? "," : ".";
+    const groupingSeparator = commaIsDecimal ? "." : ",";
+    const decimalCount = decimalSeparator === "," ? commaCount : dotCount;
+    if (decimalCount !== 1) throw new Error("Montante inválido.");
+    normalized = compact.replaceAll(groupingSeparator, "");
+    if (decimalSeparator === ",") normalized = normalized.replace(",", ".");
+  } else if (commaCount > 0) {
+    if (commaCount !== 1) throw new Error("Montante inválido.");
+    normalized = compact.replace(",", ".");
+  } else if (dotCount > 1) {
+    throw new Error("Montante inválido.");
+  }
+
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) {
+    throw new Error("Montante inválido.");
+  }
+
+  return normalized;
+}
+
 const eurFormatter = new Intl.NumberFormat("pt-PT", {
   style: "currency",
   currency: "EUR",
@@ -20,7 +55,9 @@ const eurFormatter = new Intl.NumberFormat("pt-PT", {
 });
 
 export function decimal(value: Decimal.Value): Decimal {
-  return new Decimal(value);
+  return new Decimal(
+    typeof value === "string" ? normalizeDecimalInput(value) : value,
+  );
 }
 
 export function roundMoney(

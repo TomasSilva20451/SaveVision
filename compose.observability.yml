@@ -1,0 +1,43 @@
+# Stack local: Loki + Prometheus + Vector + OTEL collector
+# Uso: pnpm observability:up
+services:
+  loki:
+    image: grafana/loki:3.4.2
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - fintwin_loki:/loki
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./secrets/prometheus_metrics_token:/etc/prometheus/secrets/metrics_token:ro
+      - fintwin_prometheus:/prometheus
+
+  vector:
+    image: timberio/vector:0.46.1-alpine
+    volumes:
+      - ./infra/siem/vector.docker.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${HOME}/Library/Logs:/host-logs:ro
+    depends_on:
+      - loki
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./infra/otel/collector-config.yaml:/etc/otelcol/config.yaml:ro
+
+volumes:
+  fintwin_loki:
+  fintwin_prometheus:

@@ -1,8 +1,8 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 type DbClient = typeof import("@/lib/db").db;
 
-describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
+describe("isolamento entre utilizadores (servidor + PostgreSQL)", () => {
   let ready = false;
   let db: DbClient;
   let joaoId = "";
@@ -10,6 +10,8 @@ describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
   let joaoPersonalWs = "";
   let mariaPersonalWs = "";
   let mariaAccountId = "";
+  const createdWorkspaceIds: string[] = [];
+  const createdUserIds: string[] = [];
   let listAccountsWithBalances: typeof import("@/server/services/accounts").listAccountsWithBalances;
   let createExpense: typeof import("@/server/services/expenses").createExpense;
   let buildFinancialReportCsv: typeof import("@/server/services/reports").buildFinancialReportCsv;
@@ -75,55 +77,95 @@ describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
 
     ready = true;
 
-    const [joao, maria] = await Promise.all([
-      db.user.findUnique({ where: { email: "user1@example.local" } }),
-      db.user.findUnique({ where: { email: "user2@example.local" } }),
-    ]);
-    if (!joao || !maria) {
-      ready = false;
-      return;
-    }
+    const suffix = `${process.pid}-${Date.now()}`;
+    await db.$transaction(async (tx) => {
+      const joao = await tx.user.create({
+        data: {
+          email: `isolation-a-${suffix}@example.test`,
+          name: "Utilizador A",
+          passwordHash: "integration-test-only",
+        },
+      });
+      const maria = await tx.user.create({
+        data: {
+          email: `isolation-b-${suffix}@example.test`,
+          name: "Utilizador B",
+          passwordHash: "integration-test-only",
+        },
+      });
+      joaoId = joao.id;
+      mariaId = maria.id;
+      createdUserIds.push(joao.id, maria.id);
 
-    joaoId = joao.id;
-    mariaId = maria.id;
+      const joaoWorkspace = await tx.workspace.create({
+        data: { name: "Workspace A", type: "PERSONAL", createdById: joao.id },
+      });
+      const mariaWorkspace = await tx.workspace.create({
+        data: { name: "Workspace B", type: "PERSONAL", createdById: maria.id },
+      });
+      joaoPersonalWs = joaoWorkspace.id;
+      mariaPersonalWs = mariaWorkspace.id;
+      createdWorkspaceIds.push(joaoWorkspace.id, mariaWorkspace.id);
 
-    const joaoMember = await db.workspaceMember.findFirst({
-      where: { userId: joaoId, status: "ACTIVE", workspace: { type: "PERSONAL" } },
+      await tx.workspaceMember.createMany({
+        data: [
+          {
+            workspaceId: joaoWorkspace.id,
+            userId: joao.id,
+            role: "OWNER",
+            status: "ACTIVE",
+            joinedAt: new Date(),
+          },
+          {
+            workspaceId: mariaWorkspace.id,
+            userId: maria.id,
+            role: "OWNER",
+            status: "ACTIVE",
+            joinedAt: new Date(),
+          },
+        ],
+      });
+
+      const mariaAccount = await tx.financialAccount.create({
+        data: {
+          workspaceId: mariaWorkspace.id,
+          ownerUserId: maria.id,
+          name: "Conta B",
+          type: "CURRENT",
+          openingBalance: "100",
+        },
+      });
+      mariaAccountId = mariaAccount.id;
     });
-    const mariaMember = await db.workspaceMember.findFirst({
-      where: { userId: mariaId, status: "ACTIVE", workspace: { type: "PERSONAL" } },
-    });
-    if (!joaoMember || !mariaMember) {
-      ready = false;
-      return;
-    }
-
-    joaoPersonalWs = joaoMember.workspaceId;
-    mariaPersonalWs = mariaMember.workspaceId;
-
-    const mariaAccount = await db.financialAccount.findFirst({
-      where: { workspaceId: mariaPersonalWs, type: "CURRENT" },
-    });
-    mariaAccountId = mariaAccount?.id ?? "";
   });
 
-  it("base de dados acessível com seed", () => {
+  afterAll(async () => {
+    if (!db) return;
+    if (createdWorkspaceIds.length > 0) {
+      await db.workspace.deleteMany({ where: { id: { in: createdWorkspaceIds } } });
+    }
+    if (createdUserIds.length > 0) {
+      await db.user.deleteMany({ where: { id: { in: createdUserIds } } });
+    }
+  });
+
+  it("base de dados acessível com fixtures próprias", () => {
     expect(ready).toBe(true);
   });
 
-  it("João não lista contas do workspace pessoal de Maria", async () => {
+  it("utilizador A não lista contas do workspace pessoal B", async () => {
     if (!ready) return;
     const result = await listAccountsWithBalances(joaoId, mariaPersonalWs);
     expect(result).toBeNull();
   });
 
-  it("Maria não lista contas do workspace pessoal de João", async () => {
+  it("utilizador B não lista contas do workspace pessoal A", async () => {
     if (!ready) return;
     const result = await listAccountsWithBalances(mariaId, joaoPersonalWs);
     expect(result).toBeNull();
   });
 
-  it("João não cria despesa numa conta de Maria", async () => {
+  it("utilizador A não cria despesa numa conta B", async () => {
     if (!ready || !mariaAccountId) return;
     const result = await createExpense(joaoId, joaoPersonalWs, {
       accountId: mariaAccountId,
@@ -134,37 +176,37 @@ describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
     expect(result).toBeNull();
   });
 
-  it("João não exporta CSV do workspace de Maria", async () => {
+  it("utilizador A não exporta CSV do workspace B", async () => {
     if (!ready) return;
     const csv = await buildFinancialReportCsv(joaoId, mariaPersonalWs);
     expect(csv).toBeNull();
   });
 
-  it("João não consulta investimentos do workspace de Maria", async () => {
+  it("utilizador A não consulta investimentos do workspace B", async () => {
     if (!ready) return;
     const rows = await listInvestmentPositions(joaoId, mariaPersonalWs);
     expect(rows).toBeNull();
   });
 
-  it("João não consulta planeamento do workspace de Maria", async () => {
+  it("utilizador A não consulta planeamento do workspace B", async () => {
     if (!ready) return;
     const overview = await getPlanningOverview(joaoId, mariaPersonalWs);
     expect(overview).toBeNull();
   });
 
-  it("TESTE 9: João não consulta orçamentos do workspace de Maria", async () => {
+  it("utilizador A não consulta orçamentos do workspace B", async () => {
     if (!ready) return;
     const overview = await getBudgetOverview(joaoId, mariaPersonalWs, 2026, 1);
     expect(overview).toBeNull();
   });
 
-  it("TESTE 10: Maria não consulta património/passivos do workspace de João", async () => {
+  it("utilizador B não consulta património/passivos do workspace A", async () => {
     if (!ready) return;
     const overview = await getPatrimonyOverview(mariaId, joaoPersonalWs);
     expect(overview).toBeNull();
   });
 
-  it("João não regista pagamento de passivo no workspace de Maria", async () => {
+  it("utilizador A não regista pagamento de passivo no workspace B", async () => {
     if (!ready) return;
     const liability = await db.financialLiability.findFirst({
       where: { workspaceId: mariaPersonalWs },
@@ -180,31 +222,31 @@ describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("João não captura snapshot patrimonial no workspace de Maria", async () => {
+  it("utilizador A não captura snapshot patrimonial no workspace B", async () => {
     if (!ready) return;
     const snap = await captureNetWorthSnapshot(joaoId, mariaPersonalWs);
     expect(snap).toBeNull();
   });
 
-  it("Maria não consulta análises do workspace de João", async () => {
+  it("utilizador B não consulta análises do workspace A", async () => {
     if (!ready) return;
     const overview = await getFinancialInsightsOverview(mariaId, joaoPersonalWs);
     expect(overview).toBeNull();
   });
 
-  it("Maria não consulta previsão de tesouraria do workspace de João", async () => {
+  it("utilizador B não consulta previsão de tesouraria do workspace A", async () => {
     if (!ready) return;
     const forecast = await getTreasuryForecast(mariaId, joaoPersonalWs, 30);
     expect(forecast).toBeNull();
   });
 
-  it("Maria não consulta recorrências de despesas do workspace de João", async () => {
+  it("utilizador B não consulta recorrências de despesas do workspace A", async () => {
     if (!ready) return;
     const overview = await getRecurringExpensesOverview(mariaId, joaoPersonalWs);
     expect(overview).toBeNull();
   });
 
-  it("João não cria investimento ligado a conta de Maria", async () => {
+  it("utilizador A não cria investimento ligado a conta B", async () => {
     if (!ready || !mariaAccountId) return;
     const row = await createInvestmentPosition(joaoId, joaoPersonalWs, {
       assetClass: "ETF",
@@ -219,13 +261,13 @@ describe("isolamento João / Maria (servidor + PostgreSQL)", () => {
     expect(row).toBeNull();
   });
 
-  it("membership impede João de aceder ao workspace pessoal de Maria", async () => {
+  it("membership impede utilizador A de aceder ao workspace B", async () => {
     if (!ready) return;
     const memberships = await listMemberships(joaoId);
     expect(canAccessWorkspace(memberships, mariaPersonalWs)).toBe(false);
   });
 
-  it("documento de Maria inacessível com workspace de João", async () => {
+  it("documento do workspace B é inacessível no workspace A", async () => {
     if (!ready) return;
     let doc = await db.storedDocument.findFirst({
       where: { workspaceId: mariaPersonalWs },

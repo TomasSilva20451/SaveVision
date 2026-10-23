@@ -3,8 +3,12 @@ import { expect, test } from "@playwright/test";
 test.describe("Fase 18 — alertas financeiros", () => {
   test("E1 abrir /alertas", async ({ page }) => {
     await page.goto("/alertas");
-    await expect(page.getByRole("heading", { name: "Alertas financeiros" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Alertas", level: 1 })).toBeVisible();
     await expect(page.getByTestId("financial-alerts-page")).toBeVisible();
+    await expect(page.getByText("Ação imediata", { exact: true })).toBeVisible();
+    await expect(page.getByText("A vencer em breve", { exact: true })).toBeVisible();
+    await expect(page.getByText("Informativos", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Resolvidos", { exact: true }).first()).toBeVisible();
   });
 
   test("E2 visualizar alerta quando existir", async ({ page }) => {
@@ -18,8 +22,12 @@ test.describe("Fase 18 — alertas financeiros", () => {
 
   test("E4 marcar alerta como visto", async ({ page }) => {
     await page.goto("/alertas");
-    const item = page.getByTestId("financial-alert-item").first();
+    const item = page
+      .locator('[data-testid="financial-alert-item"][data-alert-unseen="true"]')
+      .filter({ has: page.locator('summary[aria-label^="Ações de "]') })
+      .first();
     if ((await item.count()) === 0) return;
+    await item.locator('summary[aria-label^="Ações de "]').click();
     await item.getByRole("button", { name: "Marcar como visto" }).click();
     await page.goto("/alertas");
     await expect(page.getByTestId("financial-alerts-page")).toBeVisible();
@@ -72,6 +80,15 @@ test.describe("Fase 18 — alertas financeiros", () => {
     await expect(page.getByRole("button", { name: "Atualizar alertas" })).toBeVisible();
   });
 
+  test("E17 filtros e calendário são funcionais", async ({ page }) => {
+    await page.goto("/alertas");
+    await page.getByLabel("Filtrar por prioridade").selectOption("INFO");
+    await page.getByRole("button", { name: "Filtrar" }).click();
+    await expect(page).toHaveURL(/severity=INFO/);
+    await page.getByRole("link", { name: "Mês seguinte" }).click();
+    await expect(page).toHaveURL(/calendar=/);
+  });
+
   test("E11 estado de leitura independente (Maria)", async ({ browser }) => {
     async function selectJoint(page: import("@playwright/test").Page) {
       await page.goto("/inicio");
@@ -83,18 +100,27 @@ test.describe("Fase 18 — alertas financeiros", () => {
     await selectJoint(mPage);
     await mPage.goto("/alertas");
     await mPage.getByRole("button", { name: "Atualizar alertas" }).click();
+    await mPage.waitForLoadState("networkidle");
     const joao = await browser.newContext({ storageState: "playwright/.auth/joao.json" });
     const jPage = await joao.newPage();
     await selectJoint(jPage);
     await jPage.goto("/alertas");
     await jPage.getByRole("button", { name: "Atualizar alertas" }).click();
-    const item = jPage.getByTestId("financial-alert-item").first();
+    await jPage.waitForLoadState("networkidle");
+    const item = jPage
+      .locator('[data-testid="financial-alert-item"][data-alert-unseen="true"]')
+      .filter({ has: jPage.locator('summary[aria-label^="Ações de "]') })
+      .first();
     if ((await item.count()) === 0) {
       await maria.close();
       await joao.close();
       return;
     }
-    await item.getByRole("button", { name: "Marcar como visto" }).click();
+    await expect(item).toBeVisible();
+    await item.locator('summary[aria-label^="Ações de "]').click();
+    const markSeen = item.getByRole("button", { name: "Marcar como visto" });
+    await expect(markSeen).toBeVisible();
+    await markSeen.click();
     await mPage.reload();
     const mariaItem = mPage.getByTestId("financial-alert-item").first();
     if ((await mariaItem.count()) > 0) {

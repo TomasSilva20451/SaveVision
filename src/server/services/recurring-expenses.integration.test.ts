@@ -10,6 +10,7 @@ describe("recurring expenses (PostgreSQL)", () => {
   let categoryId: string;
   let createRecurringExpense: typeof import("@/server/services/recurring-expenses").createRecurringExpense;
   let confirmRecurringExpenseOccurrence: typeof import("@/server/services/recurring-expenses").confirmRecurringExpenseOccurrence;
+  let restoreRecurringExpenseOccurrence: typeof import("@/server/services/recurring-expenses").restoreRecurringExpenseOccurrence;
   let listAccountsWithBalances: typeof import("@/server/services/accounts").listAccountsWithBalances;
 
   beforeAll(async () => {
@@ -19,6 +20,7 @@ describe("recurring expenses (PostgreSQL)", () => {
       const mod = await import("@/server/services/recurring-expenses");
       createRecurringExpense = mod.createRecurringExpense;
       confirmRecurringExpenseOccurrence = mod.confirmRecurringExpenseOccurrence;
+      restoreRecurringExpenseOccurrence = mod.restoreRecurringExpenseOccurrence;
       listAccountsWithBalances = (await import("@/server/services/accounts")).listAccountsWithBalances;
 
       const joao = await db.user.findFirst({ where: { email: "user1@example.local" } });
@@ -105,5 +107,28 @@ describe("recurring expenses (PostgreSQL)", () => {
       where: { workspaceId: joaoWs, description: series!.name, type: "EXPENSE" },
     });
     expect(txCount).toBe(1);
+
+    const restored = await restoreRecurringExpenseOccurrence(joaoId, joaoWs, occ!.id);
+    expect(restored).toMatchObject({ ok: true, restoredFrom: "PAID" });
+
+    const afterRestore = await listAccountsWithBalances(joaoId, joaoWs);
+    const restoredBalance = afterRestore?.find((a) => a.id === accountId)?.currentBalance;
+    expect(restoredBalance).toBe(startBal);
+
+    const freshOccurrence = await db.recurringExpenseOccurrence.findUnique({
+      where: { id: occ!.id },
+    });
+    expect(["EXPECTED", "POSTPONED"]).toContain(freshOccurrence?.status);
+    expect(freshOccurrence?.transactionId).toBeNull();
+
+    const activeTransactionCount = await db.transaction.count({
+      where: {
+        workspaceId: joaoWs,
+        description: series!.name,
+        type: "EXPENSE",
+        deletedAt: null,
+      },
+    });
+    expect(activeTransactionCount).toBe(0);
   });
 });

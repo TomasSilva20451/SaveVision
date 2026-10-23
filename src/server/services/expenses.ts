@@ -4,6 +4,13 @@ import {
   findAccountInWorkspace,
   findCategoryInWorkspace,
 } from "@/server/repositories/account-guard";
+import { decimal } from "@/lib/finance/money";
+import {
+  rememberTransactionCategorizationDecision,
+  type CategorizationDecision,
+} from "@/server/services/transaction-categorization-rules";
+import { observeTransactionPersisted } from "@/lib/observability/finance-events";
+import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
 
 const DEFAULT_CATEGORIES = [
   { name: "Habitação", nature: "NECESSARY" as const, behavior: "FIXED" as const },
@@ -33,6 +40,7 @@ export async function createExpense(
     description: string;
     categoryId?: string;
     occurredAt: Date;
+    categorization?: CategorizationDecision;
   },
 ) {
   const membership = await requireWorkspaceEditor(userId, workspaceId);
@@ -48,11 +56,9 @@ export async function createExpense(
 
   await ensureDefaultCategories(workspaceId);
 
-  const amount = input.amount.startsWith("-")
-    ? input.amount
-    : `-${input.amount}`;
+  const amount = decimal(input.amount).abs().negated().toString();
 
-  return db.transaction.create({
+  const transaction = await db.transaction.create({
     data: {
       workspaceId,
       accountId: input.accountId,
@@ -65,13 +71,33 @@ export async function createExpense(
       categoryId: input.categoryId,
     },
   });
+
+  observeTransactionPersisted("expense");
+
+  await rememberTransactionCategorizationDecision({
+    userId,
+    workspaceId,
+    description: input.description,
+    transactionType: "EXPENSE",
+    selectedCategoryId: input.categoryId,
+    decision: input.categorization,
+  });
+
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "TRANSACTION_CREATED",
+    entityType: "Transaction",
+    entityId: transaction.id,
+    metadata: { type: "EXPENSE", accountId: input.accountId },
+  });
+
+  return transaction;
 }
 
 export async function listExpenses(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
-
-  await ensureDefaultCategories(workspaceId);
 
   const [categories, transactions] = await Promise.all([
     db.category.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),

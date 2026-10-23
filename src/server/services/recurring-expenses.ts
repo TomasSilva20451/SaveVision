@@ -14,6 +14,7 @@ import {
   type RecurrenceFrequency,
 } from "@/lib/finance/recurring-schedule";
 import { decimal } from "@/lib/finance/money";
+import { monthlyEquivalentAmount } from "@/lib/finance/recurring-monthly";
 import { db } from "@/lib/db";
 import { assertSingleActiveLinkPerLiability } from "@/lib/finance/liability-recurring-link";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
@@ -151,7 +152,8 @@ export async function createRecurringExpense(
     if (!account) return null;
   }
 
-  if (decimal(input.expectedAmount).lte(0)) return null;
+  const expectedAmount = decimal(input.expectedAmount).toString();
+  if (decimal(expectedAmount).lte(0)) return null;
 
   let linkedLiabilityId: string | null = input.linkedLiabilityId ?? null;
   if (linkedLiabilityId) {
@@ -190,7 +192,7 @@ export async function createRecurringExpense(
         name: input.name,
         description: input.description,
         categoryId: input.categoryId,
-        expectedAmount: input.expectedAmount,
+        expectedAmount,
         frequency: input.frequency,
         startDate: civilDateToDueInstant(startCivil),
         endDate: input.endDate,
@@ -258,6 +260,17 @@ export async function getRecurringExpensesOverview(
 
   const monthOccurrences = await db.recurringExpenseOccurrence.findMany({
     where: { workspaceId },
+    include: {
+      recurringExpense: { select: { name: true } },
+      transaction: {
+        select: {
+          id: true,
+          accountId: true,
+          deletedAt: true,
+          account: { select: { name: true, type: true } },
+        },
+      },
+    },
   });
 
   const inMonth = monthOccurrences.filter((o) =>
@@ -276,6 +289,69 @@ export async function getRecurringExpensesOverview(
     );
 
   const unpaidMonth = expectedMonth;
+
+  const activeSeries = refreshed.filter((series) => series.status === "ACTIVE");
+  const monthlyEquivalent = activeSeries.reduce(
+    (total, series) =>
+      total.plus(
+        monthlyEquivalentAmount(
+          series.expectedAmount.toString(),
+          series.frequency,
+        ),
+      ),
+    decimal(0),
+  );
+
+  const categoryMonthly = new Map<string, { name: string; value: ReturnType<typeof decimal> }>();
+  for (const series of activeSeries) {
+    const current = categoryMonthly.get(series.categoryId);
+    const amount = decimal(
+      monthlyEquivalentAmount(series.expectedAmount.toString(), series.frequency),
+    );
+    categoryMonthly.set(series.categoryId, {
+      name: series.category.name,
+      value: (current?.value ?? decimal(0)).plus(amount),
+    });
+  }
+
+  const monthKeys: { year: number; month: number; key: string; label: string }[] = [];
+  const monthLabel = new Intl.DateTimeFormat("pt-PT", {
+    month: "short",
+    timeZone: "Europe/Lisbon",
+  });
+  for (let offset = -5; offset <= 0; offset += 1) {
+    const base = new Date(Date.UTC(civil.year, civil.month - 1 + offset, 15, 12));
+    const year = base.getUTCFullYear();
+    const month = base.getUTCMonth() + 1;
+    monthKeys.push({
+      year,
+      month,
+      key: `${year}-${String(month).padStart(2, "0")}`,
+      label: monthLabel.format(base).replace(".", ""),
+    });
+  }
+
+  const evolution = monthKeys.map((item) => {
+    let expected = decimal(0);
+    let paid = decimal(0);
+    for (const occurrence of monthOccurrences) {
+      if (!isInstantInCivilMonth(occurrence.dueDate, item.year, item.month)) continue;
+      if (occurrence.status !== "CANCELLED") {
+        expected = expected.plus(occurrence.expectedAmount.toString());
+      }
+      if (occurrence.status === "PAID") {
+        paid = paid.plus(
+          (occurrence.actualAmount ?? occurrence.expectedAmount).toString(),
+        );
+      }
+    }
+    return {
+      key: item.key,
+      label: item.label,
+      expected: expected.toDecimalPlaces(2).toFixed(2),
+      paid: paid.toDecimalPlaces(2).toFixed(2),
+    };
+  });
 
   const upcomingHorizon = new Date(Date.now() + 120 * 86_400_000);
   const upcoming = await db.recurringExpenseOccurrence.findMany({
@@ -297,12 +373,20 @@ export async function getRecurringExpensesOverview(
   return {
     series: refreshed,
     summary: {
+      monthlyEquivalent: monthlyEquivalent.toDecimalPlaces(2).toFixed(2),
       expectedMonth: expectedMonth.toFixed(2),
       paidMonth: paidMonth.toFixed(2),
       unpaidMonth: unpaidMonth.toFixed(2),
       activeCount: refreshed.filter((s) => s.status === "ACTIVE").length,
+      linkedCount: refreshed.filter((s) => s.linkedLiabilityId !== null).length,
+      pausedCount: refreshed.filter((s) => s.status === "PAUSED").length,
+      endedCount: refreshed.filter((s) => s.status === "ENDED").length,
       nextDue: upcoming[0] ?? null,
     },
+    evolution,
+    categoryMonthly: [...categoryMonthly.values()]
+      .sort((a, b) => b.value.comparedTo(a.value))
+      .map((item) => ({ name: item.name, value: item.value.toFixed(2) })),
     upcoming,
     history: monthOccurrences
       .filter((o) => o.status === "PAID" || o.status === "SKIPPED")
@@ -381,12 +465,13 @@ export async function updateRecurringExpenseFutureAmount(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
-  if (decimal(newAmount).lte(0)) return null;
+  const normalizedAmount = decimal(newAmount).toString();
+  if (decimal(normalizedAmount).lte(0)) return null;
 
   return db.$transaction(async (tx) => {
     const updated = await tx.recurringExpense.updateMany({
       where: { id: seriesId, workspaceId },
-      data: { expectedAmount: newAmount },
+      data: { expectedAmount: normalizedAmount },
     });
     if (updated.count !== 1) return null;
 
@@ -397,7 +482,7 @@ export async function updateRecurringExpenseFutureAmount(
         status: { in: ["EXPECTED", "POSTPONED"] },
         expectedAmountCustomized: false,
       },
-      data: { expectedAmount: newAmount },
+      data: { expectedAmount: normalizedAmount },
     });
 
     await writeFinancialAuditLog({
@@ -406,7 +491,7 @@ export async function updateRecurringExpenseFutureAmount(
       action: "RECURRENT_EXPENSE_UPDATED",
       entityType: "RecurringExpense",
       entityId: seriesId,
-      metadata: { expectedAmount: newAmount },
+      metadata: { expectedAmount: normalizedAmount },
     });
 
     return true;
@@ -550,7 +635,8 @@ export async function confirmRecurringExpenseOccurrence(
   const account = await findAccountInWorkspace(workspaceId, input.accountId);
   if (!account) return { ok: false as const, reason: "invalid_account" as const };
 
-  if (decimal(input.actualAmount).lte(0)) {
+  const actualAmount = decimal(input.actualAmount).abs().toString();
+  if (decimal(actualAmount).lte(0)) {
     return { ok: false as const, reason: "invalid_amount" as const };
   }
 
@@ -613,7 +699,7 @@ export async function confirmRecurringExpenseOccurrence(
             accountId: occurrence.recurringExpense.accountId,
             actualAmount: existing.actualAmount,
           },
-          input,
+          { ...input, actualAmount },
         ) ||
         existing.id !== input.occurrenceId
       ) {
@@ -625,9 +711,7 @@ export async function confirmRecurringExpenseOccurrence(
     }
   }
 
-  const amountNeg = input.actualAmount.startsWith("-")
-    ? input.actualAmount
-    : `-${input.actualAmount}`;
+  const amountNeg = decimal(actualAmount).negated().toString();
 
   try {
     const txRow = await db.$transaction(async (tx) => {
@@ -673,7 +757,7 @@ export async function confirmRecurringExpenseOccurrence(
         },
         data: {
           status: "PAID",
-          actualAmount: input.actualAmount,
+          actualAmount,
           paidAt: input.paidAt,
           transactionId: created.id,
           idempotencyKey: input.idempotencyKey ?? null,
@@ -710,6 +794,85 @@ export async function confirmRecurringExpenseOccurrence(
     }
     throw error;
   }
+}
+
+export async function restoreRecurringExpenseOccurrence(
+  userId: string,
+  workspaceId: string,
+  occurrenceId: string,
+): Promise<
+  | { ok: true; restoredFrom: "PAID" | "SKIPPED"; accountName: string | null }
+  | { ok: false; error: string }
+> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return { ok: false, error: "Sem permissão para reverter esta ação." };
+
+  const occurrence = await db.recurringExpenseOccurrence.findFirst({
+    where: { id: occurrenceId, workspaceId, status: { in: ["PAID", "SKIPPED"] } },
+    include: {
+      transaction: { include: { account: { select: { name: true } } } },
+    },
+  });
+  if (!occurrence || (occurrence.status !== "PAID" && occurrence.status !== "SKIPPED")) {
+    return { ok: false, error: "Esta ocorrência já não pode ser reposta." };
+  }
+  if (occurrence.status === "PAID" && !occurrence.transactionId) {
+    return { ok: false, error: "O pagamento não tem um movimento associado para anular." };
+  }
+
+  const restoredFrom = occurrence.status;
+  const restoredStatus = occurrence.dueDate.getTime() === occurrence.anchorDate.getTime()
+    ? "EXPECTED"
+    : "POSTPONED";
+  const now = new Date();
+
+  const restored = await db.$transaction(async (tx) => {
+    const fresh = await tx.recurringExpenseOccurrence.findFirst({
+      where: { id: occurrenceId, workspaceId, status: restoredFrom },
+    });
+    if (!fresh) return false;
+
+    if (restoredFrom === "PAID" && fresh.transactionId) {
+      const removed = await tx.transaction.updateMany({
+        where: { id: fresh.transactionId, workspaceId, deletedAt: null },
+        data: { deletedAt: now },
+      });
+      if (removed.count !== 1) return false;
+    }
+
+    const updated = await tx.recurringExpenseOccurrence.updateMany({
+      where: { id: occurrenceId, workspaceId, status: restoredFrom },
+      data: {
+        status: restoredStatus,
+        actualAmount: null,
+        paidAt: null,
+        transactionId: null,
+        idempotencyKey: null,
+      },
+    });
+    return updated.count === 1;
+  });
+
+  if (!restored) return { ok: false, error: "Não foi possível reverter esta ação." };
+
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "EXPENSE_OCCURRENCE_PAYMENT_REVERSED",
+    entityType: "RecurringExpenseOccurrence",
+    entityId: occurrenceId,
+    metadata: {
+      restoredFrom,
+      transactionId: occurrence.transactionId,
+      accountName: occurrence.transaction?.account.name ?? null,
+    },
+  });
+
+  return {
+    ok: true,
+    restoredFrom,
+    accountName: occurrence.transaction?.account.name ?? null,
+  };
 }
 
 /** Ocorrências futuras para integração com previsões (17b). */

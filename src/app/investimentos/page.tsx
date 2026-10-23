@@ -1,87 +1,19 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
+import { InvestmentsDashboard } from "@/components/investments/investments-dashboard";
+import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
+import { secondaryButtonClassName } from "@/components/ui/form-styles";
+import { PageHeader } from "@/components/ui/page-header";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
-import { readPageFlash } from "@/lib/ui/page-shell";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { createInvestmentPositionAction } from "@/lib/finance/investment-actions";
-import { formatEUR } from "@/lib/finance/money";
+import { decimal } from "@/lib/finance/money";
+import { readPageFlash } from "@/lib/ui/page-shell";
+import { listAccountsWithBalances } from "@/server/services/accounts";
 import { listInvestmentPositions } from "@/server/services/investments";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-async function InvestimentosContent() {
-  await ensureRequestDynamic();
-  const flash = await readPageFlash();
-  const user = await requireAuthenticatedUser();
-  if (!user) redirect("/login");
-
-  const { workspaces, selected } = await resolveWorkspaceContext(user.id);
-  if (!selected) redirect("/inicio");
-
-  const membership = await requireWorkspaceAccess(user.id, selected.id);
-  if (!membership) redirect("/inicio");
-
-  const positions =
-    (await listInvestmentPositions(user.id, selected.id)) ?? [];
-
-  return (
-    <AppShell
-      userName={user.name}
-      workspaces={workspaces}
-      activeWorkspaceId={selected.id}
-      flash={flash}
-    >
-      <h1 className="text-2xl font-semibold tracking-tight">Investimentos</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Registo manual. Sem trading, chaves privadas ou recomendações garantidas.
-      </p>
-
-      <aside className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-        Conteúdo educativo: diversificar, conhecer o risco e usar preços introduzidos manualmente
-        apenas como referência pessoal.
-      </aside>
-
-      <form action={createInvestmentPositionAction} className="mt-6 grid max-w-md gap-2">
-        <select name="assetClass" className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950">
-          <option value="STOCK">Ação</option>
-          <option value="ETF">ETF</option>
-          <option value="BOND">Obrigação</option>
-          <option value="FUND">Fundo</option>
-          <option value="CRYPTO">Cripto</option>
-          <option value="OTHER">Outro</option>
-        </select>
-        <input name="symbol" placeholder="Ticker" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-        <input name="name" placeholder="Nome" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-        <input name="quantity" placeholder="Quantidade" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-        <input name="costBasis" placeholder="Custo de aquisição (€)" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-        <input name="manualPrice" placeholder="Preço manual (€)" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-        <button type="submit" className="w-fit rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          Adicionar posição
-        </button>
-      </form>
-
-      <ul className="mt-8 flex flex-col gap-3">
-        {positions.map((pos) => (
-          <li key={pos.id} className="rounded-lg border p-3 dark:border-zinc-800">
-            <p className="font-medium">
-              {pos.symbol} · {pos.name}
-            </p>
-            <p className="text-sm">
-              Valor: {formatEUR(pos.marketValue)} · P/L: {formatEUR(pos.unrealizedPnl)}
-              {pos.returnPercent != null ? ` (${pos.returnPercent} %)` : null}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </AppShell>
-  );
-}
-
-export default function InvestimentosPage() {
-  return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar…</p>}>
-      <InvestimentosContent />
-    </Suspense>
-  );
-}
+async function InvestimentosContent(){await ensureRequestDynamic();const flash=await readPageFlash();const user=await requireAuthenticatedUser();if(!user)redirect("/login");const {workspaces,selected}=await resolveWorkspaceContext(user.id);if(!selected)redirect("/inicio");const membership=await requireWorkspaceAccess(user.id,selected.id);if(!membership)redirect("/inicio");const [positions,accounts]=await Promise.all([listInvestmentPositions(user.id,selected.id),listAccountsWithBalances(user.id,selected.id)]);const rows=positions??[];const value=rows.reduce((s,p)=>s.plus(p.marketValue),decimal(0));const cost=rows.reduce((s,p)=>s.plus(p.costBasis.toString()),decimal(0));const pnl=value.minus(cost);const returnPercent=cost.gt(0)?pnl.div(cost).times(100).toDecimalPlaces(1).toNumber():null;const allocation=new Map<string,ReturnType<typeof decimal>>();for(const p of rows)allocation.set(p.assetClass,(allocation.get(p.assetClass)??decimal(0)).plus(p.marketValue));return <AppShell userName={user.name} workspaces={workspaces} activeWorkspaceId={selected.id} flash={flash}><PageHeader title="Investimentos" description="Acompanha a tua carteira manual, a alocação e o ganho ou perda não realizado." actions={<Link href="/patrimonio" className={secondaryButtonClassName}>Ver no património</Link>}/><div className="mt-6"><MetricGrid><FinanceMetricCard label="Valor atual" value={value.toFixed(2)} hint={`${rows.length} ${rows.length===1?"posição":"posições"}`} tone="accent" icon="▥"/><FinanceMetricCard label="Capital investido" value={cost.toFixed(2)} hint="Custo de aquisição registado" tone="neutral" icon="€"/><FinanceMetricCard label="Ganho / perda" value={pnl.toFixed(2)} hint={returnPercent==null?"Sem base de comparação":`${returnPercent>=0?"+":""}${returnPercent.toLocaleString("pt-PT")}%`} tone={pnl.gte(0)?"income":"expense"} icon={pnl.gte(0)?"↗":"↘"}/><FinanceMetricCard label="Posições autónomas" value={String(rows.filter(p=>p.valuationMode==="STANDALONE").length)} rawValue hint="Incluídas diretamente no património" tone="analytic" icon="◇"/></MetricGrid></div><aside className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/80 px-5 py-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100"><strong>Informação educativa.</strong> Diversifica, conhece o risco e trata os preços manuais apenas como referência pessoal. O FinTwin não executa transações nem promete rentabilidade.</aside><div className="mt-5"><InvestmentsDashboard positions={rows.map(p=>({id:p.id,symbol:p.symbol,name:p.name,assetClass:p.assetClass,quantity:p.quantity.toString(),costBasis:p.costBasis.toString(),manualPrice:p.manualPrice.toString(),marketValue:p.marketValue,unrealizedPnl:p.unrealizedPnl,returnPercent:p.returnPercent,valuationMode:p.valuationMode,updatedAt:p.updatedAt.toISOString()}))} accounts={(accounts??[]).map(a=>({id:a.id,name:a.name}))} allocation={[...allocation].map(([name,total])=>({name,value:total.toNumber()}))}/></div></AppShell>}
+export default function InvestimentosPage(){return <Suspense fallback={<p className="p-6 text-sm">A carregar investimentos…</p>}><InvestimentosContent/></Suspense>}

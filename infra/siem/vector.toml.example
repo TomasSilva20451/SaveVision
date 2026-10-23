@@ -1,0 +1,24 @@
+# Exemplo: Vector a shippar stdout Docker → Loki / Elastic
+# Ajustar endpoints e credenciais.
+
+[sources.app_logs]
+type = "docker_logs"
+include_containers = ["app-production", "app-staging"]
+
+[transforms.parse_json]
+type = "remap"
+inputs = ["app_logs"]
+source = '''
+  parsed, err = parse_json(.message)
+  if err == null {
+    . = merge(., parsed)
+  }
+'''
+
+[sinks.loki]
+type = "loki"
+inputs = ["parse_json"]
+endpoint = "https://loki.example:3100"
+encoding.codec = "json"
+labels.service = "{{ service }}"
+labels.env = "{{ env }}"

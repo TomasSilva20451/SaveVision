@@ -1,137 +1,22 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
+import { EmptyState } from "@/components/ui/empty-state";
+import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
+import { inputClassName, primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
-import { readPageFlash } from "@/lib/ui/page-shell";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
-import {
-  acceptInviteAction,
-  createJointWorkspaceAction,
-  inviteJointMemberAction,
-} from "@/lib/auth/joint-actions";
-import { formatEUR } from "@/lib/finance/money";
+import { acceptInviteAction, createJointWorkspaceAction, declineInviteAction, inviteJointMemberAction, revokeInviteAction } from "@/lib/auth/joint-actions";
+import { decimal, formatEUR } from "@/lib/finance/money";
 import { sumContributions } from "@/lib/finance/goal-progress";
-import {
-  getJointWorkspaceSummary,
-  listPendingInvitesForUser,
-} from "@/server/services/joint-workspace";
+import { readPageFlash } from "@/lib/ui/page-shell";
+import { getDashboardMetrics } from "@/server/services/dashboard";
+import { getJointWorkspaceSummary, listPendingInvitesForUser, listWorkspaceInvitesForManager } from "@/server/services/joint-workspace";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-async function ContaConjuntaContent() {
-  await ensureRequestDynamic();
-  const flash = await readPageFlash();
-  const user = await requireAuthenticatedUser();
-  if (!user) redirect("/login");
-
-  const { workspaces, selected } = await resolveWorkspaceContext(user.id);
-  if (!selected) redirect("/inicio");
-
-  const membership = await requireWorkspaceAccess(user.id, selected.id);
-  if (!membership) redirect("/inicio");
-
-  const pendingInvites = await listPendingInvitesForUser(user.id);
-  const jointWorkspaces = workspaces.filter((w) => w.type === "JOINT");
-  const summary =
-    selected.type === "JOINT"
-      ? await getJointWorkspaceSummary(user.id, selected.id)
-      : null;
-
-  return (
-    <AppShell
-      userName={user.name}
-      workspaces={workspaces}
-      activeWorkspaceId={selected.id}
-      flash={flash}
-    >
-      <h1 className="text-2xl font-semibold tracking-tight">Conta conjunta</h1>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Workspace conjunto isolado dos espaços pessoais de cada membro.
-      </p>
-
-      <section className="mt-6 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="text-lg font-medium">Criar workspace conjunto</h2>
-        <form action={createJointWorkspaceAction} className="mt-3 flex max-w-md gap-2">
-          <input name="name" placeholder="Nome do espaço" required className="flex-1 rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-          <button type="submit" className="rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-            Criar
-          </button>
-        </form>
-      </section>
-
-      {pendingInvites.length > 0 ? (
-        <section className="mt-6">
-          <h2 className="text-lg font-medium">Convites pendentes</h2>
-          <ul className="mt-3 flex flex-col gap-2">
-            {pendingInvites.map((invite) => (
-              <li key={invite.id} className="rounded-lg border p-3 dark:border-zinc-800">
-                {invite.workspace.name}
-                <form action={acceptInviteAction} className="mt-2">
-                  <input type="hidden" name="token" value={invite.token} />
-                  <button type="submit" className="rounded-lg border px-2 py-1 text-sm dark:border-zinc-700">
-                    Aceitar convite
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {jointWorkspaces.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="text-lg font-medium">Convidar membro</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Seleciona um workspace conjunto no menu lateral antes de convidar.
-          </p>
-          {selected.type === "JOINT" && membership.role === "OWNER" ? (
-            <form action={inviteJointMemberAction} className="mt-3 grid max-w-md gap-2">
-              <input type="hidden" name="workspaceId" value={selected.id} />
-              <input name="email" type="email" placeholder="Email" required className="rounded-lg border px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950" />
-              <button type="submit" className="w-fit rounded-lg bg-zinc-900 px-3 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-                Enviar convite
-              </button>
-            </form>
-          ) : (
-            <p className="mt-2 text-sm">Apenas o proprietário do workspace conjunto ativo pode convidar.</p>
-          )}
-        </section>
-      ) : null}
-
-      {summary ? (
-        <section className="mt-8">
-          <h2 className="text-lg font-medium">Dashboard conjunto · {summary.name}</h2>
-          <p className="mt-2 text-sm">Membros ativos: {summary.members.length}</p>
-          <ul className="mt-2 text-sm">
-            {summary.members.map((member) => (
-              <li key={member.userId}>
-                {member.user.name} ({member.role})
-              </li>
-            ))}
-          </ul>
-          <h3 className="mt-4 font-medium">Objetivos conjuntos</h3>
-          <ul className="mt-2 text-sm">
-            {summary.savingsGoals.map((goal) => {
-              const total = sumContributions(
-                goal.contributions.map((c) => c.amount.toString()),
-              ).toString();
-              return (
-                <li key={goal.id}>
-                  {goal.title}: {formatEUR(total)} / {formatEUR(goal.targetAmount.toString())}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
-    </AppShell>
-  );
-}
-
-export default function ContaConjuntaPage() {
-  return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar…</p>}>
-      <ContaConjuntaContent />
-    </Suspense>
-  );
-}
+const roleLabel:Record<string,string>={OWNER:"Proprietário",MEMBER:"Membro",VIEWER:"Consulta"};
+async function ContaConjuntaContent(){await ensureRequestDynamic();const flash=await readPageFlash();const user=await requireAuthenticatedUser();if(!user)redirect("/login");const {workspaces,selected}=await resolveWorkspaceContext(user.id);if(!selected)redirect("/inicio");const membership=await requireWorkspaceAccess(user.id,selected.id);if(!membership)redirect("/inicio");const pending=await listPendingInvitesForUser(user.id);const joint=workspaces.filter(w=>w.type==="JOINT");const isJoint=selected.type==="JOINT";const [summary,dashboard,managerInvites]=isJoint?await Promise.all([getJointWorkspaceSummary(user.id,selected.id),getDashboardMetrics(user.id,selected.id),membership.role==="OWNER"?listWorkspaceInvitesForManager(user.id,selected.id):Promise.resolve(null)]):[null,null,null];const goals=summary?.savingsGoals??[];return <AppShell userName={user.name} workspaces={workspaces} activeWorkspaceId={selected.id} flash={flash}><PageHeader title="Conta conjunta" description="Planeia em conjunto sem abrir os espaços pessoais de cada membro." actions={<details><summary className={`${primaryButtonClassName} cursor-pointer list-none`}>＋ Novo espaço conjunto</summary><form action={createJointWorkspaceAction} className="absolute right-8 z-20 mt-2 grid w-80 gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-xl"><label className="text-sm font-medium">Nome do espaço<input name="name" required placeholder="Ex.: Casa João e Maria" className={inputClassName}/></label><button className={primaryButtonClassName}>Criar espaço</button></form></details>}/>{pending.length?<section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30"><h2 className="font-semibold">Convites pendentes</h2><ul className="mt-3 grid gap-3 md:grid-cols-2">{pending.map(invite=><li key={invite.id} className="rounded-xl bg-white p-4 dark:bg-slate-900"><p className="font-semibold">{invite.workspace.name}</p><p className="mt-1 text-xs text-slate-500">Convidaram-te para colaborar neste workspace.</p><div className="mt-3 flex gap-2"><form action={acceptInviteAction}><input type="hidden" name="token" value={invite.token}/><button className={primaryButtonClassName}>Aceitar</button></form><form action={declineInviteAction}><input type="hidden" name="token" value={invite.token}/><button className={secondaryButtonClassName}>Recusar</button></form></div></li>)}</ul></section>:null}{!isJoint?<div className="mt-6 grid gap-5 lg:grid-cols-5"><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)] lg:col-span-3"><h2 className="text-lg font-semibold">Seleciona um espaço conjunto</h2><p className="mt-2 text-sm leading-6 text-slate-500">Estás no workspace pessoal «{selected.name}». Usa o seletor no rodapé da navegação para abrir um espaço conjunto e ver saldos, membros e objetivos partilhados.</p>{joint.length?<ul className="mt-5 grid gap-3 sm:grid-cols-2">{joint.map(w=><li key={w.id} className="rounded-xl border border-[var(--border)] p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-700">∞</span><p className="mt-3 font-semibold">{w.name}</p><p className="mt-1 text-xs text-slate-500">Workspace conjunto disponível no seletor.</p></li>)}</ul>:<EmptyState title="Ainda não tens espaços conjuntos" description="Cria um espaço e convida alguém para começar."/>}</section><aside className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[var(--shadow-card)] lg:col-span-2"><h2 className="font-semibold">Privacidade por desenho</h2><ul className="mt-4 space-y-4 text-sm text-slate-600 dark:text-slate-300"><li className="flex gap-3"><span className="text-emerald-600">✓</span> Cada pessoa mantém o workspace pessoal fechado.</li><li className="flex gap-3"><span className="text-emerald-600">✓</span> Apenas membros ativos veem o espaço conjunto.</li><li className="flex gap-3"><span className="text-emerald-600">✓</span> Convites e permissões são validados no servidor.</li></ul></aside></div>:summary&&dashboard?<><div className="mt-6"><MetricGrid><FinanceMetricCard label="Saldo conjunto" value={dashboard.kpis.totalBalance} hint={summary.name} tone="accent" icon="€"/><FinanceMetricCard label="Resultado do mês" value={dashboard.kpis.economicResultMonth} hint="Receitas menos despesas" tone={decimal(dashboard.kpis.economicResultMonth).gte(0)?"income":"expense"} icon="↗"/><FinanceMetricCard label="Objetivos ativos" value={String(goals.length)} rawValue hint="Metas deste workspace" tone="analytic" icon="◎"/><FinanceMetricCard label="Membros ativos" value={String(summary.members.length)} rawValue hint={`O teu papel: ${roleLabel[membership.role]??membership.role}`} tone="income" icon="∞"/></MetricGrid></div><div className="mt-5 grid gap-5 lg:grid-cols-5"><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] lg:col-span-3"><h2 className="font-semibold">Objetivos conjuntos</h2><p className="mt-1 text-sm text-slate-500">Contribuições registadas neste workspace.</p>{goals.length?<ul className="mt-4 space-y-4">{goals.map(goal=>{const total=sumContributions(goal.contributions.map(c=>c.amount.toString()));const pct=decimal(goal.targetAmount.toString()).gt(0)?Math.min(100,total.div(goal.targetAmount.toString()).times(100).toDecimalPlaces(0).toNumber()):0;return <li key={goal.id} className="rounded-xl bg-slate-50 p-4 dark:bg-slate-900"><div className="flex justify-between gap-3"><div><strong>{goal.title}</strong><p className="mt-1 text-xs text-slate-500">{formatEUR(total)} de {formatEUR(goal.targetAmount.toString())}</p></div><strong className="text-blue-600">{pct}%</strong></div><ProgressBar value={pct} className="mt-3"/></li>})}</ul>:<EmptyState title="Sem objetivos conjuntos" description="Cria objetivos no Planeamento enquanto este workspace está ativo."/>}</section><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] lg:col-span-2"><h2 className="font-semibold">Membros</h2><ul className="mt-4 divide-y divide-[var(--border)]">{summary.members.map(member=><li key={member.userId} className="flex items-center gap-3 py-3"><span className="grid h-9 w-9 place-items-center rounded-full bg-blue-600 text-xs font-semibold text-white">{member.user.name.slice(0,2).toUpperCase()}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{member.user.name}</p><p className="truncate text-xs text-slate-500">{member.user.email}</p></div><span className="rounded-full bg-slate-100 px-2 py-1 text-xs">{roleLabel[member.role]??member.role}</span></li>)}</ul>{membership.role==="OWNER"?<details className="mt-4"><summary className={`${primaryButtonClassName} cursor-pointer list-none`}>＋ Convidar membro</summary><form action={inviteJointMemberAction} className="mt-3 grid gap-2"><input type="hidden" name="workspaceId" value={selected.id}/><input name="email" type="email" required placeholder="email@exemplo.pt" className={inputClassName}/><button className={primaryButtonClassName}>Enviar convite</button></form></details>:null}</section></div>{managerInvites?.length?<section className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]"><h2 className="font-semibold">Convites enviados</h2><ul className="mt-3 divide-y divide-[var(--border)]">{managerInvites.map(invite=><li key={invite.id} className="flex flex-wrap items-center gap-3 py-3 text-sm"><span className="flex-1 font-medium">{invite.email}</span><span className="text-xs text-slate-500">{roleLabel[invite.role]??invite.role}</span><form action={revokeInviteAction}><input type="hidden" name="workspaceId" value={selected.id}/><input type="hidden" name="inviteId" value={invite.id}/><button className="text-xs font-medium text-rose-600">Revogar</button></form></li>)}</ul></section>:null}</>:null}</AppShell>}
+export default function ContaConjuntaPage(){return <Suspense fallback={<p className="p-6 text-sm">A carregar conta conjunta…</p>}><ContaConjuntaContent/></Suspense>}

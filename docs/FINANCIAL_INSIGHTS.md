@@ -20,7 +20,7 @@ Motor puro: `src/lib/finance/financial-insights.ts`. Serviço: `src/server/servi
 | Orçamento | `budgetOverage` > 0 |
 | Subscrições | Soma equivalente mensal × 12 (não é gasto realizado) |
 | 7 dias previstos | Saídas do forecast 17b no horizonte 7 |
-| Anomalia | Mediana + 2×MAD, mínimo 5 observações históricas |
+| Anomalia (v2) | R1: total categoria > 3× mediana (≥5 meses); R2: primeira despesa na categoria > 150 €; R3: total mês > 150% do mês anterior. Prioridade R2 > R3 > R1 (`expense-anomaly-detection.ts`) |
 
 ## Severidades
 

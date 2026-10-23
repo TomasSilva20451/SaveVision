@@ -1,0 +1,17 @@
+# Perfil opcional: WAL archiving local para PITR (desenvolvimento / referência).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.pitr.yml up -d
+services:
+  postgres:
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_command=test ! -f /wal_archive/%f && cp %p /wal_archive/%f
+      - -c
+      - max_wal_senders=3
+    volumes:
+      - fintwin_pg:/var/lib/postgresql/data
+      - ./storage/wal_archive:/wal_archive

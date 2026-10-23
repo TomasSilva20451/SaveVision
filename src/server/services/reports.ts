@@ -9,11 +9,16 @@ import {
 import {
   defaultReportPeriod,
   formatReportPeriodLabel,
+  isFullCivilMonthPeriod,
   isInstantInReportPeriod,
   parseCivilDateParam,
   buildReportPeriod,
+  reportPeriodKey,
+  type ReportPeriod,
 } from "@/lib/finance/report-period";
+import { getLatestMonthlyReportNarrative } from "@/server/services/monthly-report-narrative-queries";
 import { formatEUR } from "@/lib/finance/money";
+import { civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import { db } from "@/lib/db";
 import type { LedgerMovement } from "@/lib/finance/types";
 import type { AccountSnapshot } from "@/lib/finance/types";
@@ -21,7 +26,14 @@ import type { AccountSnapshot } from "@/lib/finance/types";
 export type ReportQuery = {
   from?: string | null;
   to?: string | null;
+  includeNarrative?: string | null;
 };
+
+function shouldIncludeNarrative(period: ReportPeriod, flag: string | null | undefined): boolean {
+  if (flag === "0" || flag === "false") return false;
+  if (flag === "1" || flag === "true") return true;
+  return isFullCivilMonthPeriod(period);
+}
 
 function resolvePeriod(query: ReportQuery) {
   const from = parseCivilDateParam(query.from ?? null);
@@ -50,7 +62,7 @@ function toTimedMovement(tx: {
   };
 }
 
-async function loadReportData(userId: string, workspaceId: string, query: ReportQuery) {
+export async function loadReportData(userId: string, workspaceId: string, query: ReportQuery) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
@@ -107,7 +119,7 @@ export async function buildFinancialReportCsv(
   const lines = data.transactions.map((tx) => {
     const category = tx.category?.name ?? "";
     return [
-      tx.occurredAt.toISOString(),
+      formatCivilDateIso(civilDateFromInstant(tx.occurredAt)),
       tx.account.name,
       tx.type,
       tx.status,
@@ -119,11 +131,24 @@ export async function buildFinancialReportCsv(
       .join(",");
   });
 
+  let narrativeLine = "";
+  if (shouldIncludeNarrative(data.period, query.includeNarrative)) {
+    const narrative = await getLatestMonthlyReportNarrative(
+      userId,
+      workspaceId,
+      reportPeriodKey(data.period),
+    );
+    if (narrative?.narrativeText) {
+      narrativeLine = `"Narrativa","${narrative.narrativeText.replace(/"/g, '""')}"`;
+    }
+  }
+
   const summary = [
     "",
     `"Workspace","${data.workspace?.name ?? workspaceId}"`,
     `"Período","${data.periodLabel}"`,
     `"Gerado","${new Date().toISOString()}"`,
+    ...(narrativeLine ? [narrativeLine] : []),
     `"Saldo inicial","${data.balances.opening}"`,
     `"Saldo final","${data.balances.closing}"`,
     `"Receitas","${data.totals.income}"`,
@@ -170,7 +195,26 @@ export async function buildFinancialReportPdf(
   doc.moveDown();
   doc.text(`Movimentos no período: ${data.movementCount}`);
   doc.moveDown();
-  doc.text("Detalhe (listagem completa do período):", { underline: true });
+
+  if (shouldIncludeNarrative(data.period, query.includeNarrative)) {
+    const narrative = await getLatestMonthlyReportNarrative(
+      userId,
+      workspaceId,
+      reportPeriodKey(data.period),
+    );
+    if (narrative?.narrativeText) {
+      doc.fontSize(12).text("Resumo narrativo", { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(10).text(narrative.narrativeText, { align: "justify", lineGap: 2 });
+      doc.fontSize(8).fillColor("#666666").text(
+        "Resumo gerado localmente; não constitui aconselhamento financeiro.",
+      );
+      doc.fillColor("#000000");
+      doc.moveDown();
+    }
+  }
+
+  doc.fontSize(11).text("Detalhe (listagem completa do período):", { underline: true });
 
   const lineHeight = 14;
   data.transactions.forEach((tx) => {
@@ -178,7 +222,7 @@ export async function buildFinancialReportPdf(
       doc.addPage();
     }
     doc.text(
-      `${tx.occurredAt.toISOString().slice(0, 10)} · ${tx.type} · ${tx.status} · ${formatEUR(tx.amount.toString())} · ${tx.account.name} · ${tx.description ?? ""}`,
+      `${formatCivilDateIso(civilDateFromInstant(tx.occurredAt))} · ${tx.type} · ${tx.status} · ${formatEUR(tx.amount.toString())} · ${tx.account.name} · ${tx.description ?? ""}`,
       { lineGap: 2 },
     );
     doc.y += lineHeight - doc.currentLineHeight(true);

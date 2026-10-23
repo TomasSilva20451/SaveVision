@@ -4,12 +4,12 @@ import { evaluateE2eCleanupPolicy } from "@/lib/e2e/cleanup-policy";
 const DEMO = "postgresql://fintwin:fintwin@localhost:5433/fintwin";
 
 describe("evaluateE2eCleanupPolicy (fail-closed)", () => {
-  it("permite demo Docker local 5433/fintwin", () => {
+  it("bloqueia a antiga base de desenvolvimento mesmo no Docker local", () => {
     const d = evaluateE2eCleanupPolicy({
       connectionString: DEMO,
       nodeEnv: "test",
     });
-    expect(d.allowed).toBe(true);
+    expect(d.allowed).toBe(false);
   });
 
   it("permite base dedicada fintwin_e2e local com confirmação", () => {

@@ -3,20 +3,21 @@ import { expect, test } from "@playwright/test";
 test.describe("Fase 19 — simulações financeiras", () => {
   test("E1 abrir página de simulações", async ({ page }) => {
     await page.goto("/simulacoes");
-    await expect(page.getByRole("heading", { name: "Simulações financeiras" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Simulações", exact: true })).toBeVisible();
     await expect(page.getByTestId("financial-simulations-page")).toBeVisible();
+    await expect(page.getByRole("tab")).toHaveCount(6);
   });
 
   test("E2 simular poupança mensal com formulário", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Poupança" }).click();
+    await page.getByRole("tab", { name: "Poupança e objetivos" }).click();
     await page.getByTestId("sim-savings-monthly").fill("250");
     await expect(page.getByTestId("sim-savings-final")).toBeVisible();
   });
 
   test("E3 simular fundo de emergência", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Fundo emergência" }).click();
+    await page.getByRole("tab", { name: "Fundo de emergência" }).click();
     await page.getByTestId("sim-emergency-contribution").fill("400");
     await expect(page.getByTestId("sim-emergency-result")).toBeVisible();
   });
@@ -31,7 +32,7 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E5 amortização — seletor passivo ou aviso", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Amortização" }).click();
+    await page.getByRole("tab", { name: "Amortizar dívida" }).click();
     const select = page.getByTestId("sim-loan-select");
     if ((await select.count()) > 0) {
       await page.getByTestId("sim-loan-rate").fill("3");
@@ -43,21 +44,21 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E6 simular aumento de rendimento", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Rendimentos" }).click();
+    await page.getByRole("tab", { name: "Rendimentos e despesas" }).click();
     await page.getByTestId("sim-income-delta").fill("300");
     await expect(page.getByTestId("sim-income-result")).toBeVisible();
   });
 
   test("E7 simular redução de despesas", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Despesas" }).click();
+    await page.getByRole("tab", { name: "Rendimentos e despesas" }).click();
     await page.getByTestId("sim-expense-reduction").fill("15");
     await expect(page.getByTestId("sim-expense-result")).toBeVisible();
   });
 
   test("E8 despesa extraordinária", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Extraordinária" }).click();
+    await page.getByRole("tab", { name: "Cenário personalizado" }).click();
     await page.getByTestId("sim-oneoff-amount").fill("1500");
     await page.getByTestId("sim-oneoff-treasury-run").click();
     await expect(page.getByTestId("sim-oneoff-treasury-result")).toBeVisible({
@@ -67,8 +68,8 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E9 comparar BASE/A/B", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Comparar A/B" }).click();
     await expect(page.getByTestId("sim-compare")).toBeVisible();
+    await expect(page.getByTestId("sim-compare").getByText("BASE", { exact: true })).toBeVisible();
   });
 
   test("E10 baseline reflete dados reais", async ({ page }) => {
@@ -104,5 +105,13 @@ test.describe("Fase 19 — simulações financeiras", () => {
     await page.getByRole("tab", { name: "Automóvel" }).click();
     await page.getByTestId("sim-car-rate").fill("");
     await expect(page.getByText("Indique a taxa anual (%) como pressuposto.")).toBeVisible();
+  });
+
+  test("E16 mobile sem overflow horizontal", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/simulacoes");
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(overflow).toBe(false);
+    await expect(page.getByRole("tab", { name: "Cenário personalizado" })).toBeVisible();
   });
 });

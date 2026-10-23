@@ -24,6 +24,13 @@ Quando o livro existir:
 - Transferência entre contas do mesmo workspace não é receita nem despesa e não altera o património.
 - Rendimento esperado não entra no saldo enquanto não for confirmado como recebido.
 
+### Sugestões locais de categorização (Fase 20)
+
+- A sugestão do Ollama é metadado de apoio, nunca uma escrita financeira autónoma.
+- O tipo selecionado no formulário e a submissão explícita do utilizador continuam autoritativos.
+- O modelo só pode selecionar nomes de categorias fornecidos pelo servidor; o servidor volta a resolver o respetivo ID dentro do mesmo workspace.
+- Aceitações e correções alimentam regras isoladas por workspace, sem fine-tuning e sem alterar transações anteriores.
+
 ## Isolamento
 
 Um registo só é visível a quem tem membership no `workspaceId` desse registo. O workspace conjunto é um terceiro espaço, não a união das contas pessoais.

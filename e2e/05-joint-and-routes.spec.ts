@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("K. acesso ao workspace conjunto", async ({ page }) => {
   await page.goto("/conta-conjunta");
   await expect(page.getByRole("heading", { name: "Conta conjunta" })).toBeVisible();
-  await expect(page.getByText("Casa João e Maria")).toBeVisible();
+  await expect(page.getByText("Casa João e Maria", { exact: true }).first()).toBeVisible();
 });
 
 test("Maria vê workspace conjunto partilhado", async ({ browser }) => {
@@ -12,7 +12,7 @@ test("Maria vê workspace conjunto partilhado", async ({ browser }) => {
   });
   const page = await context.newPage();
   await page.goto("/conta-conjunta");
-  await expect(page.getByText("Casa João e Maria")).toBeVisible();
+  await expect(page.getByText("Casa João e Maria", { exact: true }).first()).toBeVisible();
   await context.close();
 });
 

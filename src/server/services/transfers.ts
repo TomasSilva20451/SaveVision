@@ -1,5 +1,6 @@
 import { requireWorkspaceEditor } from "@/lib/auth/workspace-access";
 import { db } from "@/lib/db";
+import { appendAuditEvent } from "@/server/audit/audit-ledger";
 
 export async function createTransfer(
   userId: string,
@@ -87,6 +88,20 @@ export async function createTransfer(
     });
 
     return created;
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId,
+    action: "TRANSFER_CREATED",
+    resourceType: "Transfer",
+    resourceId: transfer.id,
+    outcome: "SUCCESS",
+    source: "financial-service",
+    metadata: {
+      fromAccountId: input.fromAccountId,
+      toAccountId: input.toAccountId,
+    },
   });
 
   return { ok: true as const, transfer };

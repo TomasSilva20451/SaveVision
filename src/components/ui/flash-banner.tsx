@@ -1,3 +1,8 @@
+"use client";
+
+import { useEffect } from "react";
+import { clearFlashAction } from "@/lib/ui/clear-flash";
+
 type FlashBannerProps = {
   type: "success" | "error" | "info";
   message: string;
@@ -12,6 +17,10 @@ const styles: Record<FlashBannerProps["type"], string> = {
 };
 
 export function FlashBanner({ type, message }: FlashBannerProps) {
+  useEffect(() => {
+    void clearFlashAction();
+  }, []);
+
   return (
     <div
       role="status"

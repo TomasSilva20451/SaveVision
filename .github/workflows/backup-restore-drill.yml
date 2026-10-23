@@ -1,0 +1,67 @@
+name: Backup restore drill
+
+on:
+  schedule:
+    # 05:00 UTC no 1.º dia de Jan, Abr, Jul, Out (teste trimestral)
+    - cron: "0 5 1 1,4,7,10 *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drill:
+    name: Quarterly PostgreSQL backup drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: fintwin
+          POSTGRES_PASSWORD: fintwin
+          POSTGRES_DB: fintwin_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fintwin -d fintwin_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CI: "1"
+      FINTWIN_ENV: e2e
+      FINTWIN_SKIP_DOCKER: "1"
+      DATABASE_URL: postgresql://fintwin:fintwin@127.0.0.1:5432/fintwin_e2e?schema=public
+      FINTWIN_DRILL_DATABASE: fintwin_drill_ci
+      AUTH_SECRET: ci-only-auth-secret-with-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+      - run: pnpm exec prisma migrate deploy
+      - run: FINTWIN_SEED_PROFILE=e2e pnpm exec prisma db seed
+
+      - name: Backup restore drill
+        run: node scripts/backup-restore-drill.mjs
+
+      - name: Upload drill report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-drill-report
+          path: storage/backups/drill-reports/
+          if-no-files-found: ignore

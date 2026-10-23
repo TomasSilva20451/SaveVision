@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+
+const BUDGET_PATH = "/orcamentos";
 import {
   deleteBudgetLine,
   deleteMonthlyBudget,
@@ -27,7 +29,7 @@ export async function upsertBudgetLineAction(formData: FormData): Promise<void> 
 
   const ym = parseYearMonth(formData);
   if (!ym) {
-    await flashError("Mês ou ano inválido.");
+    await flashError("Mês ou ano inválido.", BUDGET_PATH);
     return;
   }
 
@@ -38,11 +40,11 @@ export async function upsertBudgetLineAction(formData: FormData): Promise<void> 
   });
 
   if (!created) {
-    await flashError("Não foi possível guardar o limite. Verifica a categoria.");
+    await flashError("Não foi possível guardar o limite. Verifica a categoria.", BUDGET_PATH);
     return;
   }
 
-  await flashSuccess("Limite de orçamento guardado.");
+  await flashSuccess("Limite de orçamento guardado.", BUDGET_PATH);
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
 }
@@ -56,11 +58,11 @@ export async function deleteBudgetLineAction(formData: FormData): Promise<void> 
   const lineId = String(formData.get("lineId"));
   const ok = await deleteBudgetLine(user.id, selected.id, lineId);
   if (!ok) {
-    await flashError("Linha de orçamento não encontrada.");
+    await flashError("Linha de orçamento não encontrada.", BUDGET_PATH);
     return;
   }
 
-  await flashSuccess("Limite removido.");
+  await flashSuccess("Limite removido.", BUDGET_PATH);
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
 }
@@ -76,11 +78,11 @@ export async function deleteMonthlyBudgetAction(formData: FormData): Promise<voi
 
   const ok = await deleteMonthlyBudget(user.id, selected.id, ym.year, ym.month);
   if (!ok) {
-    await flashError("Orçamento não encontrado.");
+    await flashError("Orçamento não encontrado.", BUDGET_PATH);
     return;
   }
 
-  await flashSuccess("Orçamento mensal eliminado.");
+  await flashSuccess("Orçamento mensal eliminado.", BUDGET_PATH);
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
 }

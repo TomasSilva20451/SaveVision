@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  aggregateTreasuryProjectionByMonth,
+  applyTreasuryScenarioAssumptions,
   buildTreasuryProjection,
+  buildTreasuryScenarioProjection,
   exampleTreasuryScenario,
+  groupTreasuryOutflows,
   sumStartingBalance,
   treasuryHorizonEnd,
 } from "@/lib/finance/treasury-forecast";
@@ -134,5 +138,50 @@ describe("treasury-forecast", () => {
 
   it("sumStartingBalance", () => {
     expect(sumStartingBalance(["1500", "0.50"])).toBe("1500.50");
+  });
+
+  it("mantém o saldo inicial e não ajusta prestações contratuais nos cenários", () => {
+    const asOf = startOfCivilDay({ year: 2026, month: 10, day: 18 });
+    const events: TreasuryForecastEvent[] = [
+      inflow({ id: "income", label: "Salário", dueDate: new Date(asOf.getTime() + 86_400_000), amount: "1000" }),
+      outflow({ id: "rent", label: "Renda", dueDate: new Date(asOf.getTime() + 2 * 86_400_000), amount: "500" }),
+      outflow({ id: "loan", label: "Crédito", dueDate: new Date(asOf.getTime() + 3 * 86_400_000), amount: "200", source: "LIABILITY_MONTHLY_PAYMENT" }),
+    ];
+    const adjusted = applyTreasuryScenarioAssumptions(events, {
+      incomePercentChange: "10",
+      recurringExpensePercentChange: "-5",
+    });
+    expect(adjusted.map((row) => row.amount)).toEqual(["1100.00", "475.00", "200.00"]);
+    const projection = buildTreasuryScenarioProjection({ startingBalance: "1000", events, horizonDays: 30, asOf, assumptions: { incomePercentChange: "10", recurringExpensePercentChange: "-5" } });
+    expect(projection.startingBalance).toBe("1000.00");
+    expect(projection.projectedBalance).toBe("1425.00");
+  });
+
+  it("agrega meses civis parciais e reconcilia o saldo final", () => {
+    const asOf = startOfCivilDay({ year: 2026, month: 10, day: 18 });
+    const projection = buildTreasuryProjection({
+      startingBalance: "1000",
+      horizonDays: 60,
+      asOf,
+      events: [
+        inflow({ id: "oct-income", label: "Receita", dueDate: startOfCivilDay({ year: 2026, month: 10, day: 20 }), amount: "300" }),
+        outflow({ id: "nov-out", label: "Despesa", dueDate: startOfCivilDay({ year: 2026, month: 11, day: 3 }), amount: "50" }),
+      ],
+    });
+    const rows = aggregateTreasuryProjectionByMonth(projection);
+    expect(rows[0]).toMatchObject({ key: "2026-10", isPartial: true, netExpected: "300.00", projectedBalance: "1300.00" });
+    expect(rows.at(-1)?.projectedBalance).toBe(projection.projectedBalance);
+  });
+
+  it("agrupa saídas pela categoria real e separa obrigações", () => {
+    const asOf = startOfCivilDay({ year: 2026, month: 10, day: 18 });
+    const groups = groupTreasuryOutflows([
+      outflow({ id: "food", label: "Supermercado", dueDate: asOf, amount: "80", categoryLabel: "Alimentação" }),
+      outflow({ id: "loan", label: "Crédito", dueDate: asOf, amount: "20", source: "LIABILITY_MONTHLY_PAYMENT" }),
+    ]);
+    expect(groups).toEqual([
+      { label: "Alimentação", amount: "80.00", percent: 80 },
+      { label: "Prestações e obrigações", amount: "20.00", percent: 20 },
+    ]);
   });
 });

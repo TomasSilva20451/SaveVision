@@ -11,6 +11,7 @@ import { decimal } from "@/lib/finance/money";
 import { db } from "@/lib/db";
 import { findCategoryInWorkspace } from "@/server/repositories/account-guard";
 import { ensureDefaultCategories } from "@/server/services/expenses";
+import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
 
 function expenseAmount(raw: string): string {
   return decimal(raw).abs().toFixed(2);
@@ -132,7 +133,7 @@ export async function upsertBudgetLine(
     update: {},
   });
 
-  return db.budgetLine.upsert({
+  const line = await db.budgetLine.upsert({
     where: {
       monthlyBudgetId_categoryId: {
         monthlyBudgetId: budget.id,
@@ -146,6 +147,15 @@ export async function upsertBudgetLine(
     },
     update: { limitAmount: input.limitAmount },
   });
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "BUDGET_CHANGED",
+    entityType: "BudgetLine",
+    entityId: line.id,
+    metadata: { operation: "UPSERT", year: input.year, month: input.month },
+  });
+  return line;
 }
 
 export async function deleteBudgetLine(
@@ -161,6 +171,14 @@ export async function deleteBudgetLine(
   });
   if (!line) return null;
   await db.budgetLine.delete({ where: { id: line.id } });
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "BUDGET_CHANGED",
+    entityType: "BudgetLine",
+    entityId: line.id,
+    metadata: { operation: "DELETE" },
+  });
   return true;
 }
 
@@ -173,8 +191,16 @@ export async function deleteMonthlyBudget(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
-  await db.monthlyBudget.deleteMany({
+  const deleted = await db.monthlyBudget.deleteMany({
     where: { workspaceId, year, month },
+  });
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "BUDGET_CHANGED",
+    entityType: "MonthlyBudget",
+    entityId: `${workspaceId}:${year}-${month}`,
+    metadata: { operation: "DELETE", deleted: deleted.count, year, month },
   });
   return true;
 }

@@ -10,7 +10,7 @@ Sistema interno persistente, determinístico e explicável. **Não cria transaç
 | `BUDGET_EXCEEDED` / `BUDGET_NEAR_LIMIT` | Orçamento mensal (realizado vs limite) |
 | `RECURRING_EXPENSE_OVERDUE` / `RECURRING_EXPENSE_DUE` | Ocorrências EXPECTED/POSTPONED |
 | `EXPECTED_INCOME_OVERDUE` | `IncomeOccurrence` EXPECTED |
-| `UNUSUAL_EXPENSE` | Insight `ANOMALY` de `financial-insights.ts` |
+| `UNUSUAL_EXPENSE` | Insight `ANOMALY` (regras R1/R2/R3 em `expense-anomaly-detection.ts`; `evidence.ruleId` espelha `triggerMetric`) |
 | `EMERGENCY_FUND_BELOW_TARGET` | Planeamento / poupança vs objetivo |
 | `RECURRING_LIABILITY_CONFIGURATION` | Avisos passivo ↔ recorrência |
 | `DUPLICATE_PAYMENT_RISK` | Recorrência ACTIVE com `linkedLiabilityId` |
@@ -38,6 +38,13 @@ A listagem em `/alertas` e no dashboard **não** reavalia alertas (sem escritas 
 ## Pagamento duplicado (17c.1)
 
 `linkedLiabilityId` evita dupla contagem na **previsão**, não unifica confirmação. Confirmação de recorrência ou pagamento WITH_BANK exige checkbox `acknowledgeLinkedLiabilityRisk` quando há associação ativa; bloqueio adicional só com evidência fiável (pagamento ligado na janela de 14 dias).
+
+## Explicação em linguagem natural (Fase 20.3)
+
+- Botão «Explicar alerta» em `/alertas`: o Ollama local (`qwen3.5:4b-mlx` ou `OLLAMA_EXPLANATION_MODEL`) reescreve a evidência JSON já persistida.
+- O motor **não altera** prioridade, valores, regras, estado resolvido, datas nem ações recomendadas.
+- Sugestões hipotéticas (ex.: limite mais realista) aparecem com rótulo **Sugestão (não garantida)**.
+- Fallback determinístico se o modelo estiver indisponível.
 
 ## Futuro
 

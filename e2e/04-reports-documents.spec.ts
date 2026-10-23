@@ -31,8 +31,8 @@ test("N. upload de documento permitido (txt)", async ({ page }) => {
     mimeType: "text/plain",
     buffer: Buffer.from("FinTwin E2E documento"),
   });
-  await page.getByRole("button", { name: "Enviar" }).click();
-  await expect(page.getByRole("link", { name: fileName })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Carregar documento" }).click();
+  await expect(page.getByText(fileName, { exact: true })).toBeVisible({ timeout: 20_000 });
 });
 
 test("O. rejeição de ficheiro inválido", async ({ page }) => {
@@ -42,6 +42,6 @@ test("O. rejeição de ficheiro inválido", async ({ page }) => {
     mimeType: "application/pdf",
     buffer: Buffer.from("isto nao e pdf"),
   });
-  await page.getByRole("button", { name: "Enviar" }).click();
+  await page.getByRole("button", { name: "Carregar documento" }).click();
   await expect(page.getByText("fake.pdf")).not.toBeVisible();
 });

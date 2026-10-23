@@ -1,0 +1,42 @@
+import fs from "node:fs";
+
+const SECRET_NAMES = [
+  "DATABASE_URL",
+  "AUTH_SECRET",
+  "FINTWIN_DOCUMENT_ENCRYPTION_KEY",
+  "FINTWIN_AUDIT_SIGNING_KEY",
+  "FINTWIN_BACKUP_ENCRYPTION_SECRET",
+];
+
+/** Resolve segredos montados pelo orquestrador sem os persistir num ficheiro .env. */
+export function resolveSecretFiles(env, readFile = fs.readFileSync) {
+  const resolved = { ...env };
+  for (const name of SECRET_NAMES) {
+    const file = resolved[`${name}_FILE`]?.trim();
+    if (!file) continue;
+    if (resolved[name]?.trim()) {
+      throw new Error(`${name} e ${name}_FILE não podem ser usados em simultâneo.`);
+    }
+    const value = String(readFile(file, "utf8")).trim();
+    if (!value) throw new Error(`O segredo ${name} montado em ${file} está vazio.`);
+    resolved[name] = value;
+  }
+  return resolved;
+}
+
+export function installResolvedSecrets(target = process.env) {
+  const resolved = resolveSecretFiles(target);
+  for (const name of SECRET_NAMES) {
+    if (resolved[name]) target[name] = resolved[name];
+  }
+  return target;
+}
+
+export function mapDeploymentSecretFiles(target = process.env) {
+  target.DATABASE_URL_FILE ??= target.FINTWIN_DATABASE_URL_SECRET_FILE;
+  target.AUTH_SECRET_FILE ??= target.FINTWIN_AUTH_SECRET_FILE;
+  target.FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE ??= target.FINTWIN_DOCUMENT_KEY_SECRET_FILE;
+  target.FINTWIN_AUDIT_SIGNING_KEY_FILE ??= target.FINTWIN_AUDIT_KEY_SECRET_FILE;
+  return target;
+}
+

@@ -10,6 +10,9 @@ import {
   updateLiabilitySchedule,
 } from "@/server/services/patrimony";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
+import { civilDateIsoToInstant } from "@/lib/datetime/civil-date";
+
+const PATRIMONY_PATH = "/patrimonio";
 
 export async function createLiabilityAction(formData: FormData): Promise<void> {
   const user = await requireAuthenticatedUser();
@@ -26,7 +29,7 @@ export async function createLiabilityAction(formData: FormData): Promise<void> {
 
   const dueParsed = validatePaymentDueDayInput(formData.get("paymentDueDayOfMonth"));
   if (!dueParsed.ok) {
-    await flashError(dueParsed.error);
+    await flashError(dueParsed.error, PATRIMONY_PATH);
     return;
   }
 
@@ -41,11 +44,11 @@ export async function createLiabilityAction(formData: FormData): Promise<void> {
   });
 
   if (!created) {
-    await flashError("Não foi possível criar a responsabilidade.");
+    await flashError("Não foi possível criar a responsabilidade.", PATRIMONY_PATH);
     return;
   }
 
-  await flashSuccess("Responsabilidade registada.");
+  await flashSuccess("Responsabilidade registada.", PATRIMONY_PATH);
   revalidatePath("/patrimonio");
   revalidatePath("/dashboard");
   revalidatePath("/previsoes");
@@ -59,7 +62,7 @@ export async function updateLiabilityScheduleAction(formData: FormData): Promise
 
   const dueParsed = validatePaymentDueDayInput(formData.get("paymentDueDayOfMonth"));
   if (!dueParsed.ok) {
-    await flashError(dueParsed.error);
+    await flashError(dueParsed.error, PATRIMONY_PATH);
     return;
   }
 
@@ -69,7 +72,7 @@ export async function updateLiabilityScheduleAction(formData: FormData): Promise
   });
 
   if (!updated) {
-    await flashError("Não foi possível atualizar o vencimento.");
+    await flashError("Não foi possível atualizar o vencimento.", PATRIMONY_PATH);
     return;
   }
 
@@ -77,6 +80,7 @@ export async function updateLiabilityScheduleAction(formData: FormData): Promise
     clear
       ? "Dia de vencimento removido."
       : "Dia de vencimento atualizado. As previsões usarão esta data.",
+    PATRIMONY_PATH,
   );
   revalidatePath("/patrimonio");
   revalidatePath("/previsoes");
@@ -89,7 +93,7 @@ export async function recordLiabilityPaymentAction(formData: FormData): Promise<
   if (!selected) return;
 
   const paidAtRaw = String(formData.get("paidAt") || "");
-  const paidAt = paidAtRaw ? new Date(paidAtRaw) : new Date();
+  const paidAt = paidAtRaw ? civilDateIsoToInstant(paidAtRaw) : new Date();
 
   const mode =
     formData.get("recordBankMovement") === "on" ? "WITH_BANK" : "LIABILITY_ONLY";
@@ -110,14 +114,14 @@ export async function recordLiabilityPaymentAction(formData: FormData): Promise<
 
   if (!updated.ok) {
     if (updated.reason === "linked_liability_ack_required" && updated.message) {
-      await flashError(updated.message);
+      await flashError(updated.message, PATRIMONY_PATH);
     } else {
-      await flashError("Pagamento inválido ou responsabilidade inexistente.");
+      await flashError("Pagamento inválido ou responsabilidade inexistente.", PATRIMONY_PATH);
     }
     return;
   }
 
-  await flashSuccess("Pagamento registado (capital reduz passivo; juros podem ser despesa à parte).");
+  await flashSuccess("Pagamento registado (capital reduz passivo; juros podem ser despesa à parte).", PATRIMONY_PATH);
   revalidatePath("/patrimonio");
   revalidatePath("/contas");
   revalidatePath("/transacoes");
@@ -135,9 +139,9 @@ export async function captureNetWorthSnapshotAction(): Promise<void> {
   );
   const snapshot = await captureNetWorthSnapshot(user.id, selected.id);
   if (!snapshot) {
-    await flashError("Não foi possível criar o snapshot.");
+    await flashError("Não foi possível criar o snapshot.", PATRIMONY_PATH);
     return;
   }
-  await flashSuccess("Snapshot patrimonial registado.");
+  await flashSuccess("Snapshot patrimonial registado.", PATRIMONY_PATH);
   revalidatePath("/patrimonio");
 }

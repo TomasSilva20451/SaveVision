@@ -2,8 +2,15 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { StorageProvider } from "@/server/providers/contracts";
+import {
+  decryptEnvelope,
+  encryptEnvelope,
+  encryptionKeyFromEnvironment,
+  isEncryptedEnvelope,
+} from "@/server/security/envelope-encryption";
 
-const ROOT = path.join(process.cwd(), "storage", "documents");
+const ROOT = process.env.FINTWIN_DOCUMENT_STORAGE_DIR?.trim()
+  || path.join(process.cwd(), "storage", "documents");
 
 async function ensureRoot() {
   await mkdir(ROOT, { recursive: true });
@@ -14,7 +21,8 @@ export const localDocumentStorage: StorageProvider = {
     await ensureRoot();
     const storageKey = randomBytes(24).toString("hex");
     const filePath = path.join(ROOT, storageKey);
-    await writeFile(filePath, input.bytes);
+    const encrypted = encryptEnvelope(input.bytes, encryptionKeyFromEnvironment());
+    await writeFile(filePath, encrypted, { mode: 0o600 });
     return { storageKey };
   },
   async read(storageKey) {
@@ -23,7 +31,13 @@ export const localDocumentStorage: StorageProvider = {
     }
     const filePath = path.join(ROOT, storageKey);
     const buffer = await readFile(filePath);
-    return new Uint8Array(buffer);
+    if (!isEncryptedEnvelope(buffer)) {
+      if (process.env.FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS === "1") {
+        throw new Error("DOCUMENT_NOT_ENCRYPTED");
+      }
+      return new Uint8Array(buffer);
+    }
+    return decryptEnvelope(buffer, [encryptionKeyFromEnvironment()]);
   },
   async delete(storageKey) {
     if (!/^[a-f0-9]{48}$/.test(storageKey)) return;

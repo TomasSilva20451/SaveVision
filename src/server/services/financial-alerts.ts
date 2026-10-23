@@ -367,6 +367,10 @@ export type FinancialAlertView = {
   status: FinancialAlertStatus;
   actionUrl: string | null;
   evidence: unknown;
+  sourceType: string | null;
+  sourceId: string | null;
+  periodStart: Date | null;
+  periodEnd: Date | null;
   detectedAt: Date;
   resolvedAt: Date | null;
   seenAt: Date | null;
@@ -405,6 +409,10 @@ export async function listFinancialAlerts(
         status: row.status,
         actionUrl: row.actionUrl,
         evidence: row.evidence,
+        sourceType: row.sourceType,
+        sourceId: row.sourceId,
+        periodStart: row.periodStart,
+        periodEnd: row.periodEnd,
         detectedAt: row.detectedAt,
         resolvedAt: row.resolvedAt,
         seenAt: state?.seenAt ?? null,

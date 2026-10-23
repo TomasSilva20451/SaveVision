@@ -420,6 +420,7 @@ function insightToAnomalyAlert(
     evidence: {
       evidenceLines: insight.evidence,
       triggerMetric: insight.triggerMetric,
+      ruleId: insight.triggerMetric,
       periodLabel: insight.periodLabel,
     },
     actionUrl: insight.linkHref ?? "/analises",

@@ -19,6 +19,13 @@ PostgreSQL 17 em Docker Compose, publicado em `localhost:5433` porque a porta 54
 
 O schema desta fase cobre utilizador, workspace e membership. Contas, movimentos e relatórios entram nas fases seguintes, sempre com `workspaceId`.
 
+## Operações e continuidade
+
+- Dados financeiros: PostgreSQL (fonte de verdade).
+- Ficheiros privados: `storage/documents` (volume Docker em deploy; fora de `public/`).
+- Ollama: opcional, localhost; falhas degradam IA, não o core.
+- Backups: `pnpm db:backup:run`, política 3-2-1 e runbooks em `docs/BUSINESS_CONTINUITY.md`.
+
 ## Integrações futuras
 
 `StorageProvider`, `BankDataProvider`, `MarketDataProvider`, `CryptoPriceProvider`, `ForecastProvider` e `InsightProvider` são contratos vazios de implementação. Nenhum deles fala com serviços externos.

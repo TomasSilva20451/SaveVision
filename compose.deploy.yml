@@ -1,0 +1,111 @@
+x-fintwin-app: &fintwin-app
+  image: ${FINTWIN_IMAGE:-fintwin:local}
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+  environment: &runtime-environment
+    NODE_ENV: production
+    APP_NAME: ${APP_NAME:-FinTwin}
+    DATABASE_URL_FILE: /run/secrets/fintwin_database_url
+    AUTH_SECRET_FILE: /run/secrets/fintwin_auth_secret
+    FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE: /run/secrets/fintwin_document_key
+    FINTWIN_AUDIT_SIGNING_KEY_FILE: /run/secrets/fintwin_audit_key
+    FINTWIN_DOCUMENT_ENCRYPTION_KEY_ID: ${FINTWIN_DOCUMENT_ENCRYPTION_KEY_ID:?ID da chave documental obrigatório}
+    FINTWIN_AUDIT_SIGNING_KEY_ID: ${FINTWIN_AUDIT_SIGNING_KEY_ID:?ID da chave de auditoria obrigatório}
+    FINTWIN_PUBLIC_URL: ${FINTWIN_PUBLIC_URL:?URL pública HTTPS obrigatória}
+    FINTWIN_ENFORCE_TLS: "1"
+    FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS: "1"
+    FINTWIN_AUDIT_ARCHIVE_REQUIRED: "1"
+    FINTWIN_AUDIT_ARCHIVE_DIR: /app/storage/audit
+    FINTWIN_LOCAL_AI_ENABLED: ${FINTWIN_LOCAL_AI_ENABLED:-0}
+    OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    FINTWIN_METRICS_TOKEN: ${FINTWIN_METRICS_TOKEN:-}
+    FINTWIN_OTEL_ENABLED: ${FINTWIN_OTEL_ENABLED:-0}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4318}
+    FINTWIN_CLAMAV_ENABLED: ${FINTWIN_CLAMAV_ENABLED:-1}
+    FINTWIN_CLAMAV_BIN: clamdscan
+    FINTWIN_CLAMAV_HOST: ${FINTWIN_CLAMAV_HOST:-}
+    FINTWIN_CLAMAV_PORT: ${FINTWIN_CLAMAV_PORT:-3310}
+  secrets: &runtime-secrets
+    - fintwin_database_url
+    - fintwin_auth_secret
+    - fintwin_document_key
+    - fintwin_audit_key
+  healthcheck:
+    test:
+      [
+        "CMD",
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+      ]
+    interval: 15s
+    timeout: 5s
+    retries: 5
+    start_period: 20s
+
+services:
+  clamav-staging:
+    profiles: ["staging"]
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav_staging:/var/lib/clamav
+
+  clamav-production:
+    profiles: ["production"]
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav_production:/var/lib/clamav
+
+  app-staging:
+    <<: *fintwin-app
+    profiles: ["staging"]
+    depends_on:
+      clamav-staging:
+        condition: service_started
+    ports:
+      - "${FINTWIN_PORT:-3001}:3000"
+    environment:
+      <<: *runtime-environment
+      FINTWIN_ENV: staging
+      FINTWIN_CLAMAV_HOST: clamav-staging
+    volumes:
+      - fintwin_staging_documents:/app/storage/documents
+      - fintwin_staging_audit:/app/storage/audit
+
+  app-production:
+    <<: *fintwin-app
+    profiles: ["production"]
+    depends_on:
+      clamav-production:
+        condition: service_started
+    ports:
+      - "${FINTWIN_PORT:-3000}:3000"
+    environment:
+      <<: *runtime-environment
+      FINTWIN_ENV: production
+      FINTWIN_CLAMAV_HOST: clamav-production
+    volumes:
+      - fintwin_production_documents:/app/storage/documents
+      - fintwin_production_audit:/app/storage/audit
+
+volumes:
+  fintwin_staging_documents:
+  fintwin_production_documents:
+  fintwin_staging_audit:
+  fintwin_production_audit:
+  clamav_staging:
+  clamav_production:
+
+secrets:
+  fintwin_database_url:
+    file: ${FINTWIN_DATABASE_URL_SECRET_FILE:?ficheiro DATABASE_URL obrigatório}
+  fintwin_auth_secret:
+    file: ${FINTWIN_AUTH_SECRET_FILE:?ficheiro AUTH_SECRET obrigatório}
+  fintwin_document_key:
+    file: ${FINTWIN_DOCUMENT_KEY_SECRET_FILE:?ficheiro da chave documental obrigatório}
+  fintwin_audit_key:
+    file: ${FINTWIN_AUDIT_KEY_SECRET_FILE:?ficheiro da chave de auditoria obrigatório}

@@ -53,3 +53,17 @@ export function monthReportPeriod(year: number, month: number): ReportPeriod {
   const civilEnd = civilDateFromInstant(new Date(lastDay.getTime() - 1));
   return buildReportPeriod(from, civilEnd);
 }
+
+export function reportPeriodKey(period: ReportPeriod): string {
+  return `${period.from.year}-${String(period.from.month).padStart(2, "0")}`;
+}
+
+export function isFullCivilMonthPeriod(period: ReportPeriod): boolean {
+  if (period.from.day !== 1) return false;
+  const monthEnd = monthReportPeriod(period.from.year, period.from.month).to;
+  return (
+    period.to.year === monthEnd.year &&
+    period.to.month === monthEnd.month &&
+    period.to.day === monthEnd.day
+  );
+}

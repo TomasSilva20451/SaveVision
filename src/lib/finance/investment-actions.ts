@@ -23,6 +23,8 @@ export async function createInvestmentPositionAction(
       costBasis: z.string().min(1),
       manualPrice: z.string().min(1),
       notes: z.string().optional(),
+      valuationMode: z.enum(["STANDALONE", "ACCOUNT_COMPONENT"]),
+      linkedAccountId: z.string().optional(),
     })
     .safeParse({
       assetClass: formData.get("assetClass"),
@@ -32,6 +34,8 @@ export async function createInvestmentPositionAction(
       costBasis: formData.get("costBasis"),
       manualPrice: formData.get("manualPrice"),
       notes: formData.get("notes") || undefined,
+      valuationMode: formData.get("valuationMode") || "STANDALONE",
+      linkedAccountId: formData.get("linkedAccountId") || undefined,
     });
 
   if (!parsed.success) return;

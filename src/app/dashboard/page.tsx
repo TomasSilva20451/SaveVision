@@ -1,24 +1,27 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { DashboardCharts } from "@/components/dashboard/dashboard-charts";
-import { MetricCard } from "@/components/dashboard/metric-card";
-import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
+import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
+import { DashboardGreeting, DashboardHeaderActions } from "@/components/dashboard/dashboard-header";
+import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
+import { safePercentChange } from "@/lib/finance/kpi";
 import { readPageFlash } from "@/lib/ui/page-shell";
-import { FinancialInsightsPanel } from "@/components/insights/financial-insights-panel";
-import { FinancialAlertsPanel } from "@/components/alerts/financial-alerts-panel";
 import { getDashboardMetrics } from "@/server/services/dashboard";
-import { getFinancialInsightsOverview } from "@/server/services/financial-insights";
-import {
-  countUnseenFinancialAlerts,
-  listFinancialAlerts,
-} from "@/server/services/financial-alerts";
-import Link from "next/link";
+import { listFinancialAlerts, countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
+
+function trendLabel(current: string, previous: string): { text: string | null; positive: boolean | null } {
+  const pct = safePercentChange(current, previous);
+  if (pct === null) return { text: null, positive: null };
+  const sign = pct > 0 ? "+" : "";
+  return {
+    text: `${sign}${pct}% vs. mês anterior`,
+    positive: pct >= 0,
+  };
+}
 
 async function DashboardContent() {
   await ensureRequestDynamic();
@@ -32,107 +35,88 @@ async function DashboardContent() {
   const membership = await requireWorkspaceAccess(user.id, selected.id);
   if (!membership) redirect("/inicio");
 
-  const [metrics, insightsOverview, alerts, unseenCount] = await Promise.all([
+  const [metrics, alerts, unseenCount] = await Promise.all([
     getDashboardMetrics(user.id, selected.id),
-    getFinancialInsightsOverview(user.id, selected.id),
     listFinancialAlerts(user.id, selected.id),
     countUnseenFinancialAlerts(user.id, selected.id),
   ]);
-  if (!metrics || !insightsOverview || !alerts) redirect("/inicio");
+  if (!metrics || !alerts) redirect("/inicio");
 
-  const { kpis, previous, monthlyBuckets, expenseByCategory } = metrics;
+  const { kpis, previous, widgets } = metrics;
+  const incomeTrend = trendLabel(kpis.incomeMonth, previous.incomeMonth);
+  const expenseTrend = trendLabel(kpis.expenseMonth, previous.expenseMonth);
+  const expenseTrendDisplay = expenseTrend.text
+    ? {
+        text: expenseTrend.text,
+        positive: expenseTrend.positive === null ? null : !expenseTrend.positive,
+      }
+    : { text: null, positive: null };
+
+  const resultTrend = trendLabel(kpis.economicResultMonth, previous.economicResultMonth);
 
   return (
     <AppShell
+      visualTheme="aurora"
       userName={user.name}
       workspaces={workspaces}
       activeWorkspaceId={selected.id}
       flash={flash}
       unseenAlertsCount={unseenCount}
+      headerLeading={<DashboardGreeting userName={user.name} />}
+      headerActions={<DashboardHeaderActions unseenAlertsCount={unseenCount} />}
     >
-      <PageHeader
-        title="Dashboard"
-        description={`Workspace «${selected.name}» · mês civil (Europe/Lisbon) · valores da base de dados`}
-      />
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Saldo total" value={kpis.totalBalance} highlight />
-        <MetricCard label="Saldo disponível" value={kpis.availableBalance} />
-        <MetricCard label="Poupança" value={kpis.savingsBalance} />
-        <MetricCard
-          label="Património líquido"
-          value={kpis.netPatrimony ?? kpis.netWorth}
-          href="/patrimonio"
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardKpiCard
+          label="Saldo total"
+          value={kpis.totalBalance}
+          tone="accent"
+          icon="💰"
+          href="/contas"
         />
-        <MetricCard
-          label="Orçamento (mês)"
-          value={kpis.budgetLimitMonth ?? "0.00"}
-          href="/orcamentos"
-        />
-        <MetricCard label="Orçamento gasto" value={kpis.budgetSpentMonth ?? "0.00"} />
-        <MetricCard label="Orçamento disponível" value={kpis.budgetAvailableMonth ?? "0.00"} />
-        <MetricCard label="Passivos" value={kpis.liabilitiesTotal ?? "0.00"} href="/patrimonio" />
-        <MetricCard
-          label="Receitas recebidas (mês)"
+        <DashboardKpiCard
+          label="Receitas (mês)"
           value={kpis.incomeMonth}
-          previous={previous.incomeMonth}
+          tone="income"
+          icon="↑"
+          href="/receitas"
+          trendLabel={incomeTrend.text}
+          trendPositive={incomeTrend.positive}
         />
-        <MetricCard label="Receitas esperadas" value={kpis.expectedIncome} />
-        <MetricCard
+        <DashboardKpiCard
           label="Despesas (mês)"
           value={kpis.expenseMonth}
-          previous={previous.expenseMonth}
+          tone="expense"
+          icon="↓"
+          href="/despesas"
+          trendLabel={expenseTrendDisplay.text}
+          trendPositive={expenseTrendDisplay.positive}
         />
-        <MetricCard
+        <DashboardKpiCard
           label="Resultado económico (mês)"
           value={kpis.economicResultMonth}
-        />
-        <MetricCard
-          label="Movimento de caixa (mês)"
-          value={kpis.netCashMovementMonth}
-        />
-        <MetricCard
-          label="Obrigações previstas (mês)"
-          value={kpis.recurringExpectedMonth ?? "0.00"}
-          href="/despesas-recorrentes"
-        />
-        <MetricCard
-          label="A pagar (30 dias)"
-          value={kpis.recurringDue30Total ?? "0.00"}
-          href="/despesas-recorrentes"
+          tone="analytic"
+          icon="◎"
+          trendLabel={resultTrend.text}
+          trendPositive={resultTrend.positive}
         />
       </div>
 
-      <section className="mt-8" data-testid="dashboard-alerts-section">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">Alertas financeiros</h2>
-          <Link href="/alertas" className="text-sm underline">
-            Ver todos os alertas
-          </Link>
-        </div>
-        <FinancialAlertsPanel alerts={alerts} compact />
-      </section>
-
-      <section className="mt-8">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-medium">Insights financeiros</h2>
-          <Link href="/analises" className="text-sm underline">
-            Ver todas as análises
-          </Link>
-        </div>
-        <FinancialInsightsPanel
-          summary={insightsOverview.summary}
-          insights={insightsOverview.highlights}
-          compact
-        />
-      </section>
-
-      <Card title="Evolução e categorias" className="mt-8">
-        <DashboardCharts
-          monthlyBuckets={monthlyBuckets}
-          expenseByCategory={expenseByCategory}
-        />
-      </Card>
+      <DashboardGrid
+        incomeMonth={kpis.incomeMonth}
+        expenseMonth={kpis.expenseMonth}
+        incomeByCategory={widgets.incomeByCategory}
+        expenseByCategory={metrics.expenseByCategory}
+        balanceSeries={widgets.balanceSeries}
+        realBalance={widgets.realBalance}
+        treasuryBars={widgets.treasuryBars}
+        budgetUtilization={widgets.budgetUtilization}
+        budgetCategories={widgets.budgetCategories}
+        budgetSummary={widgets.budgetSummary}
+        topAccounts={widgets.topAccounts}
+        upcomingRecurring={widgets.upcomingRecurring}
+        patrimony={widgets.patrimony}
+        alerts={alerts}
+      />
     </AppShell>
   );
 }

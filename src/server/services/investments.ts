@@ -7,6 +7,7 @@ import {
 import { db } from "@/lib/db";
 import { findAccountInWorkspace } from "@/server/repositories/account-guard";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
+import { decimal } from "@/lib/finance/money";
 
 export async function listInvestmentPositions(
   userId: string,
@@ -65,9 +66,9 @@ export async function createInvestmentPosition(
       assetClass: input.assetClass,
       symbol: input.symbol.toUpperCase(),
       name: input.name,
-      quantity: input.quantity,
-      costBasis: input.costBasis,
-      manualPrice: input.manualPrice,
+      quantity: decimal(input.quantity).toString(),
+      costBasis: decimal(input.costBasis).toString(),
+      manualPrice: decimal(input.manualPrice).toString(),
       notes: input.notes,
       valuationMode:
         valuationMode === "ACCOUNT_COMPONENT" ? "ACCOUNT_COMPONENT" : "STANDALONE",

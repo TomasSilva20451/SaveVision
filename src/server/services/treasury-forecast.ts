@@ -7,7 +7,10 @@ import {
   generateLiabilityMonthlyOutflows,
 } from "@/lib/finance/treasury-liability-events";
 import {
+  aggregateTreasuryProjectionByMonth,
+  buildTreasuryScenarioProjection,
   buildTreasuryProjection,
+  groupTreasuryOutflows,
   sumStartingBalance,
   treasuryHorizonEnd,
   treasuryHorizonStart,
@@ -15,6 +18,8 @@ import {
   type TreasuryForecastEvent,
   type TreasuryHorizonDays,
 } from "@/lib/finance/treasury-forecast";
+import { goalProgressPercent, sumContributions } from "@/lib/finance/goal-progress";
+import { decimal } from "@/lib/finance/money";
 import { describeRecurringLiabilityMismatch } from "@/lib/finance/liability-recurring-link";
 import { db } from "@/lib/db";
 import { listWorkspaceMovements } from "@/server/repositories/ledger";
@@ -68,6 +73,18 @@ function parseHorizonDays(value: number | string | undefined): TreasuryHorizonDa
   return 30;
 }
 
+const INCOME_SOURCE_LABELS: Record<string, string> = {
+  FAMILY_TRANSFER: "Transferências familiares",
+  GIFT: "Presentes",
+  ECOMMERCE: "E-commerce",
+  TENNIS_PRIZE: "Prémios de ténis",
+  SALARY: "Salários",
+  FREELANCE: "Trabalho independente",
+  REFUND: "Reembolsos",
+  INTEREST: "Juros",
+  OTHER: "Outras receitas",
+};
+
 export async function collectTreasuryForecastEvents(
   workspaceId: string,
   horizonStart: Date,
@@ -88,7 +105,7 @@ export async function collectTreasuryForecastEvents(
         status: { in: ["EXPECTED", "POSTPONED"] },
         dueDate: { gte: horizonStart, lte: horizonEnd },
       },
-      include: { recurringExpense: true },
+      include: { recurringExpense: { include: { category: true } } },
       orderBy: { dueDate: "asc" },
     }),
     db.financialLiability.findMany({
@@ -111,6 +128,7 @@ export async function collectTreasuryForecastEvents(
     source: "INCOME_EXPECTED" as const,
     sourceRef: row.id,
     movementKind: "PREVISTO" as const,
+    categoryLabel: INCOME_SOURCE_LABELS[row.sourceType] ?? "Outras receitas",
   }));
 
   const expenseEvents: TreasuryForecastEvent[] = expenseRows.map((row) => ({
@@ -122,6 +140,7 @@ export async function collectTreasuryForecastEvents(
     source: "RECURRING_EXPENSE" as const,
     sourceRef: row.recurringExpenseId,
     movementKind: "PREVISTO" as const,
+    categoryLabel: row.recurringExpense.category.name,
   }));
 
   const liabilityEvents: TreasuryForecastEvent[] = [];
@@ -255,4 +274,140 @@ export async function getTreasuryForecastAllHorizons(userId: string, workspaceId
       netExpected: projection.netExpected,
     };
   });
+}
+
+export async function getTreasuryForecastDashboard(
+  userId: string,
+  workspaceId: string,
+  horizonInput?: number,
+) {
+  const context = await loadTreasuryContext(userId, workspaceId);
+  if (!context) return null;
+
+  const horizonDays = parseHorizonDays(horizonInput);
+  const base = buildTreasuryProjection({
+    startingBalance: context.startingBalance,
+    events: context.eventsMaxHorizon,
+    horizonDays,
+    asOf: context.asOf,
+  });
+  const optimistic = buildTreasuryScenarioProjection({
+    startingBalance: context.startingBalance,
+    events: context.eventsMaxHorizon,
+    horizonDays,
+    asOf: context.asOf,
+    assumptions: { incomePercentChange: "10", recurringExpensePercentChange: "-5" },
+  });
+  const pessimistic = buildTreasuryScenarioProjection({
+    startingBalance: context.startingBalance,
+    events: context.eventsMaxHorizon,
+    horizonDays,
+    asOf: context.asOf,
+    assumptions: { incomePercentChange: "-10", recurringExpensePercentChange: "10" },
+  });
+
+  const [configurationWarnings, goals] = await Promise.all([
+    collectForecastConfigurationWarnings(workspaceId),
+    db.savingsGoal.findMany({
+      where: { workspaceId, archived: false },
+      include: { contributions: true },
+      orderBy: { createdAt: "asc" },
+      take: 4,
+    }),
+  ]);
+
+  const goalRows = goals.map((goal) => {
+    const currentAmount = sumContributions(
+      goal.contributions.map((row) => row.amount.toString()),
+    ).toFixed(2);
+    return {
+      id: goal.id,
+      title: goal.title,
+      kind: goal.kind,
+      targetAmount: goal.targetAmount.toString(),
+      currentAmount,
+      progressPercent: goalProgressPercent(currentAmount, goal.targetAmount.toString()) ?? 0,
+      targetDate: goal.targetDate?.toISOString() ?? null,
+    };
+  });
+
+  const distribution = groupTreasuryOutflows(base.events);
+  const minBalance = base.timeline.reduce(
+    (minimum, point) =>
+      decimal(point.projectedBalance).lt(minimum) ? decimal(point.projectedBalance) : minimum,
+    decimal(base.startingBalance),
+  );
+  const insights: { id: string; tone: "info" | "warning" | "success"; title: string; description: string }[] = [];
+  if (minBalance.lt(0)) {
+    insights.push({
+      id: "negative-balance",
+      tone: "warning",
+      title: "Risco de saldo negativo",
+      description: `A projeção base atinge um mínimo de ${minBalance.toFixed(2)} € no horizonte selecionado.`,
+    });
+  } else if (base.events.length === 0) {
+    insights.push({
+      id: "stable-balance",
+      tone: "info",
+      title: "Sem movimentos conhecidos",
+      description: "O saldo mantém-se estável porque não existem entradas ou saídas previstas neste horizonte.",
+    });
+  } else {
+    insights.push({
+      id: "positive-liquidity",
+      tone: "success",
+      title: "Tesouraria positiva no cenário base",
+      description: `O saldo mínimo projetado é ${minBalance.toFixed(2)} € com os movimentos atualmente conhecidos.`,
+    });
+  }
+  if (distribution[0]) {
+    insights.push({
+      id: "outflow-concentration",
+      tone: "info",
+      title: "Principal fonte de saídas",
+      description: `${distribution[0].label} representa ${distribution[0].percent.toLocaleString("pt-PT")} % das saídas projetadas.`,
+    });
+  }
+  if (configurationWarnings[0]) {
+    insights.push({
+      id: "configuration-warning",
+      tone: "warning",
+      title: "Configuração incompleta",
+      description: configurationWarnings[0],
+    });
+  }
+
+  return {
+    horizonDays,
+    asOf: context.asOf.toISOString(),
+    realBalance: context.startingBalance,
+    base,
+    scenarios: {
+      optimistic: {
+        projection: optimistic,
+        assumptions: "Receitas previstas +10%; recorrências elegíveis −5%; prestações fixas inalteradas.",
+      },
+      pessimistic: {
+        projection: pessimistic,
+        assumptions: "Receitas previstas −10%; recorrências elegíveis +10%; prestações fixas inalteradas.",
+      },
+    },
+    monthlyFlows: aggregateTreasuryProjectionByMonth(base),
+    optimisticMonthlyFlows: aggregateTreasuryProjectionByMonth(optimistic),
+    pessimisticMonthlyFlows: aggregateTreasuryProjectionByMonth(pessimistic),
+    outflowDistribution: distribution,
+    goals: goalRows,
+    insights: insights.slice(0, 3),
+    configurationWarnings,
+    sourcesIncluded: [
+      "Receitas EXPECTED",
+      "Recorrências EXPECTED ou POSTPONED",
+      "Prestações com montante e vencimento conhecidos",
+    ],
+    sourcesExcluded: [
+      "Ocorrências PAID, SKIPPED, RECEIVED, MISSED ou CANCELLED",
+      "Passivos sem dia de vencimento",
+      "Passivos já representados por uma recorrência ativa",
+    ],
+  };
 }

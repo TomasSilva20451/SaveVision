@@ -1,7 +1,7 @@
 /**
  * Contratos dos adaptadores externos.
- * A Fase 1 só define as interfaces. Nenhuma integração bancária,
- * de mercado ou de machine learning está implementada.
+ * Integrações externas ficam isoladas atrás destas interfaces. Os adaptadores
+ * nunca recebem acesso à base de dados nem podem persistir decisões.
  */
 
 export type ProviderName = string;
@@ -34,4 +34,90 @@ export interface ForecastProvider {
 
 export interface InsightProvider {
   readonly name: ProviderName;
+}
+
+export type TransactionCategorizationDirection = "INCOME" | "EXPENSE";
+export type SuggestedTransactionType = TransactionCategorizationDirection | "TRANSFER";
+export type SuggestedCategoryNature = "NECESSARY" | "DISCRETIONARY";
+
+export type TransactionCategorizationCategory = {
+  name: string;
+  nature: SuggestedCategoryNature;
+};
+
+export type TransactionCategorizationExample = {
+  pattern: string;
+  merchant: string;
+  category: string | null;
+  transactionType: SuggestedTransactionType;
+};
+
+export type TransactionCategorizationInput = {
+  description: string;
+  amount: string;
+  direction: TransactionCategorizationDirection;
+  availableCategories: TransactionCategorizationCategory[];
+  examples: TransactionCategorizationExample[];
+  /** Revisão em lote: o modelo tem de escolher uma categoria da lista. */
+  forceCategory?: boolean;
+};
+
+export type TransactionCategorizationOutput = {
+  merchant: string;
+  category: string | null;
+  transactionType: SuggestedTransactionType;
+  nature: SuggestedCategoryNature | null;
+  tags: string[];
+  confidence: number;
+  reason: string;
+};
+
+export interface TransactionCategorizationProvider {
+  readonly name: ProviderName;
+  suggest(input: TransactionCategorizationInput): Promise<TransactionCategorizationOutput>;
+}
+
+export type FinancialAssistantParseInput = {
+  question: string;
+  allowedIntents: readonly string[];
+};
+
+export type FinancialAssistantParseOutput = {
+  intent: string;
+  parameters: Record<string, unknown>;
+  confidence: number;
+  clarification: string | null;
+};
+
+export interface FinancialAssistantProvider {
+  readonly name: ProviderName;
+  parseIntent(input: FinancialAssistantParseInput): Promise<FinancialAssistantParseOutput>;
+}
+
+export type ReceiptExtractionModelOutput = {
+  merchant: string | null;
+  date: string | null;
+  total: string | null;
+  currency: string | null;
+  fiscalNumber: string | null;
+  vatAmount: string | null;
+  paymentMethod: string | null;
+  items: Array<{ description: string; amount: string }>;
+  confidence: {
+    merchant?: number;
+    date?: number;
+    total?: number;
+    currency?: number;
+    fiscalNumber?: number;
+    vatAmount?: number;
+    paymentMethod?: number;
+  };
+};
+
+export interface ReceiptExtractionProvider {
+  readonly name: ProviderName;
+  extractFromImage(input: {
+    imageBase64: string;
+    mimeType: "image/jpeg" | "image/png";
+  }): Promise<ReceiptExtractionModelOutput>;
 }

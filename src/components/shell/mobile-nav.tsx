@@ -4,7 +4,11 @@ import { useState } from "react";
 import { MainNav } from "@/components/shell/main-nav";
 import { appConfig } from "@/lib/config";
 
-export function MobileNav() {
+type MobileNavProps = {
+  unseenAlertsCount?: number;
+};
+
+export function MobileNav({ unseenAlertsCount = 0 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -21,12 +25,12 @@ export function MobileNav() {
       {open ? (
         <div
           id="mobile-main-nav"
-          className="absolute left-0 right-0 top-[52px] z-40 max-h-[70vh] overflow-y-auto border-b border-zinc-200 bg-white p-4 shadow-lg dark:border-zinc-800 dark:bg-zinc-950"
+          className="absolute left-0 right-0 top-14 z-40 max-h-[80vh] overflow-y-auto bg-[var(--sidebar)] p-4 text-slate-100 shadow-xl"
         >
-          <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
             {appConfig.name}
           </p>
-          <MainNav onNavigate={() => setOpen(false)} />
+          <MainNav onNavigate={() => setOpen(false)} unseenAlertsCount={unseenAlertsCount} />
         </div>
       ) : null}
     </div>

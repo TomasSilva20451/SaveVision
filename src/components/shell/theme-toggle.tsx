@@ -1,19 +1,25 @@
 "use client";
 
 import { useState } from "react";
+import { themeCookieHeader, type ThemeMode } from "@/lib/ui/theme";
 
-export function ThemeToggle() {
-  const [dark, setDark] = useState(() =>
-    typeof document !== "undefined"
-      ? document.documentElement.classList.contains("dark")
-      : false,
-  );
+type ThemeToggleProps = {
+  initialDark: boolean;
+};
+
+export function ThemeToggle({ initialDark }: ThemeToggleProps) {
+  const [dark, setDark] = useState(initialDark);
+
+  function apply(mode: ThemeMode) {
+    const next = mode === "dark";
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", mode);
+    document.cookie = themeCookieHeader(mode);
+    setDark(next);
+  }
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-    setDark(next);
+    apply(dark ? "light" : "dark");
   }
 
   return (

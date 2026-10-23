@@ -22,6 +22,7 @@ import {
 import { calculateFinancialHealthScore } from "@/lib/finance/health-score";
 import { decimal } from "@/lib/finance/money";
 import { db } from "@/lib/db";
+import { appendAuditEvent } from "@/server/audit/audit-ledger";
 import { listWorkspaceMovements } from "@/server/repositories/ledger";
 import { getDashboardMetrics } from "@/server/services/dashboard";
 
@@ -29,12 +30,8 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
-  const [settings, goals, cgdProducts, dashboard] = await Promise.all([
-    db.workspacePlanningSettings.upsert({
-      where: { workspaceId },
-      create: { workspaceId },
-      update: {},
-    }),
+  const [storedSettings, goals, cgdProducts, dashboard] = await Promise.all([
+    db.workspacePlanningSettings.findUnique({ where: { workspaceId } }),
     db.savingsGoal.findMany({
       where: { workspaceId, archived: false },
       include: {
@@ -51,6 +48,13 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
   ]);
 
   if (!dashboard) return null;
+
+  const settings = storedSettings ?? {
+    workspaceId,
+    emergencyFundTargetMonths: 6,
+    monthlyEssentialExpenses: null,
+    updatedAt: new Date(0),
+  };
 
   const today = civilDateFromInstant(new Date());
 
@@ -166,17 +170,19 @@ export async function createSavingsGoal(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
-  return db.savingsGoal.create({
+  const goal = await db.savingsGoal.create({
     data: {
       workspaceId,
       userId,
       title: input.title,
       kind: input.kind,
-      targetAmount: input.targetAmount,
+      targetAmount: decimal(input.targetAmount).toString(),
       targetDate: input.targetDate,
       accountId: input.accountId,
     },
   });
+  await appendAuditEvent({ actorUserId: userId, workspaceId, action: "SAVINGS_GOAL_CREATED", resourceType: "SavingsGoal", resourceId: goal.id, outcome: "SUCCESS", source: "financial-service" });
+  return goal;
 }
 
 export async function addGoalContribution(
@@ -192,16 +198,18 @@ export async function addGoalContribution(
   });
   if (!goal) return null;
 
-  return db.savingsGoalContribution.create({
+  const contribution = await db.savingsGoalContribution.create({
     data: {
       workspaceId,
       goalId: goal.id,
       userId,
-      amount: input.amount,
+      amount: decimal(input.amount).toString(),
       contributedAt: input.contributedAt,
       notes: input.notes,
     },
   });
+  await appendAuditEvent({ actorUserId: userId, workspaceId, action: "SAVINGS_CONTRIBUTION_CREATED", resourceType: "SavingsGoalContribution", resourceId: contribution.id, outcome: "SUCCESS", source: "financial-service", metadata: { goalId: goal.id } });
+  return contribution;
 }
 
 export async function updatePlanningSettings(
@@ -215,18 +223,24 @@ export async function updatePlanningSettings(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
-  return db.workspacePlanningSettings.upsert({
+  const monthlyEssentialExpenses = input.monthlyEssentialExpenses
+    ? decimal(input.monthlyEssentialExpenses).toString()
+    : undefined;
+
+  const settings = await db.workspacePlanningSettings.upsert({
     where: { workspaceId },
     create: {
       workspaceId,
       emergencyFundTargetMonths: input.emergencyFundTargetMonths,
-      monthlyEssentialExpenses: input.monthlyEssentialExpenses,
+      monthlyEssentialExpenses,
     },
     update: {
       emergencyFundTargetMonths: input.emergencyFundTargetMonths,
-      monthlyEssentialExpenses: input.monthlyEssentialExpenses,
+      monthlyEssentialExpenses,
     },
   });
+  await appendAuditEvent({ actorUserId: userId, workspaceId, action: "PLANNING_SETTINGS_CHANGED", resourceType: "WorkspacePlanningSettings", resourceId: workspaceId, outcome: "SUCCESS", source: "financial-service" });
+  return settings;
 }
 
 export async function registerCgdProduct(
@@ -242,7 +256,7 @@ export async function registerCgdProduct(
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
 
-  return db.cgdProductRegistry.create({
+  const product = await db.cgdProductRegistry.create({
     data: {
       workspaceId,
       userId,
@@ -251,6 +265,31 @@ export async function registerCgdProduct(
       reference: input.reference,
       notes: input.notes,
     },
+  });
+  await appendAuditEvent({ actorUserId: userId, workspaceId, action: "FINANCIAL_PRODUCT_REGISTERED", resourceType: "CgdProductRegistry", resourceId: product.id, outcome: "SUCCESS", source: "financial-service" });
+  return product;
+}
+
+export async function listSavingsGoalSummaries(userId: string, workspaceId: string) {
+  const membership = await requireWorkspaceAccess(userId, workspaceId);
+  if (!membership) return null;
+
+  const goals = await db.savingsGoal.findMany({
+    where: { workspaceId, archived: false },
+    include: { contributions: true },
+    orderBy: { createdAt: "asc" },
+    take: 4,
+  });
+
+  return goals.map((goal) => {
+    const contributed = sumContributions(goal.contributions.map((row) => row.amount.toString())).toFixed(2);
+    return {
+      id: goal.id,
+      title: goal.title,
+      targetAmount: goal.targetAmount.toString(),
+      contributed,
+      progressPercent: goalProgressPercent(contributed, goal.targetAmount.toString()),
+    };
   });
 }
 

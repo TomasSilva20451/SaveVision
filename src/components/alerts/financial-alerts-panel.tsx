@@ -36,35 +36,43 @@ export function FinancialAlertsPanel({
 }: FinancialAlertsPanelProps) {
   const shown = compact ? alerts.slice(0, 5) : alerts;
 
-  if (shown.length === 0) {
-    return (
-      <EmptyState
-        title={showResolved ? "Sem alertas resolvidos" : "Sem alertas ativos"}
-        description={
-          showResolved
-            ? "Quando uma condição financeira deixar de se verificar, o alerta aparece aqui."
-            : "Quando o FinTwin detetar situações relevantes, verás os alertas nesta lista."
-        }
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {!compact ? (
-        <div className="flex flex-wrap gap-2">
-          <form action={syncFinancialAlertsAction}>
-            <button type="submit" className={secondaryButtonClassName}>
-              Atualizar alertas
-            </button>
-          </form>
+  const actionBar =
+    !compact && !showResolved ? (
+      <div className="flex flex-wrap gap-2">
+        <form action={syncFinancialAlertsAction}>
+          <button type="submit" className={secondaryButtonClassName}>
+            Atualizar alertas
+          </button>
+        </form>
+        {shown.length > 0 ? (
           <form action={markAllFinancialAlertsSeenAction}>
             <button type="submit" className={secondaryButtonClassName}>
               Marcar todos como vistos
             </button>
           </form>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+    ) : null;
+
+  if (shown.length === 0) {
+    return (
+      <div className="space-y-4">
+        {actionBar}
+        <EmptyState
+          title={showResolved ? "Sem alertas resolvidos" : "Sem alertas ativos"}
+          description={
+            showResolved
+              ? "Quando uma condição financeira deixar de se verificar, o alerta aparece aqui."
+              : "Quando o FinTwin detetar situações relevantes, verás os alertas nesta lista. Podes reavaliar a qualquer momento."
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {actionBar}
 
       <ul className="flex flex-col gap-3">
         {shown.map((alert) => {

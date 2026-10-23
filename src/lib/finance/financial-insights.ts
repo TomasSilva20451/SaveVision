@@ -4,6 +4,11 @@ import {
   budgetUtilizationPercent,
   type BudgetLineSnapshot,
 } from "@/lib/finance/budget";
+import {
+  detectCategoryMedian3xAnomaly,
+  detectFirstHighExpenseAnomaly,
+  detectMonthOverMonthSpike,
+} from "@/lib/finance/expense-anomaly-detection";
 import { safePercentChange } from "@/lib/finance/kpi";
 import { addMoney, decimal } from "@/lib/finance/money";
 export type InsightRecurringFrequency =
@@ -33,6 +38,7 @@ export type FinancialInsight = {
 };
 
 export type ExpenseMovementSnapshot = {
+  id?: string;
   occurredAt: Date;
   amount: string;
   categoryId: string;
@@ -63,6 +69,31 @@ export type FinancialInsightsInput = {
   savingsRateCurrent: number | null;
   savingsRatePrevious: number | null;
 };
+
+export function analysisSavingsRate(income: string, economicResult: string): number | null {
+  if (decimal(income).lte(0)) return null;
+  return decimal(economicResult).div(income).times(100).toDecimalPlaces(1).toNumber();
+}
+
+export function averageDailyExpense(expense: string, observedDays: number): string {
+  if (!Number.isInteger(observedDays) || observedDays <= 0) {
+    throw new Error("INVALID_OBSERVED_DAYS");
+  }
+  return decimal(expense).div(observedDays).toFixed(2);
+}
+
+export function essentialityRatio(essentialExpense: string, totalExpense: string): number | null {
+  if (decimal(totalExpense).lte(0)) return null;
+  return decimal(essentialExpense).div(totalExpense).times(100).toDecimalPlaces(1).toNumber();
+}
+
+export function budgetCompliancePercent(
+  lines: readonly { limitAmount: string; spentAmount: string }[],
+): number | null {
+  if (lines.length === 0) return null;
+  const compliant = lines.filter((line) => decimal(line.spentAmount).lte(line.limitAmount)).length;
+  return decimal(compliant).div(lines.length).times(100).toDecimalPlaces(1).toNumber();
+}
 
 export function medianAmount(values: readonly string[]): string | null {
   if (values.length === 0) return null;
@@ -413,32 +444,74 @@ export function buildFinancialInsights(input: FinancialInsightsInput): {
     offsetMonth(input.civilYear, input.civilMonth, d),
   );
 
+  const anomalyHits = [];
   for (const cat of monthTotals.slice(0, 10)) {
     const history = historyMonths.map((m) => {
-      const totals = sumCategoryExpensesInMonth(
-        input.expenseMovements,
-        m.year,
-        m.month,
-      );
+      const totals = sumCategoryExpensesInMonth(input.expenseMovements, m.year, m.month);
       return totals.get(cat.categoryId)?.total ?? "0.00";
     });
-    const anomaly = detectExpenseAnomaly(cat.amount, history);
-    if (anomaly.flagged && anomaly.message) {
+    const prevMonth = offsetMonth(input.civilYear, input.civilMonth, -1);
+    const prevTotals = sumCategoryExpensesInMonth(
+      input.expenseMovements,
+      prevMonth.year,
+      prevMonth.month,
+    );
+    const prevTotal = prevTotals.get(cat.categoryId)?.total ?? "0.00";
+
+    const r1 = detectCategoryMedian3xAnomaly({
+      categoryId: cat.categoryId,
+      categoryName: cat.categoryName,
+      monthTotal: cat.amount,
+      historyTotals: history,
+    });
+    if (r1) anomalyHits.push(r1);
+
+    const r3 = detectMonthOverMonthSpike({
+      categoryId: cat.categoryId,
+      categoryName: cat.categoryName,
+      currentTotal: cat.amount,
+      previousTotal: prevTotal,
+    });
+    if (r3) anomalyHits.push(r3);
+  }
+
+  const currentMonthMoves = input.expenseMovements.filter((m) =>
+    isInstantInCivilMonth(m.occurredAt, input.civilYear, input.civilMonth),
+  );
+  for (const move of currentMonthMoves) {
+    if (!move.id) continue;
+    const prior = input.expenseMovements.filter(
+      (m) => m.categoryId === move.categoryId && m.occurredAt < move.occurredAt,
+    ).length;
+    const r2 = detectFirstHighExpenseAnomaly({
+      transactionId: move.id,
+      categoryName: move.categoryName,
+      amount: move.amount,
+      priorCountInCategory: prior,
+    });
+    if (r2) anomalyHits.push(r2);
+  }
+
+  const priority = { R2_first_high: 0, R3_mom_spike: 1, R1_median_3x: 2 };
+  anomalyHits
+    .sort((a, b) => priority[a.ruleId] - priority[b.ruleId])
+    .slice(0, 3)
+    .forEach((hit) => {
       insights.push({
-        id: `anomaly-${cat.categoryId}`,
+        id: hit.transactionId
+          ? `anomaly-${hit.ruleId}-${hit.transactionId}`
+          : `anomaly-${hit.ruleId}-${hit.categoryId}`,
         type: "ANOMALY",
-        severity: "ATTENTION",
-        title: `Despesa atípica: ${cat.categoryName}`,
-        description: anomaly.message,
+        severity: hit.severity,
+        title: hit.title,
+        description: hit.description,
         periodLabel: monthLabel(input.civilYear, input.civilMonth),
-        triggerMetric: "medianMad",
-        evidence: [`Total do mês: ${cat.amount} €`],
-        limitations: "Indicador estatístico simples; não implica erro ou fraude.",
+        triggerMetric: hit.ruleId,
+        evidence: hit.evidence,
+        limitations: "Regra determinística; não implica erro ou fraude.",
         linkHref: "/despesas",
       });
-      break;
-    }
-  }
+    });
 
   if (insights.length === 0) {
     insights.push({
