@@ -64,7 +64,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
 
       - name: Upload release SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom-release-${{ github.sha }}
           path: dist/sbom/
