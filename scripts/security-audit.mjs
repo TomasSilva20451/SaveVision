@@ -2,7 +2,11 @@
 import { spawnSync } from "node:child_process";
 
 const level = process.env.FINTWIN_AUDIT_LEVEL ?? "high";
-const result = spawnSync("pnpm", ["audit", "--audit-level", level], {
+const scope = process.env.FINTWIN_AUDIT_SCOPE ?? "prod";
+const args = ["audit", "--audit-level", level];
+if (scope === "prod") args.push("--prod");
+
+const result = spawnSync("pnpm", args, {
   encoding: "utf8",
   stdio: "inherit",
 });

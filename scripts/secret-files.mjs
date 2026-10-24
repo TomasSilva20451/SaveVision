@@ -33,6 +33,11 @@ export function installResolvedSecrets(target = process.env) {
 }
 
 export function mapDeploymentSecretFiles(target = process.env) {
+  const env = (target.FINTWIN_ENV ?? "").trim();
+  // CI/e2e/dev usam DATABASE_URL inline; ignorar caminhos de deploy montados.
+  if (env !== "staging" && env !== "production") {
+    return target;
+  }
   target.DATABASE_URL_FILE ??= target.FINTWIN_DATABASE_URL_SECRET_FILE;
   target.AUTH_SECRET_FILE ??= target.FINTWIN_AUTH_SECRET_FILE;
   target.FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE ??= target.FINTWIN_DOCUMENT_KEY_SECRET_FILE;

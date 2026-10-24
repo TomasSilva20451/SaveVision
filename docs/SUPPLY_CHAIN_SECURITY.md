@@ -3,7 +3,7 @@
 ## Dependências
 
 - **Lockfile** congelado (`pnpm-lock.yaml`); CI usa `--frozen-lockfile`.
-- **Auditoria:** `pnpm security:audit` / `scripts/security-audit.mjs` (falha em `high+`).
+- **Auditoria:** `pnpm security:audit` / `scripts/security-audit.mjs` (falha em `high+` só em deps de **produção**; overrides pnpm para transitivas do Prisma CLI).
 - **Dependabot:** `.github/dependabot.yml` (npm, actions, Docker semanal).
 
 ## SAST / secret scanning
