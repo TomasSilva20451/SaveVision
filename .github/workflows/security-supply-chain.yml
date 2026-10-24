@@ -17,7 +17,7 @@ jobs:
     name: Dependency audit and secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
 
@@ -44,7 +44,7 @@ jobs:
     name: SBOM CycloneDX
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: pnpm/action-setup@v4
         with:
           version: 10.22.0
@@ -54,7 +54,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: node scripts/generate-sbom.mjs
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4.6.0
         with:
           name: sbom-cyclonedx
           path: dist/sbom/bom.json
@@ -68,7 +68,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
@@ -79,7 +79,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       - name: Require staging URL
         run: |
           if [ -z "${{ vars.FINTWIN_DAST_TARGET_URL }}" ]; then
@@ -87,7 +87,7 @@ jobs:
             exit 1
           fi
       - name: OWASP ZAP baseline
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ vars.FINTWIN_DAST_TARGET_URL }}
           allow_issue_writing: false

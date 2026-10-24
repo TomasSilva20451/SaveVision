@@ -25,7 +25,7 @@ gh workflow run security-supply-chain.yml
 
 ## ClamAV (uploads)
 
-Staging/produção: `compose.deploy.yml` inclui `clamav-staging` / `clamav-production` e `FINTWIN_CLAMAV_HOST`. Imagem app traz `clamav-clients` (`clamdscan`).
+Staging/produção: `compose.deploy.yml` inclui `clamav-staging` / `clamav-production` e `FINTWIN_CLAMAV_HOST`. Imagem app traz o pacote Debian `clamdscan` (cliente TCP para o sidecar ClamAV).
 
 ## SBOM
 
