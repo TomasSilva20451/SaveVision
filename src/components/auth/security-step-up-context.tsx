@@ -171,13 +171,29 @@ export function StepUpGatedForm({
   );
 }
 
+async function downloadAccountExport() {
+  const response = await fetch("/api/account/export");
+  if (!response.ok) throw new Error("Exportação indisponível.");
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "fintwin-conta.json";
+    anchor.rel = "noopener";
+    anchor.click();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export function StepUpExportLink({ className }: { className?: string }) {
   const { requestStepUp } = useSecurityStepUp();
   return (
     <button
       type="button"
       className={className}
-      onClick={() => requestStepUp(() => { window.location.href = "/api/account/export"; })}
+      onClick={() => requestStepUp(() => void downloadAccountExport())}
     >
       Exportar dados da conta
     </button>

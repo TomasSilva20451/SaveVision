@@ -13,8 +13,6 @@ import { validateEnvironment } from "./environment-policy.mjs";
 const root = process.cwd();
 const distDir = process.env.NEXT_DIST_DIR ?? ".next-production";
 const distRoot = path.join(root, distDir);
-const envPath = path.resolve(".env.production.local");
-
 for (const file of [".env.observability.local", ".env.production.local"]) {
   const full = path.resolve(file);
   if (fs.existsSync(full)) config({ path: full, override: false });

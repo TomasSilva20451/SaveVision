@@ -68,13 +68,6 @@ export function recordJobMetric(job: string, result: "success" | "failure") {
   incrementCounter("fintwin_jobs_total", { job, result });
 }
 
-function formatLabels(labels: Labels) {
-  const inner = Object.entries(labels)
-    .map(([k, v]) => `${k}="${v.replace(/"/g, '\\"')}"`)
-    .join(",");
-  return inner ? `{${inner}}` : "";
-}
-
 export function renderPrometheusMetrics(): string {
   const lines: string[] = [];
   for (const def of COUNTERS) {
@@ -95,10 +88,8 @@ export function renderPrometheusMetrics(): string {
       byLabel.set(k.slice(def.name.length), values);
     }
     for (const [labelPart, values] of byLabel) {
-      let cumulative = 0;
       for (const bucket of def.buckets) {
         const count = values.filter((v) => v <= bucket).length;
-        cumulative = count;
         lines.push(`${def.name}_bucket${labelPart.replace("}", `,le="${bucket}"}`)} ${count}`);
       }
       lines.push(`${def.name}_bucket${labelPart.replace("}", `,le="+Inf"`)} ${values.length}`);
