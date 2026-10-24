@@ -1,5 +1,13 @@
 # Progresso FinTwin
 
+## Egressos, cifra e auditoria — Fase 26 (2026-10-24)
+
+- Segredos resolvidos em memória (`secret-files.mjs`, `runtime-entrypoint.mjs`); política `environment-policy` bloqueia HTTP, PostgreSQL sem TLS e chaves sem prefixo de ambiente.
+- Documentos com envelope autenticado; backups e arquivo de auditoria no formato `FTBACK01`; volume `storage/audit/<ambiente>/` separado em `compose.deploy.yml`.
+- Ledger global `appendAuditEvent`: lock PostgreSQL, hash chain + HMAC, espelho JSONL; logins/exportações/eliminações via `recordSecurityEvent`; financeiro via `writeFinancialAuditLog`.
+- Triggers append-only; `/api/health` degrada com tentativas de adulteração; verificação `pnpm audit:verify`.
+- Portão: lint, typecheck, testes (incl. `audit-chain`), build `--webpack`, E2E 87/87 (base `fintwin_e2e`).
+
 ## Segurança e supply chain — Fase 25 (2026-10-24)
 
 - Headers CSP, HSTS, Permissions-Policy; scan malware uploads (EICAR/PE + ClamAV opcional).

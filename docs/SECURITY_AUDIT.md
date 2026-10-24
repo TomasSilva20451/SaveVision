@@ -52,6 +52,8 @@ pnpm audit:verify
 
 O comando recalcula a cadeia e as assinaturas e falha perante hash, assinatura, chave ou tentativa de adulteração inválidos. Rotação de chaves deve preservar as chaves antigas num cofre read-only até terminar a retenção dos eventos que assinam.
 
+Runbook de incidente: `docs/runbooks/audit-ledger-incident.md`.
+
 ## Riscos remanescentes
 
 - Rate limit de login em memória (reinicia com o processo). **Produção:** mover contadores para Redis/Upstash ou rate limit no edge (Vercel Firewall / Cloudflare) com chave `email+IP`; manter janela deslizante e resposta 429 uniforme.

@@ -39,5 +39,6 @@ Cada fase fecha com `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build`.
 23. Observabilidade e IR — **concluída**: logs JSON, métricas Prometheus (`/api/metrics`), OTEL opcional, middleware trace, SLOs (`docs/SLO.md`), plano de incidentes, SIEM (Vector example), alertas `pnpm ops:alert-check` (`docs/OBSERVABILITY.md`, `docs/INCIDENT_RESPONSE.md`).
 24. Privacidade e governação — **concluída**: inventário, classificação, consentimentos versionados, retenção, exportação titular, eliminação verificável, DPIA IA local, Centro de Privacidade `/perfil/privacidade` (`docs/PRIVACY_GOVERNANCE.md`, `docs/OLLAMA_PRIVACY.md`).
 25. Segurança app e supply chain — **concluída**: ASVS L2 baseline, threat model, CodeQL/gitleaks/audit, SBOM CycloneDX, Cosign, Dependabot, CSP/HSTS/Permissions-Policy, scan malware uploads, pentest readiness (`docs/SUPPLY_CHAIN_SECURITY.md`).
+26. Egressos, cifra e auditoria forense — **concluída**: segredos por ficheiro (`*_FILE`), TLS fail-closed, chaves por ambiente, documentos `FTENC01`, backups `FTBACK01`, ledger `AuditEvent` encadeado e assinado, arquivo JSONL independente, triggers anti-adulteração, health 503 + runbook (`docs/SECURITY_AUDIT.md`, `docs/runbooks/audit-ledger-incident.md`).
 
 Machine learning e Open Banking ficam atrás dos contratos em `src/server/providers/contracts.ts`.
