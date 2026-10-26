@@ -38,6 +38,8 @@
 - origem, `requestId`, hashes de IP e user-agent e metadados minimizados;
 - `previousHash`, `eventHash`, assinatura HMAC-SHA256 e `signingKeyId`.
 
+Integridade de documentos: `StoredDocument.integrityStatus`, verificação `pnpm documents:integrity:check`, quarentena automática em download falhado (HTTP 410), health `unavailableDocuments` e alerta ops.
+
 O hash canónico encadeia os eventos sob um advisory lock PostgreSQL. Triggers bloqueiam `UPDATE` e `DELETE` em `AuditEvent` e `AuditTamperAttempt`; qualquer tentativa fica em `AuditTamperAttempt`. O endpoint `/api/health` passa a crítico (HTTP 503) quando existe uma tentativa, para integração com monitorização/SIEM.
 
 Além da base operacional, cada evento é escrito em `storage/audit/<ambiente>/audit-events.jsonl`. Em staging/produção este arquivo é obrigatório, vive num volume separado, entra no backup/off-site e tem retenção independente. Assim, apagar ou restaurar a base operacional não elimina a segunda prova.

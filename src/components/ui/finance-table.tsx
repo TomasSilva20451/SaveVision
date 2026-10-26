@@ -39,13 +39,16 @@ export function FinanceTableCell({
   children,
   align = "left",
   className = "",
+  colSpan,
 }: {
   children: ReactNode;
   align?: "left" | "right";
   className?: string;
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={`py-3 pr-4 align-middle ${align === "right" ? "text-right tabular-nums" : ""} ${className}`}
     >
       {children}

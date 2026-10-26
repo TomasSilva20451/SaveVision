@@ -12,6 +12,7 @@ import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { hasStepUp } from "@/lib/auth/step-up";
 import { civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import { db } from "@/lib/db";
+import { canBackoffice, type PlatformRole } from "@/lib/platform/backoffice-policy";
 import { readPageFlash } from "@/lib/ui/page-shell";
 import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
@@ -24,7 +25,7 @@ async function PerfilContent() {
   const [profile, workspaceContext, flash, totp, stepUp, pendingEmailRow] = await Promise.all([
     db.user.findUnique({
       where: { id: user.id },
-      select: { name: true, email: true, phone: true, birthDate: true, avatarUrl: true, createdAt: true },
+      select: { name: true, email: true, phone: true, birthDate: true, avatarUrl: true, createdAt: true, systemRole: true },
     }),
     resolveWorkspaceContext(user.id),
     readPageFlash("/perfil"),
@@ -92,6 +93,17 @@ async function PerfilContent() {
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">Sessões, MFA, passkeys, códigos de recuperação e confirmação reforçada.</p>
             <Link href="/perfil/seguranca" className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:underline">Abrir centro de segurança →</Link>
           </Card>
+
+          {canBackoffice(profile.systemRole as PlatformRole, "open") ? (
+            <Card title="Backoffice">
+              <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">
+                Fila de relatórios, OCR e categorização. Sem acesso a movimentos ou documentos.
+              </p>
+              <Link href="/backoffice" className="mt-3 inline-flex text-sm font-semibold text-blue-600 hover:underline">
+                Abrir backoffice →
+              </Link>
+            </Card>
+          ) : null}
 
           <Card title="IA local">
             <p className="text-sm leading-6 text-slate-600 dark:text-slate-300">

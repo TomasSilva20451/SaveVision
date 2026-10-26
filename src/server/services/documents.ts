@@ -2,10 +2,10 @@ import { requireWorkspaceAccess, requireWorkspaceEditor } from "@/lib/auth/works
 import { db } from "@/lib/db";
 import {
   ALLOWED_DOCUMENT_MIME,
-  localDocumentStorage,
   MAX_DOCUMENT_BYTES,
   sha256Hex,
 } from "@/server/storage/local-files";
+import { getDocumentStorage } from "@/server/storage/document-storage";
 import {
   mimeMatchesSniff,
   sanitizeOriginalFilename,
@@ -13,6 +13,7 @@ import {
 } from "@/server/storage/file-sniff";
 import { scanUploadedDocumentBytes } from "@/server/storage/document-malware-scan";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
+import { probeDocumentStorage } from "@/server/services/document-integrity";
 
 export async function listDocuments(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
@@ -27,6 +28,7 @@ export async function listDocuments(userId: string, workspaceId: string) {
       mimeType: true,
       sizeBytes: true,
       createdAt: true,
+      integrityStatus: true,
     },
   });
 }
@@ -56,7 +58,7 @@ export async function uploadDocument(
     return { error: scan.reason as string };
   }
 
-  const { storageKey } = await localDocumentStorage.save({
+  const { storageKey } = await getDocumentStorage().save({
     workspaceId,
     bytes: file.bytes,
     mimeType: file.mimeType,
@@ -88,11 +90,15 @@ export async function uploadDocument(
   return { document: record };
 }
 
+export type ReadDocumentResult =
+  | { doc: Awaited<ReturnType<typeof db.storedDocument.findFirst>> & object; bytes: Uint8Array }
+  | { unavailable: true; doc: NonNullable<Awaited<ReturnType<typeof db.storedDocument.findFirst>>> };
+
 export async function readDocumentBytes(
   userId: string,
   workspaceId: string,
   documentId: string,
-) {
+): Promise<ReadDocumentResult | null> {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
@@ -101,7 +107,36 @@ export async function readDocumentBytes(
   });
   if (!doc) return null;
 
-  const bytes = await localDocumentStorage.read(doc.storageKey);
+  if (doc.integrityStatus === "UNAVAILABLE") {
+    return { unavailable: true as const, doc };
+  }
+
+  let bytes: Uint8Array;
+  try {
+    bytes = await getDocumentStorage().read(doc.storageKey);
+  } catch {
+    const probe = await probeDocumentStorage(doc.storageKey);
+    await db.storedDocument.update({
+      where: { id: doc.id },
+      data: {
+        integrityStatus: "UNAVAILABLE",
+        integrityReason: probe,
+        integrityCheckedAt: new Date(),
+      },
+    });
+    await appendAuditEvent({
+      actorUserId: userId,
+      workspaceId,
+      action: "DOCUMENT_READ_FAILED",
+      resourceType: "StoredDocument",
+      resourceId: doc.id,
+      outcome: "FAILURE",
+      source: "document-service",
+      metadata: { probe },
+    });
+    return { unavailable: true as const, doc };
+  }
+
   await appendAuditEvent({
     actorUserId: userId,
     workspaceId,

@@ -1,0 +1,27 @@
+name: Gradual deploy check
+
+on:
+  workflow_dispatch:
+    inputs:
+      health_url:
+        description: HTTPS /api/health do candidato
+        required: true
+        type: string
+      previous_image:
+        description: Imagem a republicar se a saúde falhar
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  health-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Promote or fail closed
+        env:
+          FINTWIN_ROLLOUT_HEALTH_URL: ${{ inputs.health_url }}
+          FINTWIN_ROLLOUT_PREVIOUS_IMAGE: ${{ inputs.previous_image }}
+        run: node scripts/deploy-rollout.mjs

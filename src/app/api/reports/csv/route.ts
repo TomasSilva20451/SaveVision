@@ -3,12 +3,16 @@ import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import { buildFinancialReportCsv } from "@/server/services/reports";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
+import { enforceApiRateLimit } from "@/server/security/enforce-api-rate-limit";
 
 export async function GET(request: Request) {
   const user = await requireAuthenticatedUser();
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
   }
+
+  const limited = await enforceApiRateLimit(request, { scope: "reports-csv", userId: user.id });
+  if (limited) return limited;
 
   const { selected } = await resolveWorkspaceContext(user.id);
   if (!selected) {

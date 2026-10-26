@@ -1,5 +1,52 @@
 # Progresso FinTwin
 
+## Sprints C + D — DAST staging e Terraform KMS (2026-10-25)
+
+- **Sprint C (R3):** workflow `dast-staging.yml` (cron + manual), baseline `security/baseline/dast-high-alerts.json`, `scripts/dast-compare-baseline.mjs`, checklist em `PENTEST_READINESS.md`.
+- **Sprint D (R2/R4):** Terraform KMS + Secrets Manager + Redis staging (`infra/terraform/*`), outputs, `docs/STAGING_KMS.md`, CI `terraform-staging-plan.yml`, `pnpm infra:render-staging-secrets`.
+
+## Rate limit distribuído — Fase 30 / R1 (2026-10-25)
+
+- Store Redis (`ioredis`) + fallback PostgreSQL `RateLimitCounter`; buckets de login também em Redis quando disponível.
+- Política em `api-rate-limit-policy.ts`; rotas `/api/reports/*`, documentos, exportações titular e métricas.
+- Env: `FINTWIN_REDIS_URL`, `FINTWIN_RATE_LIMIT_BACKEND=redis|postgres`, `FINTWIN_DISABLE_API_RATE_LIMIT=1` (dev).
+
+## Integridade de documentos — Fase 29a / R7 (2026-10-25)
+
+- Campos `integrityStatus` / `integrityReason` em `StoredDocument`; motor `document-integrity.ts`.
+- Download devolve **410** em quarentena; scan na UI `/empresa/auditoria` (owners).
+- CLI: `pnpm documents:integrity:check` (dry-run) e `pnpm documents:integrity:repair` (`--apply`).
+- `/api/health` expõe `unavailableDocuments`; `ops:alert-check` alerta se > 0.
+
+## Governação ML e inteligência financeira — Fase 29 (2026-10-25)
+
+- Catálogo fechado e versionado em `src/lib/ml/registry.ts`, com modelo, prompt, finalidade, limites, fallback e revisão humana por capacidade.
+- `MlFeatureControl`, `MlInvocationEvent`, `MlEvaluationRun` e `MlDriftSnapshot` suportam kill switch, telemetria sem dados financeiros em claro, avaliações de release e diagnóstico de drift.
+- `runGovernedMl` impõe consentimento, limites de tokens/latência, red-team de prompt injection, retenção de prompts por sete dias apenas com consentimento e fallback seguro. Categorização e assistente já passam por este executor.
+- `pnpm ml:eval` usa golden dataset e red-team pt-PT e integra o portão local e reprodutível de CI.
+- Nova área `/inteligencia`: cenários P10/P50/P90, risco de falta de liquidez e poupança explicável, calculados com `Decimal`, sem escritas.
+- A reconciliação destaca candidatos e razões, mas mantém confirmação humana. O assistente ganhou intenções read-only para cenários, liquidez, poupança e estado da reconciliação.
+- O Backoffice apresenta métricas, drift e controlos de emergência; alterações ficam no ledger auditável.
+- Fraude formal, AML, credit scoring, robo-advice e execução de investimentos continuam explicitamente bloqueados.
+- Estado: implementação concluída; portão completo ainda por executar nesta alteração.
+
+## Finanças corporativas — Fase 28 (2026-10-25)
+
+- Modelos Prisma: `BankFeedLine`, `BankReconciliationMatch`, `OpenBankingConsent`, `FinancialApproval`, `WebhookSubscription`, `SupportCase`.
+- Reconciliação: import CSV, auto-match determinístico, confirmação manual, KPIs em `/reconciliacao`.
+- Open Banking: registry (`sandbox-open-banking`, `http-open-banking`), sync de extrato, consentimentos em `/open-banking`.
+- Webhooks HMAC após match/import; `secretEnc` cifrado.
+- Tesouraria empresarial `/empresa/tesouraria`; E2E `14-bank-reconciliation.spec.ts`.
+- Corporativo: auditoria, aprovações, webhooks, casos; export ERP `/api/reports/accounting-csv`.
+
+## Plataforma empresarial — Fase 27 (2026-10-24)
+
+- Fila `PlatformJob` para relatórios, OCR e categorização, com tecto global e por tipo. `pnpm jobs:work` reclama e valida o payload; os ecrãs síncronos atuais mantêm-se.
+- Documentos continuam cifrados. `FINTWIN_OBJECT_STORAGE=s3` envia o envelope para um bucket privado `fintwin-<ambiente>-*`.
+- Terraform de referência: RDS PostgreSQL com Multi-AZ em produção e bucket sem acesso público. Não é aplicado pelo CI.
+- Deploy gradual: workflow manual que promove só se `/api/health` responder; caso contrário indica a imagem anterior.
+- Backoffice `/backoffice`: `SUPPORT` lista a fila; `ADMIN` repõe falhas. Nenhum dos dois lê movimentos ou ficheiros.
+
 ## Egressos, cifra e auditoria — Fase 26 (2026-10-24)
 
 - Segredos resolvidos em memória (`secret-files.mjs`, `runtime-entrypoint.mjs`); política `environment-policy` bloqueia HTTP, PostgreSQL sem TLS e chaves sem prefixo de ambiente.

@@ -14,7 +14,7 @@ export async function buildSubjectAccessExport(userId: string) {
   });
   const workspaceIds = memberships.map((m) => m.workspace.id);
 
-  const [user, consents, localAi, sessions, securityEvents, erasures] = await Promise.all([
+  const [user, consents, localAi, sessions, securityEvents, erasures, mlInvocations] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
       select: {
@@ -43,6 +43,26 @@ export async function buildSubjectAccessExport(userId: string) {
       select: { type: true, createdAt: true, metadata: true },
     }),
     db.subjectErasureRequest.findMany({ where: { userId }, orderBy: { requestedAt: "desc" }, take: 5 }),
+    db.mlInvocationEvent.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        capability: true,
+        modelKey: true,
+        modelVersion: true,
+        promptKey: true,
+        promptVersion: true,
+        outcome: true,
+        latencyMs: true,
+        confidence: true,
+        fallbackReason: true,
+        humanReviewRequired: true,
+        createdAt: true,
+        promptExcerpt: true,
+        promptExpiresAt: true,
+      },
+    }),
   ]);
 
   const workspaceSummaries = await Promise.all(
@@ -97,5 +117,6 @@ export async function buildSubjectAccessExport(userId: string) {
     securityEvents,
     privacyConsents: consents,
     erasureRequests: erasures,
+    mlInvocations,
   };
 }

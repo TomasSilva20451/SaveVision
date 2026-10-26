@@ -18,6 +18,11 @@ import { generateRecoveryCodes, hashRecoveryCode, recoveryCodeMatches } from "@/
 import { generateTotpSecret, totpAuthUri, verifyTotpCode } from "@/lib/auth/totp";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
+import {
+  deleteAuthRateBuckets,
+  readAuthRateBucket,
+  writeAuthRateBucket,
+} from "@/server/security/auth-rate-bucket-store";
 
 const CHALLENGE_MS = 15 * 60 * 1000;
 
@@ -40,38 +45,12 @@ export function deviceLabelFromUserAgent(userAgent: string | null): string {
   return "Navegador";
 }
 
-function toBucket(row: { failures: number; subjects: unknown; windowStartedAt: Date; blockedUntil: Date | null } | null): RateBucket | undefined {
-  if (!row) return undefined;
-  return {
-    failures: row.failures,
-    subjects: Array.isArray(row.subjects) ? row.subjects.filter((item): item is string => typeof item === "string") : [],
-    windowStartedAt: row.windowStartedAt.getTime(),
-    blockedUntil: row.blockedUntil?.getTime() ?? null,
-  };
-}
-
 async function readBucket(key: string): Promise<RateBucket | undefined> {
-  const row = await db.authRateBucket.findUnique({ where: { key } });
-  return toBucket(row);
+  return readAuthRateBucket(key);
 }
 
 async function writeBucket(key: string, bucket: RateBucket) {
-  await db.authRateBucket.upsert({
-    where: { key },
-    create: {
-      key,
-      failures: bucket.failures,
-      subjects: bucket.subjects,
-      windowStartedAt: new Date(bucket.windowStartedAt),
-      blockedUntil: bucket.blockedUntil ? new Date(bucket.blockedUntil) : null,
-    },
-    update: {
-      failures: bucket.failures,
-      subjects: bucket.subjects,
-      windowStartedAt: new Date(bucket.windowStartedAt),
-      blockedUntil: bucket.blockedUntil ? new Date(bucket.blockedUntil) : null,
-    },
-  });
+  await writeAuthRateBucket(key, bucket);
 }
 
 export async function loginBlockReason(input: { email: string; ip: string; deviceId?: string }): Promise<string | null> {
@@ -121,7 +100,7 @@ export async function clearLoginFailures(input: { email: string; ip: string; dev
   const email = input.email.trim().toLowerCase();
   const keys = [`account:${sha256(email)}`, `ip:${hashIp(input.ip)}`];
   if (input.deviceId) keys.push(`device:${hashDevice(input.deviceId)}`);
-  await db.authRateBucket.deleteMany({ where: { key: { in: keys } } });
+  await deleteAuthRateBuckets(keys);
 }
 
 export async function openAuthSession(input: {

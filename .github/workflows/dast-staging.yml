@@ -1,0 +1,65 @@
+name: DAST staging
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Actualizar baseline de High (aceitação consciente)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP vs staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require staging URL
+        run: |
+          if [ -z "${{ vars.FINTWIN_DAST_TARGET_URL }}" ]; then
+            echo "Define FINTWIN_DAST_TARGET_URL (pnpm security:setup-dast-url https://staging...)"
+            exit 1
+          fi
+          echo "target=${{ vars.FINTWIN_DAST_TARGET_URL }}" >> "$GITHUB_ENV"
+
+      - name: OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: ${{ vars.FINTWIN_DAST_TARGET_URL }}
+          allow_issue_writing: false
+          fail_action: false
+
+      - name: Upload ZAP report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report-${{ github.run_id }}
+          path: |
+            report_json.json
+            report_md.md
+          retention-days: 90
+
+      - name: Compare High alerts to baseline
+        if: github.event.inputs.update_baseline != 'true'
+        run: node scripts/dast-compare-baseline.mjs --report report_json.json
+
+      - name: Update DAST baseline (manual acceptance)
+        if: github.event.inputs.update_baseline == 'true'
+        run: node scripts/dast-compare-baseline.mjs --report report_json.json --update-baseline
+
+      - name: Upload proposed baseline
+        if: github.event.inputs.update_baseline == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dast-baseline-proposed
+          path: security/baseline/dast-high-alerts.json

@@ -51,6 +51,10 @@ function promptFor(input: FinancialAssistantParseInput): string {
     '- can_save_monthly: {"amount":300}',
     '- emergency_fund_gap: {}',
     '- highest_balance_account: {}',
+    '- liquidity_risk: {}',
+    '- probabilistic_forecast: {}',
+    '- savings_recommendation: {}',
+    '- reconciliation_status: {}',
     "Não inventes categorias; usa o nome que o utilizador disse em categoryName.",
     JSON.stringify({ question: input.question.slice(0, 500) }),
   ].join("\n");

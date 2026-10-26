@@ -16,6 +16,27 @@ export interface StorageProvider {
   delete(storageKey: string): Promise<void>;
 }
 
+export type OpenBankingTransaction = {
+  externalId: string;
+  bookingDate: string;
+  amount: string;
+  currency: string;
+  description: string;
+  counterparty?: string;
+};
+
+export interface OpenBankingProvider {
+  readonly name: ProviderName;
+  /** Apenas leitura; nunca inicia pagamentos. */
+  fetchTransactions(input: {
+    consentRef: string;
+    accountExternalRef: string;
+    from: string;
+    to: string;
+  }): Promise<OpenBankingTransaction[]>;
+}
+
+/** @deprecated Use OpenBankingProvider */
 export interface BankDataProvider {
   readonly name: ProviderName;
 }

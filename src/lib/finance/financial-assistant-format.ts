@@ -35,6 +35,14 @@ export function formatAssistantAnswer(
       return tool.facts.feasible
         ? `Poupar ${formatEUR(String(tool.facts.requested))} por mês é compatível com o fluxo líquido médio recente (${formatEUR(String(tool.facts.averageNet))}).`
         : `Poupar ${formatEUR(String(tool.facts.requested))} por mês excede o fluxo líquido médio recente (${formatEUR(String(tool.facts.averageNet))}).`;
+    case "liquidity_risk":
+      return `O risco de falta de liquidez está classificado como ${tool.facts.level}; no cenário P10 o saldo estimado é ${formatEUR(String(tool.facts.p10))}.`;
+    case "probabilistic_forecast":
+      return `Para seis meses, os cenários são P10 ${formatEUR(String(tool.facts.p10))}, P50 ${formatEUR(String(tool.facts.p50))} e P90 ${formatEUR(String(tool.facts.p90))}.`;
+    case "savings_recommendation":
+      return `A sugestão conservadora é ${formatEUR(String(tool.facts.amount))} por mês. Não é executada automaticamente e exige confirmação humana.`;
+    case "reconciliation_status":
+      return `Existem ${tool.facts.unmatched} linha(s) por reconciliar, ${tool.facts.matched} emparelhada(s) e ${tool.facts.suggestions} sugestão(ões) do copiloto.`;
     default:
       return "Resultado calculado a partir dos teus dados.";
   }

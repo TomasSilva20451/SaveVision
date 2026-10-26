@@ -100,3 +100,7 @@ Alertas financeiros persistentes (`FinancialAlert`, `FinancialAlertUserState`): 
 ## Fase 19
 
 Simulações determinísticas em `src/lib/finance/financial-simulator.ts` e integração com tesouraria em `financial-simulation-forecast.ts`. UI `/simulacoes`; baseline read-only via `getSimulationBaseline`. Nunca cria transações. Ver `docs/FINANCIAL_SIMULATIONS.md`.
+
+## Fase 28
+
+Finanças corporativas: Open Banking read-only e consentimentos, reconciliação bancária (`/reconciliacao`, motor em `bank-reconciliation.ts`), duplicados no extrato, auditoria pesquisável, RBAC em `src/lib/corporate/rbac.ts`, maker-checker, exportação contabilística, webhooks e casos. Centros de Segurança e Privacidade já existentes. Ver `docs/CORPORATE_FINANCE.md` e `docs/BANK_RECONCILIATION.md`.

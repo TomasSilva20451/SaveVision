@@ -10,6 +10,7 @@ import type {
 import { createOllamaTransactionCategorizationProvider } from "@/server/providers/ollama-transaction-categorization";
 import { ensureDefaultCategories } from "@/server/services/expenses";
 import { getLocalAiSettings, isLocalAiActive } from "@/server/services/local-ai-settings";
+import { runGovernedMl } from "@/server/services/ml-governance";
 
 export type TransactionCategorizationSuggestion = {
   merchant: string;
@@ -103,7 +104,7 @@ export async function suggestTransactionCategorization(
     category: rule.category?.name ?? null,
     transactionType: rule.transactionType as "INCOME" | "EXPENSE",
   }));
-  const output = await llm.suggest({
+  const providerInput = {
     description,
     amount: amount.toFixed(2),
     direction: input.direction,
@@ -113,7 +114,22 @@ export async function suggestTransactionCategorization(
     })),
     examples,
     forceCategory: input.forceCategory,
-  });
+  };
+  const governed = await runGovernedMl(
+    {
+      capability: "transaction-categorization",
+      userId,
+      workspaceId,
+      model: llm.name,
+      input: providerInput,
+      promptText: description,
+    },
+    () => llm.suggest(providerInput),
+    () => null,
+    (value) => value?.confidence,
+  );
+  const output = governed.value;
+  if (!output) return null;
 
   const category = output.category
     ? categories.find(

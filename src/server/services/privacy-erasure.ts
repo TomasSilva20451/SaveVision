@@ -30,6 +30,10 @@ export async function executeVerifiableErasure(userId: string) {
     db.userTotpCredential.deleteMany({ where: { userId } }),
     db.emailChallenge.deleteMany({ where: { userId } }),
     db.userLocalAiSettings.deleteMany({ where: { userId } }),
+    db.mlInvocationEvent.updateMany({
+      where: { userId },
+      data: { userId: null, promptExcerpt: null, promptExpiresAt: null },
+    }),
     db.user.update({
       where: { id: userId },
       data: {

@@ -59,6 +59,13 @@ export function ReportExportForms({ defaultFrom, defaultTo }: Props) {
         >
           ↓ Exportar PDF
         </a>
+        <a
+          href={`/api/reports/accounting-csv?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+          className="inline-flex items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+          title="Apenas owners — colunas SNC simplificadas"
+        >
+          ↓ Exportação contabilística
+        </a>
       </div>
     </div>
   );

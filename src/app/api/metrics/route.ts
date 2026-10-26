@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { renderPrometheusMetrics, metricsSnapshotJson } from "@/lib/observability/metrics";
 import { observeApiRoute } from "@/lib/observability/with-api-route";
+import { enforceApiRateLimit } from "@/server/security/enforce-api-rate-limit";
 
 function authorized(request: Request) {
   const token = process.env.FINTWIN_METRICS_TOKEN?.trim();
@@ -15,6 +16,8 @@ export async function GET(request: Request) {
     if (!authorized(request)) {
       return new Response("Unauthorized", { status: 401 });
     }
+    const limited = await enforceApiRateLimit(request, { scope: "metrics", userId: null });
+    if (limited) return limited;
     const format = new URL(request.url).searchParams.get("format");
     if (format === "json") {
       return Response.json(metricsSnapshotJson());

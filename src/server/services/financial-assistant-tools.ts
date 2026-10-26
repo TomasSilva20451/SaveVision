@@ -28,6 +28,8 @@ import {
   treasuryHorizonStart,
 } from "@/lib/finance/treasury-forecast";
 import { getPlanningOverview } from "@/server/services/planning";
+import { getAdvancedFinancialIntelligence } from "@/server/services/advanced-financial-intelligence";
+import { getReconciliationPageData } from "@/server/services/bank-reconciliation";
 
 export const ASSISTANT_MAX_EVIDENCE_TX = 8;
 export const ASSISTANT_MAX_DESCRIPTION_LEN = 72;
@@ -159,6 +161,56 @@ export async function runAssistantTool(
       return highestBalanceAccount(userId, workspaceId);
     case "can_save_monthly":
       return canSaveMonthly(workspaceId, validated.parameters, today);
+    case "liquidity_risk":
+    case "probabilistic_forecast":
+    case "savings_recommendation": {
+      const insight = await getAdvancedFinancialIntelligence(userId, workspaceId);
+      if (!insight) throw new Error("NO_INTELLIGENCE_DATA");
+      if (validated.intent === "liquidity_risk") {
+        return {
+          summaryKey: "liquidity_risk",
+          facts: {
+            level: insight.liquidityRisk.level,
+            p10: insight.forecast.p10,
+            next30DaysKnownOutflows: insight.next30DaysKnownOutflows,
+          },
+          evidence: insight.liquidityRisk.reasons,
+          links: [{ label: "Inteligência financeira", href: "/inteligencia" }],
+        };
+      }
+      if (validated.intent === "probabilistic_forecast") {
+        return {
+          summaryKey: "probabilistic_forecast",
+          facts: { p10: insight.forecast.p10, p50: insight.forecast.p50, p90: insight.forecast.p90, confidence: insight.forecast.confidence },
+          evidence: [`Método: ${insight.forecast.method}.`, `${insight.forecast.sampleMonths} meses observados.`],
+          links: [{ label: "Ver cenários", href: "/inteligencia" }],
+        };
+      }
+      return {
+        summaryKey: "savings_recommendation",
+        facts: { amount: insight.savingsRecommendation.suggestedMonthlyAmount, risk: insight.liquidityRisk.level },
+        evidence: insight.savingsRecommendation.reasons,
+        links: [{ label: "Rever recomendação", href: "/inteligencia" }],
+      };
+    }
+    case "reconciliation_status": {
+      const reconciliation = await getReconciliationPageData(userId, workspaceId);
+      if (!reconciliation) throw new Error("NO_RECONCILIATION_DATA");
+      return {
+        summaryKey: "reconciliation_status",
+        facts: {
+          unmatched: reconciliation.kpis.unmatchedCount,
+          matched: reconciliation.kpis.matchedCount,
+          duplicates: reconciliation.kpis.duplicateCount,
+          suggestions: reconciliation.copilotSuggestions.length,
+        },
+        evidence: [
+          `${reconciliation.kpis.unmatchedCount} linha(s) por reconciliar.`,
+          `${reconciliation.copilotSuggestions.length} candidato(s) com evidência determinística.`,
+        ],
+        links: [{ label: "Abrir reconciliação", href: "/reconciliacao" }],
+      };
+    }
     default: {
       const _exhaustive: never = validated;
       throw new Error(`UNKNOWN_TOOL:${String(_exhaustive)}`);

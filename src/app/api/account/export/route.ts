@@ -3,10 +3,13 @@ import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { hasStepUp } from "@/lib/auth/step-up";
 import { db } from "@/lib/db";
 import { recordSecurityEvent } from "@/server/services/auth-protection";
+import { enforceApiRateLimit } from "@/server/security/enforce-api-rate-limit";
 
 export async function GET(request: Request) {
   const user = await requireAuthenticatedUser();
   if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+  const limited = await enforceApiRateLimit(request, { scope: "account-export", userId: user.id });
+  if (limited) return limited;
   if (!(await hasStepUp(user.id))) {
     return NextResponse.json({ error: "Confirma a identidade no centro de segurança antes de exportar." }, { status: 403 });
   }

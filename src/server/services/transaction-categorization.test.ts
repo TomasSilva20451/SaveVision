@@ -16,6 +16,9 @@ vi.mock("@/server/services/local-ai-settings", () => ({
   }),
   isLocalAiActive: vi.fn().mockReturnValue(true),
 }));
+vi.mock("@/server/services/ml-governance", () => ({
+  runGovernedMl: vi.fn(async (_context: unknown, execute: () => Promise<unknown>) => ({ source: "MODEL", value: await execute(), latencyMs: 1 })),
+}));
 vi.mock("@/server/providers/ollama-transaction-categorization", () => ({
   ollamaTransactionCategorizationProvider: { name: "mock-default", suggest: vi.fn() },
 }));

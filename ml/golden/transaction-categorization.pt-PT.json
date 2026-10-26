@@ -1,0 +1,10 @@
+[
+  { "description": "CONTINENTE MODELO 0182 LISBOA", "expectedMerchant": "Continente Modelo", "expectedCategory": "Alimentação" },
+  { "description": "PAGAMENTO LIDL 045 PORTO", "expectedMerchant": "Lidl Porto", "expectedCategory": "Alimentação" },
+  { "description": "NETFLIX.COM AMSTERDAM", "expectedMerchant": "Netflix Com Amsterdam", "expectedCategory": "Lazer" },
+  { "description": "EDP COMERCIAL FATURA 9821", "expectedMerchant": "Edp Comercial Fatura", "expectedCategory": "Serviços" },
+  { "description": "UBER TRIP HELP.UBER.COM", "expectedMerchant": "Uber Trip Help Uber Com", "expectedCategory": "Transportes" },
+  { "description": "FARMACIA CENTRAL TPA 122", "expectedMerchant": "Farmacia Central", "expectedCategory": "Saúde" },
+  { "description": "TRF ORDENADO EMPRESA ACME", "expectedMerchant": "Ordenado Empresa Acme", "expectedCategory": "Salário" },
+  { "description": "GALP ENERGIA POS 929", "expectedMerchant": "Galp Energia", "expectedCategory": "Transportes" }
+]

@@ -11,6 +11,7 @@ import { ollamaFinancialAssistantProvider } from "@/server/providers/ollama-fina
 import { formatAssistantAnswer } from "@/lib/finance/financial-assistant-format";
 import { runAssistantTool } from "@/server/services/financial-assistant-tools";
 import { getLocalAiSettings, isLocalAiActive } from "@/server/services/local-ai-settings";
+import { runGovernedMl } from "@/server/services/ml-governance";
 
 const CLARIFICATION_CONFIDENCE = 0.55;
 const MAX_QUESTION_LEN = 500;
@@ -59,11 +60,31 @@ export async function askFinancialAssistant(
 
   let raw;
   try {
-    raw = financialAssistantRawOutputSchema.parse(
-      await provider.parseIntent({
+    const providerInput = {
         question: trimmed,
         allowedIntents: FINANCIAL_ASSISTANT_INTENTS,
+      };
+    const governed = await runGovernedMl(
+      {
+        capability: "financial-assistant-intent",
+        userId,
+        workspaceId,
+        model: provider.name,
+        input: providerInput,
+        promptText: trimmed,
+      },
+      () => provider.parseIntent(providerInput),
+      () => ({
+        intent: "unsupported",
+        parameters: {},
+        confidence: 0,
+        clarification:
+          "A interpretação por IA está indisponível. Usa os atalhos de Análises, Previsões ou Reconciliação.",
       }),
+      (value) => value.confidence,
+    );
+    raw = financialAssistantRawOutputSchema.parse(
+      governed.value,
     );
   } catch (error) {
     const code = error instanceof Error ? error.message : "";

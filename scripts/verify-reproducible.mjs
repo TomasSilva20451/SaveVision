@@ -44,6 +44,7 @@ const verificationEnv = {
   DATABASE_URL: databaseUrl,
   AUTH_SECRET:
     process.env.AUTH_SECRET ?? "ci-only-auth-secret-with-at-least-32-characters",
+  FINTWIN_ML_EVAL_PERSIST: "1",
   NEXT_TELEMETRY_DISABLED: "1",
 };
 
@@ -68,6 +69,7 @@ run("pnpm", ["db:e2e"]);
 run("pnpm", ["lint"]);
 run("pnpm", ["typecheck"]);
 run("pnpm", ["test:config"]);
+run("pnpm", ["ml:eval"]);
 run("pnpm", ["test"]);
 run("pnpm", ["build"]);
 run("pnpm", ["test:e2e:strict"]);

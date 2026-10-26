@@ -16,8 +16,11 @@ async function fetchJson(path) {
 
 function breaches(health, metricsText) {
   const issues = [];
-  if (health.status !== 200 || health.body.status !== "ok") {
+  if (health.status !== 200 || !["ok", "degraded"].includes(health.body.status)) {
     issues.push(`health=${health.body.status ?? health.status}`);
+  }
+  if (Number(health.body.unavailableDocuments ?? 0) > 0) {
+    issues.push(`documents_unavailable=${health.body.unavailableDocuments}`);
   }
   const loginFailures = Number(metricsText.match(/fintwin_login_attempts_total\{result="failure"}\s+(\d+)/)?.[1] ?? 0);
   const http5xx = Number(metricsText.match(/fintwin_http_errors_total\{route="([^"]+)"\}\s+(\d+)/g)?.length ?? 0);

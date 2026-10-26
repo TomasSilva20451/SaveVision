@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "description": "Baseline de alertas ZAP High conhecidos/aceites. Novos High falham o CI.",
+  "targetUrlPlaceholder": "https://staging.fintwin.example",
+  "highAlertKeys": [],
+  "updatedAt": "2026-10-25T00:00:00.000Z",
+  "updatedBy": "initial"
+}

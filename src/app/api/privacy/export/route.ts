@@ -5,12 +5,15 @@ import { hasStepUp } from "@/lib/auth/step-up";
 import { observeApiRoute } from "@/lib/observability/with-api-route";
 import { recordSecurityEvent } from "@/server/services/auth-protection";
 import { buildSubjectAccessExport } from "@/server/services/privacy-export";
+import { enforceApiRateLimit } from "@/server/security/enforce-api-rate-limit";
 
 export async function GET(request: Request) {
   await connection();
   return observeApiRoute("/api/privacy/export", async () => {
     const user = await requireAuthenticatedUser();
     if (!user) return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    const limited = await enforceApiRateLimit(request, { scope: "privacy-export", userId: user.id });
+    if (limited) return limited;
     if (!(await hasStepUp(user.id))) {
       return NextResponse.json({ error: "Confirma a identidade antes de exportar." }, { status: 403 });
     }

@@ -7,7 +7,8 @@ Protecção de acesso da conta FinTwin. A interface está em `/perfil/seguranca`
 - Verificação de email por link de uso único (15 minutos). Contas já existentes ficam verificadas na migração. Mudar o email só passa a valer depois da confirmação.
 - MFA TOTP (RFC 6238) com QR code no centro de segurança e códigos de recuperação de uso único.
 - Passkeys WebAuthn neste dispositivo, em alternativa ou em conjunto com o TOTP no login. No login, email, palavra-passe e TOTP podem ir na mesma submissão. Regista no Safari ou Chrome (`localhost:3000`); o browser integrado do Cursor não conclui o diálogo Touch ID/passkey.
-- Limites de tentativas na base de dados, por conta, IP e dispositivo. Várias contas falhadas no mesmo IP contam como credential stuffing.
+- Limites de tentativas por conta, IP e dispositivo (PostgreSQL; **Redis** opcional com `FINTWIN_REDIS_URL` para réplicas). Várias contas falhadas no mesmo IP contam como credential stuffing.
+- **Rate limit API** (exportações PDF/CSV, documentos, privacidade, métricas): janela fixa partilhada via Redis ou fallback `RateLimitCounter` em PostgreSQL. Resposta **429** com `Retry-After`. Desactivar só em dev: `FINTWIN_DISABLE_API_RATE_LIMIT=1`.
 - Sessões com identificador revogável. Terminar sessão revoga só o dispositivo actual. «Terminar todas as sessões» revoga todas.
 - Confirmação reforçada (palavra-passe e TOTP, se estiver activo) durante 10 minutos para alterar segurança, exportar a conta ou desactivá-la. Entrar com TOTP ou passkey concede a mesma janela de 10 minutos — não é preciso repetir no centro de segurança logo a seguir.
 - Recuperação em `/recuperar-conta`. A resposta não revela se o email existe. Com MFA, a reposição exige TOTP ou um código de recuperação.

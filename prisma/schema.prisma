@@ -13,6 +13,7 @@ datasource db {
 
 enum SystemRole {
   USER
+  SUPPORT
   ADMIN
 }
 
@@ -62,6 +63,47 @@ model User {
   localAiSettings         UserLocalAiSettings?
   privacyConsents         PrivacyConsent[]
   erasureRequests         SubjectErasureRequest[]
+  platformJobs            PlatformJob[]
+}
+
+enum PlatformJobKind {
+  REPORT_EXPORT
+  RECEIPT_OCR
+  ML_CATEGORIZATION
+}
+
+enum PlatformJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+/// Fila de trabalhos assíncronos. Não contém montantes nem documentos.
+model PlatformJob {
+  id            String            @id @default(cuid())
+  workspaceId   String?
+  requestedById String?
+  kind          PlatformJobKind
+  status        PlatformJobStatus @default(QUEUED)
+  payload       Json
+  result        Json?
+  error         String?
+  attempts      Int               @default(0)
+  maxAttempts   Int               @default(3)
+  lockedBy      String?
+  lockedUntil   DateTime?
+  availableAt   DateTime          @default(now())
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  finishedAt    DateTime?
+
+  requestedBy User? @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+
+  @@index([status, availableAt])
+  @@index([kind, status])
+  @@index([workspaceId])
 }
 
 /// Ledger de auditoria transversal. Não tem foreign keys deliberadamente:
@@ -115,6 +157,82 @@ model UserLocalAiSettings {
   updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Controlo operacional por capacidade ML. A variável de ambiente global continua
+/// a ter precedência, para permitir um corte de emergência mesmo sem acesso à BD.
+model MlFeatureControl {
+  capability  String   @id
+  enabled     Boolean  @default(true)
+  killSwitch  Boolean  @default(false)
+  reason      String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// Telemetria mínima de uma execução ML. Não guarda dados financeiros em claro;
+/// prompts só podem ser retidos, de forma truncada, após consentimento explícito.
+/// Não existem foreign keys deliberadamente para preservar evidência operacional.
+model MlInvocationEvent {
+  id                  String   @id @default(cuid())
+  workspaceId         String?
+  userId              String?
+  capability          String
+  modelKey             String
+  modelVersion         String
+  promptKey            String
+  promptVersion        String
+  outcome              String
+  latencyMs            Int
+  estimatedInputTokens Int      @default(0)
+  estimatedOutputTokens Int     @default(0)
+  confidence           Float?
+  inputHash            String
+  outputHash           String?
+  promptExcerpt        String?  @db.Text
+  promptExpiresAt      DateTime?
+  fallbackReason       String?
+  humanReviewRequired  Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  @@index([capability, createdAt])
+  @@index([workspaceId, createdAt])
+  @@index([outcome, createdAt])
+}
+
+/// Resultado imutável de uma avaliação offline executada para um release.
+model MlEvaluationRun {
+  id               String    @id @default(cuid())
+  suiteVersion     String
+  releaseRef       String
+  status           String
+  metrics          Json
+  datasetChecksums Json
+  startedAt        DateTime  @default(now())
+  finishedAt       DateTime?
+
+  @@index([status, startedAt])
+  @@index([releaseRef])
+}
+
+/// Agregado periódico usado para sinalizar alterações de cobertura, confiança e
+/// taxa de correção. É diagnóstico, nunca altera movimentos financeiros.
+model MlDriftSnapshot {
+  id             String   @id @default(cuid())
+  workspaceId    String?
+  capability     String
+  periodKey      String
+  sampleCount    Int
+  coverage       Float
+  meanConfidence Float?
+  correctionRate Float?
+  driftScore     Float?
+  status         String
+  createdAt      DateTime @default(now())
+
+  @@index([capability, periodKey])
+  @@index([workspaceId, createdAt])
 }
 
 model UserTotpCredential {
@@ -223,6 +341,14 @@ model AuthRateBucket {
   updatedAt       DateTime  @updatedAt
 }
 
+/// Contadores de rate limit API (fallback PostgreSQL quando Redis indisponível).
+model RateLimitCounter {
+  key             String   @id
+  count           Int      @default(0)
+  windowStartedAt DateTime
+  updatedAt       DateTime @updatedAt
+}
+
 model PasskeyCredential {
   id           String    @id @default(cuid())
   userId       String
@@ -288,6 +414,12 @@ model Workspace {
   categorizationSuggestions            TransactionCategorizationSuggestion[]
   recurringPatternSuggestionDismissals RecurringPatternSuggestionDismissal[]
   recurringPatternMerchantBlocks       RecurringPatternMerchantBlock[]
+  openBankingConsents                  OpenBankingConsent[]
+  bankFeedLines                        BankFeedLine[]
+  bankReconciliationMatches            BankReconciliationMatch[]
+  financialApprovals                   FinancialApproval[]
+  webhookSubscriptions                 WebhookSubscription[]
+  supportCases                         SupportCase[]
 
   @@index([type])
   @@index([createdById])
@@ -401,6 +533,8 @@ model FinancialAccount {
   investmentPositions InvestmentPosition[]
   liabilityPayments   LiabilityPayment[]
   recurringExpenses   RecurringExpense[]
+  openBankingConsents OpenBankingConsent[]
+  bankFeedLines       BankFeedLine[]
 
   @@index([workspaceId, isArchived])
 }
@@ -552,6 +686,7 @@ model Transaction {
   liabilityExpensePayment    LiabilityPayment?                    @relation("LiabilityExpenseTx")
   recurringExpenseOccurrence RecurringExpenseOccurrence?
   categorizationSuggestion   TransactionCategorizationSuggestion?
+  bankReconciliationMatch    BankReconciliationMatch?
 
   @@index([workspaceId, occurredAt])
   @@index([accountId, occurredAt])
@@ -750,6 +885,155 @@ model WorkspaceMember {
   @@index([userId, status])
 }
 
+enum OpenBankingConsentStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+/// Consentimento read-only (sem débitos). Integração real fica atrás de OpenBankingProvider.
+model OpenBankingConsent {
+  id          String                   @id @default(cuid())
+  workspaceId String
+  accountId   String
+  provider    String
+  consentRef  String
+  status      OpenBankingConsentStatus @default(PENDING)
+  scopes      String[]                 @default(["accounts:read", "transactions:read"])
+  readOnly    Boolean                  @default(true)
+  grantedAt   DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account   FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, accountId, provider])
+  @@index([workspaceId, status])
+}
+
+enum BankFeedLineStatus {
+  UNMATCHED
+  MATCHED
+  IGNORED
+  DUPLICATE
+}
+
+/// Movimento importado do banco (Open Banking ou CSV). Montante com sinal contabilístico.
+model BankFeedLine {
+  id              String             @id @default(cuid())
+  workspaceId     String
+  accountId       String
+  externalId      String
+  bookingDate     DateTime
+  amount          Decimal            @db.Decimal(19, 4)
+  currency        String             @default("EUR")
+  description     String?
+  counterpartyHash String?
+  status          BankFeedLineStatus @default(UNMATCHED)
+  importedAt      DateTime           @default(now())
+  duplicateOfId   String?
+
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account     FinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  duplicateOf BankFeedLine?    @relation("BankFeedDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates  BankFeedLine[]   @relation("BankFeedDuplicate")
+  match       BankReconciliationMatch?
+
+  @@unique([workspaceId, externalId])
+  @@index([workspaceId, accountId, status, bookingDate])
+}
+
+enum ReconciliationMatchMethod {
+  AUTO
+  MANUAL
+}
+
+model BankReconciliationMatch {
+  id              String                    @id @default(cuid())
+  workspaceId     String
+  bankFeedLineId  String                    @unique
+  transactionId   String                    @unique
+  matchedByUserId String?
+  matchedAt       DateTime                  @default(now())
+  confidence      Float
+  method          ReconciliationMatchMethod
+
+  workspace     Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bankFeedLine  BankFeedLine     @relation(fields: [bankFeedLineId], references: [id], onDelete: Cascade)
+  transaction   Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, matchedAt])
+}
+
+enum FinancialApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Maker-checker: o revisor tem de ser distinto do solicitante.
+model FinancialApproval {
+  id            String                  @id @default(cuid())
+  workspaceId   String
+  requestedById String
+  reviewedById  String?
+  status        FinancialApprovalStatus @default(PENDING)
+  actionType    String
+  entityType    String
+  entityId      String
+  payload       Json
+  reviewNote    String?
+  createdAt     DateTime                @default(now())
+  reviewedAt    DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, createdAt])
+}
+
+model WebhookSubscription {
+  id          String   @id @default(cuid())
+  workspaceId String
+  url         String
+  secretHash  String
+  secretEnc   String?
+  events      String[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, active])
+}
+
+enum SupportCaseStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model SupportCase {
+  id          String            @id @default(cuid())
+  workspaceId String
+  userId      String
+  subject     String
+  status      SupportCaseStatus @default(OPEN)
+  disputeRef  String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  resolvedAt  DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, createdAt])
+}
+
 enum SavingsGoalKind {
   GENERAL
   EMERGENCY_FUND
@@ -879,20 +1163,29 @@ model InvestmentPosition {
   @@index([linkedAccountId])
 }
 
+enum DocumentIntegrityStatus {
+  OK
+  UNAVAILABLE
+}
+
 model StoredDocument {
-  id           String   @id @default(cuid())
-  workspaceId  String
-  userId       String
-  originalName String
-  mimeType     String
-  sizeBytes    Int
-  storageKey   String   @unique
-  sha256       String
-  createdAt    DateTime @default(now())
+  id                String                   @id @default(cuid())
+  workspaceId       String
+  userId            String
+  originalName      String
+  mimeType          String
+  sizeBytes         Int
+  storageKey        String                   @unique
+  sha256            String
+  integrityStatus   DocumentIntegrityStatus  @default(OK)
+  integrityReason   String?
+  integrityCheckedAt DateTime?
+  createdAt         DateTime                 @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+  @@index([integrityStatus])
 }
 
 model MonthlyReportNarrative {

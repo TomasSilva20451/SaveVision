@@ -20,6 +20,9 @@ vi.mock("@/server/services/local-ai-settings", () => ({
   }),
   isLocalAiActive: vi.fn().mockReturnValue(true),
 }));
+vi.mock("@/server/services/ml-governance", () => ({
+  runGovernedMl: vi.fn(async (_context: unknown, execute: () => Promise<unknown>) => ({ source: "MODEL", value: await execute(), latencyMs: 1 })),
+}));
 
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import type { FinancialAssistantProvider } from "@/server/providers/contracts";

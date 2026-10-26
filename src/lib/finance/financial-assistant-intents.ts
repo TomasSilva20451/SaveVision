@@ -8,6 +8,10 @@ export const FINANCIAL_ASSISTANT_INTENTS = [
   "emergency_fund_gap",
   "highest_balance_account",
   "can_save_monthly",
+  "liquidity_risk",
+  "probabilistic_forecast",
+  "savings_recommendation",
+  "reconciliation_status",
 ] as const;
 
 export type FinancialAssistantIntent = (typeof FINANCIAL_ASSISTANT_INTENTS)[number];
@@ -54,6 +58,11 @@ export const canSaveMonthlyParamsSchema = z.object({
   amount: z.union([z.number().positive().max(1_000_000), z.string().trim().min(1).max(20)]),
 });
 
+export const liquidityRiskParamsSchema = z.object({});
+export const probabilisticForecastParamsSchema = z.object({});
+export const savingsRecommendationParamsSchema = z.object({});
+export const reconciliationStatusParamsSchema = z.object({});
+
 export const financialAssistantRawOutputSchema = z.object({
   intent: z.string().trim().min(1).max(64),
   parameters: z.record(z.string(), z.unknown()).default({}),
@@ -70,7 +79,11 @@ export type ValidatedAssistantIntent =
   | { intent: "upcoming_payments"; parameters: z.infer<typeof upcomingPaymentsParamsSchema> }
   | { intent: "emergency_fund_gap"; parameters: z.infer<typeof emergencyFundGapParamsSchema> }
   | { intent: "highest_balance_account"; parameters: z.infer<typeof highestBalanceAccountParamsSchema> }
-  | { intent: "can_save_monthly"; parameters: z.infer<typeof canSaveMonthlyParamsSchema> };
+  | { intent: "can_save_monthly"; parameters: z.infer<typeof canSaveMonthlyParamsSchema> }
+  | { intent: "liquidity_risk"; parameters: z.infer<typeof liquidityRiskParamsSchema> }
+  | { intent: "probabilistic_forecast"; parameters: z.infer<typeof probabilisticForecastParamsSchema> }
+  | { intent: "savings_recommendation"; parameters: z.infer<typeof savingsRecommendationParamsSchema> }
+  | { intent: "reconciliation_status"; parameters: z.infer<typeof reconciliationStatusParamsSchema> };
 
 export function parseAssistantPeriodDefault(
   period: AssistantPeriod | undefined,
@@ -114,6 +127,11 @@ export function validateAssistantIntent(raw: FinancialAssistantRawOutput): Valid
       const parameters = canSaveMonthlyParamsSchema.safeParse(raw.parameters);
       return parameters.success ? { intent, parameters: parameters.data } : null;
     }
+    case "liquidity_risk":
+    case "probabilistic_forecast":
+    case "savings_recommendation":
+    case "reconciliation_status":
+      return { intent, parameters: {} };
     default:
       return null;
   }

@@ -1,5 +1,6 @@
 import PDFDocument from "pdfkit";
-import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
+import { requireWorkspaceAccess, requireWorkspaceManager } from "@/lib/auth/workspace-access";
+import { hasCorporateCapability } from "@/lib/corporate/rbac";
 import {
   reportOpeningClosing,
   reportTotals,
@@ -159,6 +160,58 @@ export async function buildFinancialReportCsv(
   ].join("\n");
 
   return header + lines.join("\n") + "\n" + summary;
+}
+
+function ledgerAccountCode(type: string): string {
+  switch (type) {
+    case "INCOME":
+      return "711";
+    case "EXPENSE":
+      return "622";
+    case "TRANSFER":
+      return "121";
+    default:
+      return "999";
+  }
+}
+
+/** Exportação contabilística mínima (colunas compatíveis com import ERP genérico). */
+export async function buildAccountingExportCsv(
+  userId: string,
+  workspaceId: string,
+  query: ReportQuery = {},
+) {
+  const membership = await requireWorkspaceManager(userId, workspaceId);
+  if (!membership || !hasCorporateCapability(membership.role, "export-accounting")) return null;
+
+  const data = await loadReportData(userId, workspaceId, query);
+  if (!data) return null;
+
+  const header =
+    "data_lancamento,conta_bancaria,tipo,conta_snc,debito,credito,descricao,referencia\n";
+
+  const lines = data.transactions.map((tx) => {
+    const date = formatCivilDateIso(civilDateFromInstant(tx.occurredAt));
+    const amount = tx.amount.toString();
+    const abs = amount.startsWith("-") ? amount.slice(1) : amount;
+    const isDebit = amount.startsWith("-");
+    const debit = isDebit ? abs : "";
+    const credit = isDebit ? "" : abs;
+    return [
+      date,
+      tx.account.name,
+      tx.type,
+      ledgerAccountCode(tx.type),
+      debit,
+      credit,
+      (tx.description ?? "").replace(/"/g, '""'),
+      tx.id,
+    ]
+      .map((cell) => `"${cell}"`)
+      .join(",");
+  });
+
+  return header + lines.join("\n");
 }
 
 export async function buildFinancialReportPdf(
