@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import { db } from "@/lib/db";
 import { detectPromptInjection } from "@/lib/ml/prompt-injection";
+import { assertMlCapabilityNotDeferred } from "@/lib/ml/deferred-capabilities";
 import { ML_REGISTRY, type MlCapability } from "@/lib/ml/registry";
 import { assessMlDrift } from "@/lib/ml/drift";
 import { getLocalAiSettings, isLocalAiActive } from "@/server/services/local-ai-settings";
@@ -179,6 +180,7 @@ export async function setMlFeatureControl(input: {
   reason?: string | null;
   updatedById: string;
 }) {
+  assertMlCapabilityNotDeferred(input.capability);
   return db.mlFeatureControl.upsert({
     where: { capability: input.capability },
     create: input,

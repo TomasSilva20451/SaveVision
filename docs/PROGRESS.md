@@ -24,6 +24,13 @@
 - CLI: `pnpm documents:integrity:check` (dry-run) e `pnpm documents:integrity:repair` (`--apply`).
 - `/api/health` expõe `unavailableDocuments`; `ops:alert-check` alerta se > 0.
 
+## Governação ML formalizada — Fase 36 / R9 (2026-10-26)
+
+- Registo LLM (`registry.ts`), advisory determinístico (`advisory-registry.ts`), manifest de prompts (`ml/prompts/manifest.json`).
+- Eval **1.1.0**: golden comerciantes, red-team, advisory probabilístico, validação de manifest; gate `isAdvisoryReleaseAllowed`.
+- Backoffice: drift, kill switch, lista advisory e capacidades bloqueadas (`DEFERRED_HIGH_RISK_ML`).
+- Roadmap produto §11 documentado em `docs/ML_FEATURE_ROADMAP.md`.
+
 ## Governação ML e inteligência financeira — Fase 29 (2026-10-25)
 
 - Catálogo fechado e versionado em `src/lib/ml/registry.ts`, com modelo, prompt, finalidade, limites, fallback e revisão humana por capacidade.

@@ -173,7 +173,7 @@ Registry local, prompts versionados, golden set pt-PT, **eval gate no CI**, drif
 | **33** | Pentest & DAST | R3/G24 — baseline ZAP, remediação | security workflow |
 | **34** | WORM/SIEM | R5 — export imutável + alertas | ops |
 | **35** | Corporativo profundo | OB real, exceções reconciliação, webhooks fila | E2E |
-| **36** | Governação ML | R9 — registry, eval gate | CI bloqueante |
+| **36** | Governação ML | R9 — registry, eval gate | **Concluída** — suite 1.1.0, manifest, advisory registry |
 
 Actualizar `docs/ROADMAP.md` e `docs/PROGRESS.md` quando cada fase **fechar portão completo** (incl. E2E se houver rotas novas).
 

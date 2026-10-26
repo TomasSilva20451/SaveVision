@@ -1,3 +1,4 @@
+import advisoryCases from "../../../ml/golden/advisory-probabilistic.pt-PT.json";
 import merchantCases from "../../../ml/golden/transaction-categorization.pt-PT.json";
 import injectionCases from "../../../ml/red-team/prompt-injection.pt-PT.json";
 import { describe, expect, it } from "vitest";
@@ -16,7 +17,7 @@ describe("governação ML", () => {
   });
 
   it("passa os limiares do golden dataset e red-team", () => {
-    expect(evaluateMlGovernance(merchantCases, injectionCases).passed).toBe(true);
+    expect(evaluateMlGovernance(merchantCases, injectionCases, advisoryCases).passed).toBe(true);
   });
 
   it("não confunde uma descrição bancária normal com instruções", () => {

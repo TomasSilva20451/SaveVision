@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "description": "Registo de prompts versionados — cada key tem de existir em ML_REGISTRY com a mesma promptVersion.",
+  "prompts": [
+    {
+      "key": "transaction-categorization.pt-PT",
+      "version": "2.0.0",
+      "capability": "transaction-categorization",
+      "sourceHint": "src/server/providers/ollama-transaction-categorization.ts"
+    },
+    {
+      "key": "recurring-pattern-enrichment.pt-PT",
+      "version": "1.1.0",
+      "capability": "recurring-pattern-enrichment",
+      "sourceHint": "src/server/services/recurring-pattern-enrichment.ts"
+    },
+    {
+      "key": "financial-assistant-intent.pt-PT",
+      "version": "1.2.0",
+      "capability": "financial-assistant-intent",
+      "sourceHint": "src/server/providers/ollama-financial-assistant.ts"
+    },
+    {
+      "key": "receipt-extraction.pt-PT",
+      "version": "1.0.0",
+      "capability": "receipt-extraction",
+      "sourceHint": "src/server/services/receipt-scan.ts"
+    },
+    {
+      "key": "report-narrative.pt-PT",
+      "version": "1.0.0",
+      "capability": "report-narrative",
+      "sourceHint": "src/server/services/reports.ts"
+    },
+    {
+      "key": "contextual-help.pt-PT",
+      "version": "1.0.0",
+      "capability": "contextual-help",
+      "sourceHint": "src/lib/ui/contextual-help.ts"
+    }
+  ]
+}

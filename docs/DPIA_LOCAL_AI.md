@@ -28,3 +28,7 @@ Tratamento **aceitável** com consentimento explícito (`local_ai_processing`) e
 ## Revisão
 
 Anual ou quando mudar modelo/fluxo de recibos/assistente.
+
+## Governação transversal (2026-10)
+
+Ver `docs/ML_GOVERNANCE.md`, `docs/ML_FEATURE_ROADMAP.md`, eval `pnpm ml:eval`, retenção `pnpm ml:retention`, kill switch no Backoffice. Capacidades de alto risco (fraude, AML, crédito, robo-advice) permanecem **fora de âmbito**.

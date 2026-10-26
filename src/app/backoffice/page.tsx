@@ -8,7 +8,8 @@ import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { canBackoffice, type PlatformRole } from "@/lib/platform/backoffice-policy";
 import { retryPlatformJobAction } from "@/lib/platform/backoffice-actions";
 import { updateMlFeatureControlAction } from "@/lib/ml/governance-actions";
-import { ML_CAPABILITIES, ML_REGISTRY } from "@/lib/ml/registry";
+import { ML_ADVISORY_CAPABILITIES, ML_ADVISORY_REGISTRY } from "@/lib/ml/advisory-registry";
+import { DEFERRED_HIGH_RISK_ML, ML_CAPABILITIES, ML_REGISTRY } from "@/lib/ml/registry";
 import { db } from "@/lib/db";
 import { listPlatformJobs } from "@/server/services/platform-jobs";
 import { getMlGovernanceOverview } from "@/server/services/ml-governance";
@@ -109,6 +110,26 @@ async function BackofficeContent() {
               </article>
             );
           })}
+        </div>
+        <div className="mt-6 rounded-xl border border-dashed border-slate-300 p-4">
+          <h3 className="text-sm font-semibold">Capacidades advisory (determinísticas)</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Sem LLM; sujeitas a `pnpm ml:eval` e gate `isAdvisoryReleaseAllowed` em staging/prod.
+          </p>
+          <ul className="mt-2 space-y-1 text-xs">
+            {ML_ADVISORY_CAPABILITIES.map((cap) => {
+              const def = ML_ADVISORY_REGISTRY[cap];
+              return (
+                <li key={cap}>
+                  #{def.roadmapOrder} {cap} — {def.humanReviewRequired ? "revisão humana" : "read-only"}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50/50 p-4 dark:border-rose-900 dark:bg-rose-950/20">
+          <h3 className="text-sm font-semibold text-rose-900 dark:text-rose-100">Fora de âmbito (bloqueadas)</h3>
+          <p className="mt-1 text-xs text-rose-800 dark:text-rose-200">{DEFERRED_HIGH_RISK_ML.join(", ")}</p>
         </div>
       </section>
       <Link href="/perfil" className="mt-6 inline-flex text-sm font-semibold text-blue-600">Voltar ao perfil</Link>

@@ -61,6 +61,9 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: ML eval gate (suite 1.1)
+        run: pnpm ml:eval
+
       - name: Verify clean-clone gate
         run: pnpm ci:verify
 

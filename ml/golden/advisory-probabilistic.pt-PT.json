@@ -1,0 +1,14 @@
+[
+  {
+    "currentBalance": "1000",
+    "monthlyNetFlows": ["100", "200", "0", "150", "50", "100"],
+    "horizonMonths": 3,
+    "expectOrderedBands": true
+  },
+  {
+    "currentBalance": "50",
+    "monthlyNetFlows": ["-100", "-120", "-80", "-140", "-90", "-110"],
+    "horizonMonths": 3,
+    "expectLiquidityHigh": true
+  }
+]

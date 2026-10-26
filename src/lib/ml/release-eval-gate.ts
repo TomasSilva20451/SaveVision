@@ -2,8 +2,8 @@ import { db } from "@/lib/db";
 
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Cenários P10/P50/P90 exigem eval de governação ML recente em ambientes expostos. */
-export async function isProbabilisticForecastReleaseAllowed(): Promise<{ allowed: boolean; reason?: string }> {
+/** Funcionalidades advisory (P10/P90, liquidez, etc.) exigem eval ML recente em ambientes expostos. */
+export async function isAdvisoryReleaseAllowed(): Promise<{ allowed: boolean; reason?: string }> {
   const env = process.env.FINTWIN_ENV ?? "development";
   if (env === "development" || env === "e2e" || env === "demo" || env === "test") {
     return { allowed: true };
@@ -27,3 +27,6 @@ export async function isProbabilisticForecastReleaseAllowed(): Promise<{ allowed
     return { allowed: false, reason: "EVAL_STORE_UNAVAILABLE" };
   }
 }
+
+/** @deprecated Use isAdvisoryReleaseAllowed */
+export const isProbabilisticForecastReleaseAllowed = isAdvisoryReleaseAllowed;

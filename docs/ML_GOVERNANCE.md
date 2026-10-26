@@ -6,17 +6,23 @@ O FinTwin usa modelos locais apenas como componentes **opcionais e não autorita
 
 ## Registo e versionamento
 
-`src/lib/ml/registry.ts` é o catálogo fechado de capacidades. Para cada uma regista finalidade, família/modelo por omissão, versão do prompt, limite de latência/tokens, fallback e necessidade de revisão humana. Alterar um prompt exige incrementar a sua versão e atualizar o golden dataset relevante.
+`src/lib/ml/registry.ts` é o catálogo fechado de capacidades **LLM**. Para cada uma regista finalidade, família/modelo por omissão, versão do prompt, limite de latência/tokens, fallback e necessidade de revisão humana. Alterar um prompt exige incrementar a sua versão, actualizar `ml/prompts/manifest.json` e o golden dataset relevante.
+
+Capacidades **advisory determinísticas** (P10/P90, liquidez, copiloto reconciliação, etc.) estão em `src/lib/ml/advisory-registry.ts` — sem LLM, mas sujeitas ao eval gate em staging/produção.
+
+Prompts versionados: `ml/prompts/manifest.json` validado em `pnpm ml:eval` via `validatePromptManifestAgainstRegistry()`.
 
 As execuções são registadas em `MlInvocationEvent` com hashes de entrada/saída, versão de modelo/prompt, resultado, latência, confiança e motivo de fallback. Por omissão não se guarda o prompt. Quando o utilizador aceitou `prompt_storage`, só é retido um excerto truncado durante sete dias.
 
 ## Avaliações obrigatórias
 
-`pnpm ml:eval` valida antes de cada release:
+`pnpm ml:eval` (suite **1.1.0**) valida antes de cada release:
 
-- cobertura integral do registo;
+- cobertura integral do registo LLM;
+- manifest de prompts alinhado com `ML_REGISTRY`;
 - normalização de comerciantes no golden dataset pt-PT;
 - red-team de prompt injection em pt-PT;
+- golden advisory probabilístico (bandas ordenadas, risco HIGH);
 - limiares explícitos e falha com código diferente de zero.
 
 O comando integra `pnpm gate` e `pnpm ci:verify`; por isso um release não avança se a avaliação falhar. Os dados ficam em `ml/golden/` e `ml/red-team/`, versionados com o código. `MlEvaluationRun` permite conservar o resultado de releases promovidos.
