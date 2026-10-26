@@ -47,5 +47,32 @@ agentLog("H2", "pnpm install with repo .npmrc excludes", {
   stderrTail: (normal.stderr ?? normal.stdout ?? "").slice(-400),
 });
 
-console.log(JSON.stringify({ strictStatus: strict.status, normalStatus: normal.status }, null, 2));
-process.exit(normal.status === 0 ? 0 : 1);
+const dependabotUpdate = spawnSync(
+  "pnpm",
+  [
+    "update",
+    "@prisma/adapter-pg@7.10.1",
+    "--lockfile-only",
+    "--config.minimum-release-age=4320",
+  ],
+  { encoding: "utf8" },
+);
+agentLog("H3", "dependabot-like pnpm update with minimum-release-age=4320", {
+  status: dependabotUpdate.status,
+  stderrTail: `${dependabotUpdate.stderr ?? ""}${dependabotUpdate.stdout ?? ""}`.slice(-800),
+});
+
+console.log(
+  JSON.stringify(
+    {
+      strictStatus: strict.status,
+      normalStatus: normal.status,
+      dependabotUpdateStatus: dependabotUpdate.status,
+    },
+    null,
+    2,
+  ),
+);
+process.exit(
+  normal.status === 0 && dependabotUpdate.status === 0 ? 0 : 1,
+);

@@ -1,5 +1,5 @@
 version: 2
-# pnpm: ver .npmrc (minimum-release-age-exclude) se o job npm falhar com ERR_PNPM_NO_MATCHING_VERSION em eslint-config-next.
+# pnpm: Dependabot usa --config.minimum-release-age=4320; ver .npmrc e pnpm-workspace.yaml (minimumReleaseAgeExclude).
 updates:
   - package-ecosystem: npm
     directory: /

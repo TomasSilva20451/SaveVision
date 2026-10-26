@@ -1,10 +1,10 @@
 locals {
   secret_names = {
-    auth_secret     = "fintwin/${var.environment}/auth-secret"
-    document_key    = "fintwin/${var.environment}/document-encryption-key"
-    audit_key       = "fintwin/${var.environment}/audit-signing-key"
-    backup_key      = "fintwin/${var.environment}/backup-encryption-secret"
-    redis_url       = "fintwin/${var.environment}/redis-url"
+    auth_secret  = "fintwin/${var.environment}/auth-secret"
+    document_key = "fintwin/${var.environment}/document-encryption-key"
+    audit_key    = "fintwin/${var.environment}/audit-signing-key"
+    backup_key   = "fintwin/${var.environment}/backup-encryption-secret"
+    redis_url    = "fintwin/${var.environment}/redis-url"
   }
 }
 

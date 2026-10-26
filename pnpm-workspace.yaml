@@ -1,3 +1,13 @@
+# Gate de idade: 0 no repo; o Dependabot impõe 4320 min via CLI — ver minimumReleaseAgeExclude.
+minimumReleaseAge: 0
+minimumReleaseAgeExclude:
+  - next
+  - eslint-config-next
+  - "@next/*"
+  - "@appthreat/*"
+  - "@cyclonedx/*"
+  - "@babel/*"
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
