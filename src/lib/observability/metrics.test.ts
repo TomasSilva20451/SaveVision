@@ -14,5 +14,7 @@ describe("metrics", () => {
     observeHistogram("fintwin_http_request_duration_seconds", 0.2, { route: "/api/health" });
     const text = renderPrometheusMetrics();
     expect(text).toContain("fintwin_http_request_duration_seconds_bucket");
+    expect(text).toMatch(/le="0\.25"/);
+    expect(text).toContain('le="+Inf"');
   });
 });

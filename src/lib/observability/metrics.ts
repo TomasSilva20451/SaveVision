@@ -68,6 +68,17 @@ export function recordJobMetric(job: string, result: "success" | "failure") {
   incrementCounter("fintwin_jobs_total", { job, result });
 }
 
+/** Acrescenta `le` ao conjunto de labels Prometheus (`{a="1"}` → `{a="1",le="…"}`). */
+function histogramBucketLabels(labelPart: string, le: string): string {
+  if (labelPart === "{}") {
+    return `{le="${le}"}`;
+  }
+  if (labelPart.endsWith("}")) {
+    return `${labelPart.slice(0, -1)},le="${le}"}`;
+  }
+  return `${labelPart},le="${le}"}`;
+}
+
 export function renderPrometheusMetrics(): string {
   const lines: string[] = [];
   for (const def of COUNTERS) {
@@ -90,9 +101,9 @@ export function renderPrometheusMetrics(): string {
     for (const [labelPart, values] of byLabel) {
       for (const bucket of def.buckets) {
         const count = values.filter((v) => v <= bucket).length;
-        lines.push(`${def.name}_bucket${labelPart.replace("}", `,le="${bucket}"}`)} ${count}`);
+        lines.push(`${def.name}_bucket${histogramBucketLabels(labelPart, String(bucket))} ${count}`);
       }
-      lines.push(`${def.name}_bucket${labelPart.replace("}", `,le="+Inf"`)} ${values.length}`);
+      lines.push(`${def.name}_bucket${histogramBucketLabels(labelPart, "+Inf")} ${values.length}`);
       lines.push(`${def.name}_sum${labelPart} ${values.reduce((a, b) => a + b, 0)}`);
       lines.push(`${def.name}_count${labelPart} ${values.length}`);
     }
