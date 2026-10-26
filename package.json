@@ -102,7 +102,7 @@
     "@tailwindcss/postcss": "^4.3.3",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^24.19.1",
-    "@types/pdfkit": "^0.17.6",
+    "@types/pdfkit": "^0.17.7",
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
