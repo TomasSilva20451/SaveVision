@@ -5,6 +5,10 @@ on:
     - cron: "0 7 * * 1"
   workflow_dispatch:
     inputs:
+      target_url:
+        description: "URL HTTPS de staging (opcional; usa FINTWIN_DAST_TARGET_URL por omissão)"
+        required: false
+        type: string
       update_baseline:
         description: "Actualizar baseline de High (aceitação consciente)"
         required: false
@@ -24,23 +28,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Require staging URL
+      - name: Validate staging URL
+        id: target
+        env:
+          INPUT_TARGET: ${{ inputs.target_url }}
+          REPOSITORY_TARGET: ${{ vars.FINTWIN_DAST_TARGET_URL }}
         run: |
-          if [ -z "${{ vars.FINTWIN_DAST_TARGET_URL }}" ]; then
-            echo "Define FINTWIN_DAST_TARGET_URL (pnpm security:setup-dast-url https://staging...)"
+          target="${INPUT_TARGET:-$REPOSITORY_TARGET}"
+          if [ -z "$target" ] || [[ "$target" == *".example"* ]] || [[ "$target" == *".example/"* ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::DAST ignorado: configure FINTWIN_DAST_TARGET_URL com um staging HTTPS real. Domínios .example não são destinos válidos."
+            exit 0
+          fi
+          if [[ ! "$target" =~ ^https://[^/]+(/.*)?$ ]]; then
+            echo "::error::O destino DAST tem de ser uma URL HTTPS válida."
             exit 1
           fi
-          echo "target=${{ vars.FINTWIN_DAST_TARGET_URL }}" >> "$GITHUB_ENV"
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+          echo "url=$target" >> "$GITHUB_OUTPUT"
 
       - name: OWASP ZAP baseline scan
+        if: steps.target.outputs.configured == 'true'
         uses: zaproxy/action-baseline@v0.15.0
         with:
-          target: ${{ vars.FINTWIN_DAST_TARGET_URL }}
+          target: ${{ steps.target.outputs.url }}
           allow_issue_writing: false
           fail_action: false
 
       - name: Upload ZAP report
-        if: always()
+        if: steps.target.outputs.configured == 'true' && always()
         uses: actions/upload-artifact@v4
         with:
           name: zap-report-${{ github.run_id }}
@@ -50,15 +66,15 @@ jobs:
           retention-days: 90
 
       - name: Compare High alerts to baseline
-        if: github.event.inputs.update_baseline != 'true'
+        if: steps.target.outputs.configured == 'true' && github.event.inputs.update_baseline != 'true'
         run: node scripts/dast-compare-baseline.mjs --report report_json.json
 
       - name: Update DAST baseline (manual acceptance)
-        if: github.event.inputs.update_baseline == 'true'
+        if: steps.target.outputs.configured == 'true' && github.event.inputs.update_baseline == 'true'
         run: node scripts/dast-compare-baseline.mjs --report report_json.json --update-baseline
 
       - name: Upload proposed baseline
-        if: github.event.inputs.update_baseline == 'true'
+        if: steps.target.outputs.configured == 'true' && github.event.inputs.update_baseline == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: dast-baseline-proposed
