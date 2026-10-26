@@ -40,5 +40,21 @@ export function createHttpOpenBankingProvider(): OpenBankingProvider | null {
       const body = (await response.json()) as { transactions?: OpenBankingTransaction[] };
       return body.transactions ?? [];
     },
+    async refreshConsent(input) {
+      const url = `${config.baseUrl}/consents/${encodeURIComponent(input.consentRef)}/refresh`;
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (config.apiKey) headers["X-Api-Key"] = config.apiKey;
+      const response = await fetch(url, { method: "POST", headers, signal: AbortSignal.timeout(15_000) });
+      if (!response.ok) throw new Error(`OPEN_BANKING_REFRESH_${response.status}`);
+      const body = (await response.json()) as { consentRef?: string; expiresAt?: string };
+      return { consentRef: body.consentRef ?? input.consentRef, expiresAt: body.expiresAt };
+    },
+    async revokeConsent(input) {
+      const url = `${config.baseUrl}/consents/${encodeURIComponent(input.consentRef)}`;
+      const headers: Record<string, string> = { Accept: "application/json" };
+      if (config.apiKey) headers["X-Api-Key"] = config.apiKey;
+      const response = await fetch(url, { method: "DELETE", headers, signal: AbortSignal.timeout(15_000) });
+      if (!response.ok && response.status !== 404) throw new Error(`OPEN_BANKING_REVOKE_${response.status}`);
+    },
   };
 }

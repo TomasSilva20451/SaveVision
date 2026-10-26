@@ -1,5 +1,11 @@
 # Progresso FinTwin
 
+## Sprints E–G — Resiliência, WORM/SIEM, corporativo (2026-10-26)
+
+- **Sprint E (R6):** k6 smoke (`tests/load/smoke.js`), CI `load-smoke.yml`, `pnpm game-day:drill`, runbooks failover/rotação chaves.
+- **Sprint F (R5):** bucket audit WORM (`audit_worm.tf`), `pnpm audit:worm:sync`, SIEM via `FINTWIN_SIEM_HTTP_ENDPOINT`, `docs/WORM_SIEM.md`.
+- **Sprint G:** fecho diário + excepções reconciliação; webhooks assíncronos (`WEBHOOK_DELIVERY`); TPP refresh/revoke HTTP; `/inteligencia` bloqueada sem eval ML recente.
+
 ## Sprints C + D — DAST staging e Terraform KMS (2026-10-25)
 
 - **Sprint C (R3):** workflow `dast-staging.yml` (cron + manual), baseline `security/baseline/dast-high-alerts.json`, `scripts/dast-compare-baseline.mjs`, checklist em `PENTEST_READINESS.md`.

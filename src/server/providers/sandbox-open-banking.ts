@@ -23,4 +23,10 @@ export const sandboxOpenBankingProvider: OpenBankingProvider = {
       },
     ] satisfies OpenBankingTransaction[];
   },
+  async refreshConsent(input) {
+    return { consentRef: input.consentRef, expiresAt: new Date(Date.now() + 90 * 86400000).toISOString() };
+  },
+  async revokeConsent() {
+    return;
+  },
 };

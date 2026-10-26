@@ -1,0 +1,31 @@
+# Vector — logs FinTwin → SIEM (substituir endpoints reais)
+# Montar com compose.observability ou sidecar staging.
+
+[sources.fintwin_json_logs]
+type = "file"
+include = ["/var/log/fintwin/*.jsonl"]
+read_from = "end"
+
+[transforms.enrich]
+type = "remap"
+inputs = ["fintwin_json_logs"]
+source = '''
+  .service = "fintwin"
+  .env = get_env_var("FINTWIN_ENV") ?? "unknown"
+'''
+
+[sinks.siem_http]
+type = "http"
+inputs = ["enrich"]
+uri = "${FINTWIN_SIEM_HTTP_ENDPOINT}"
+method = "post"
+encoding.codec = "json"
+request.headers.Content-Type = "application/json"
+
+[sinks.loki_optional]
+type = "loki"
+inputs = ["enrich"]
+endpoint = "https://loki.example:3100"
+encoding.codec = "json"
+labels.service = "fintwin"
+labels.env = "{{ env }}"

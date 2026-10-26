@@ -187,9 +187,9 @@ Use esta sequência para sprints; não paralelizar P0 com pentest antes de R7/R1
 - [x] **Sprint B:** Fase 30 — Redis rate limit + rotas API (R1) — `FINTWIN_REDIS_URL`, `enforce-api-rate-limit.ts`.
 - [x] **Sprint C:** DAST staging baseline + agenda pentest (R3) — `dast-staging.yml`, `dast-compare-baseline.mjs`, `PENTEST_READINESS.md`.
 - [x] **Sprint D:** Terraform staging + KMS (R2/R4) — `kms.tf`, `secrets.tf`, Redis staging, `STAGING_KMS.md`, `terraform-staging-plan.yml`.
-- [ ] **Sprint E:** k6 + game day restore/failover (R6).
-- [ ] **Sprint F:** WORM/SIEM ligação real (R5).
-- [ ] **Sprint G+:** Open Banking TPP + reconciliação exceções (PDF §8).
+- [x] **Sprint E:** k6 + game day restore/failover (R6) — `tests/load/`, `load-smoke.yml`, `game-day-drill.mjs`, runbooks.
+- [x] **Sprint F:** WORM/SIEM ligação real (R5) — `audit_worm.tf`, `audit-worm-sync.mjs`, `WORM_SIEM.md`, SIEM em `ops-alert-check`.
+- [x] **Sprint G (base):** excepções/fecho reconciliação, webhooks `WEBHOOK_DELIVERY`, TPP HTTP refresh/revoke, gate ML eval P10/P90 — ver `OPEN_BANKING_TPP.md`, `release-eval-gate.ts`.
 
 ---
 

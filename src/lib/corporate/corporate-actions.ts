@@ -5,8 +5,10 @@ import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
 import {
+  closeReconciliationDay,
   confirmManualReconciliationMatch,
   importBankFeedCsv,
+  markReconciliationException,
   registerOpenBankingConsent,
   runAutoReconciliation,
   syncOpenBankingFeed,
@@ -73,6 +75,39 @@ export async function manualReconcileAction(formData: FormData): Promise<void> {
     return;
   }
   await flashSuccess("Reconciliação manual confirmada.");
+  revalidatePath("/reconciliacao");
+}
+
+export async function markReconciliationExceptionAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await resolveWorkspaceContext(user.id);
+  if (!selected) return;
+
+  const bankFeedLineId = String(formData.get("bankFeedLineId") ?? "");
+  const result = await markReconciliationException(user.id, selected.id, bankFeedLineId);
+  if (!result?.ok) {
+    await flashError("Não foi possível marcar excepção.");
+    return;
+  }
+  await flashSuccess("Movimento movido para excepções.");
+  revalidatePath("/reconciliacao");
+}
+
+export async function closeReconciliationDayAction(): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await resolveWorkspaceContext(user.id);
+  if (!selected) return;
+
+  const result = await closeReconciliationDay(user.id, selected.id);
+  if (!result?.ok) {
+    await flashError("Fecho diário indisponível (permissões ou data).");
+    return;
+  }
+  await flashSuccess(
+    `Dia ${result.civilDate} fechado — ${Math.round(result.autoMatchRate * 100)}% auto-match, ${result.unmatchedCount} por reconciliar, ${result.exceptionCount} excepções.`,
+  );
   revalidatePath("/reconciliacao");
 }
 

@@ -16,8 +16,10 @@ import { formatCivilDate } from "@/lib/datetime/civil-date";
 import { civilDateFromInstant } from "@/lib/datetime/civil-date";
 import { formatEUR } from "@/lib/finance/money";
 import {
+  closeReconciliationDayAction,
   importBankFeedAction,
   manualReconcileAction,
+  markReconciliationExceptionAction,
   runAutoReconcileAction,
 } from "@/lib/corporate/corporate-actions";
 import { readPageFlash } from "@/lib/ui/page-shell";
@@ -57,7 +59,7 @@ async function ReconciliacaoPageContent() {
         </div>
       }
     >
-      <div className="grid min-w-0 gap-4 sm:grid-cols-3">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div data-testid="recon-kpi-unmatched">
           <DashboardKpiCard label="Por reconciliar" value={String(data.kpis.unmatchedCount)} tone="expense" rawValue icon="!" />
         </div>
@@ -67,7 +69,17 @@ async function ReconciliacaoPageContent() {
         <div data-testid="recon-kpi-duplicates">
           <DashboardKpiCard label="Duplicados no extrato" value={String(data.kpis.duplicateCount)} tone="analytic" rawValue icon="≈" />
         </div>
+        <div data-testid="recon-kpi-exceptions">
+          <DashboardKpiCard label="Excepções" value={String(data.kpis.exceptionCount)} tone="analytic" rawValue icon="?" />
+        </div>
       </div>
+
+      {data.lastClose ? (
+        <p className="mt-3 text-xs text-slate-600">
+          Último fecho: {data.lastClose.civilDate} — {Math.round(data.lastClose.autoMatchRate * 100)}% auto-match (
+          {data.lastClose.unmatchedCount} por reconciliar, {data.lastClose.exceptionCount} excepções).
+        </p>
+      ) : null}
 
       {data.canEdit ? (
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -106,6 +118,16 @@ async function ReconciliacaoPageContent() {
             </p>
             <button type="submit" className="mt-4 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white">
               Executar auto-match
+            </button>
+          </form>
+
+          <form action={closeReconciliationDayAction} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
+            <h2 className="text-sm font-semibold text-slate-900">Fecho diário</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Regista métricas de auto-match e congela evidência para auditoria (excepções + pendentes).
+            </p>
+            <button type="submit" className="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-800">
+              Fechar dia civil actual
             </button>
           </form>
         </section>
@@ -160,6 +182,12 @@ async function ReconciliacaoPageContent() {
                         </select>
                         <button type="submit" className="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-800">
                           Confirmar
+                        </button>
+                      </form>
+                      <form action={markReconciliationExceptionAction} className="mt-1">
+                        <input type="hidden" name="bankFeedLineId" value={line.id} />
+                        <button type="submit" className="text-[11px] text-amber-800 underline">
+                          Marcar excepção
                         </button>
                       </form>
                       {suggestion ? (

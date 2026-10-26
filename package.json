@@ -60,6 +60,11 @@
     "security:pentest-check": "node scripts/pentest-readiness-check.mjs",
     "security:dast-compare": "node scripts/dast-compare-baseline.mjs",
     "infra:render-staging-secrets": "node scripts/render-staging-secrets-from-aws.mjs",
+    "infra:terraform-checklist": "node scripts/terraform-staging-checklist.mjs",
+    "load:smoke": "node scripts/run-k6-smoke.mjs",
+    "game-day:drill": "node scripts/game-day-drill.mjs",
+    "audit:worm:sync": "node scripts/audit-worm-sync.mjs",
+    "siem:ping": "node scripts/siem-forward.mjs",
     "jobs:work": "tsx scripts/platform-jobs-worker.ts",
     "deploy:rollout-check": "node scripts/deploy-rollout.mjs",
     "postinstall": "prisma generate"

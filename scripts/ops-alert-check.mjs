@@ -52,14 +52,32 @@ const payload = {
 
 opsLog("warn", "ops.alert_triggered", { event: "ops_alert_check", meta: { issues } });
 
-if (webhook) {
-  const res = await fetch(webhook, {
+async function postJson(url, body, headers = {}) {
+  const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
   });
+  return res;
+}
+
+if (webhook) {
+  const res = await postJson(webhook, payload);
   if (!res.ok) {
     opsLog("error", "ops.webhook_failed", { meta: { status: res.status } });
+    process.exit(1);
+  }
+}
+
+const siem = process.env.FINTWIN_SIEM_HTTP_ENDPOINT?.trim();
+if (siem) {
+  const siemPayload = { ...payload, source: "fintwin.ops_alert_check" };
+  const headers = process.env.FINTWIN_SIEM_TOKEN
+    ? { Authorization: `Bearer ${process.env.FINTWIN_SIEM_TOKEN}` }
+    : {};
+  const res = await postJson(siem, siemPayload, headers);
+  if (!res.ok) {
+    opsLog("error", "ops.siem_failed", { meta: { status: res.status } });
     process.exit(1);
   }
 }

@@ -70,6 +70,7 @@ enum PlatformJobKind {
   REPORT_EXPORT
   RECEIPT_OCR
   ML_CATEGORIZATION
+  WEBHOOK_DELIVERY
 }
 
 enum PlatformJobStatus {
@@ -417,6 +418,7 @@ model Workspace {
   openBankingConsents                  OpenBankingConsent[]
   bankFeedLines                        BankFeedLine[]
   bankReconciliationMatches            BankReconciliationMatch[]
+  reconciliationDayCloses              ReconciliationDayClose[]
   financialApprovals                   FinancialApproval[]
   webhookSubscriptions                 WebhookSubscription[]
   supportCases                         SupportCase[]
@@ -920,6 +922,7 @@ enum BankFeedLineStatus {
   MATCHED
   IGNORED
   DUPLICATE
+  EXCEPTION
 }
 
 /// Movimento importado do banco (Open Banking ou CSV). Montante com sinal contabilístico.
@@ -945,6 +948,23 @@ model BankFeedLine {
 
   @@unique([workspaceId, externalId])
   @@index([workspaceId, accountId, status, bookingDate])
+}
+
+/// Fecho diário de reconciliação (métricas e fila de exceções congelada).
+model ReconciliationDayClose {
+  id              String   @id @default(cuid())
+  workspaceId     String
+  civilDate       String
+  closedByUserId  String
+  closedAt        DateTime @default(now())
+  unmatchedCount  Int
+  exceptionCount  Int
+  autoMatchRate   Float
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, civilDate])
+  @@index([workspaceId, closedAt])
 }
 
 enum ReconciliationMatchMethod {

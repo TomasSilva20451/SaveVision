@@ -14,6 +14,7 @@ import {
 } from "@/lib/ml/probabilistic-forecast";
 import { db } from "@/lib/db";
 import { listAccountsWithBalances } from "@/server/services/accounts";
+import { isProbabilisticForecastReleaseAllowed } from "@/lib/ml/release-eval-gate";
 import { collectTreasuryForecastEvents } from "@/server/services/treasury-forecast";
 
 function monthRefs(count: number): Array<{ year: number; month: number; key: string }> {
@@ -45,6 +46,9 @@ function toMovement(tx: { accountId: string; type: string; status: string; amoun
 export async function getAdvancedFinancialIntelligence(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
+
+  const evalGate = await isProbabilisticForecastReleaseAllowed();
+  if (!evalGate.allowed) return null;
 
   const months = monthRefs(12);
   const from = startOfCivilMonth(months[0]!.year, months[0]!.month);

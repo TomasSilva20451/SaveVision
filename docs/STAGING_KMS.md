@@ -16,6 +16,12 @@ terraform plan -var-file=environments/staging.tfvars
 terraform apply -var-file=environments/staging.tfvars
 ```
 
+## Apply checklist
+
+```bash
+pnpm infra:terraform-checklist
+```
+
 ## Outputs relevantes
 
 | Output | Uso |
@@ -25,6 +31,7 @@ terraform apply -var-file=environments/staging.tfvars
 | `app_secret_arns` | Auth, document/audit keys, backup, redis-url |
 | `redis_configuration_endpoint` | Host ElastiCache (porta 6379) |
 | `documents_bucket` | Armazenamento documentos |
+| `audit_worm_bucket` | JSONL auditoria imutável — `pnpm audit:worm:sync` |
 
 ## Montagem no contentor (`*_FILE`)
 

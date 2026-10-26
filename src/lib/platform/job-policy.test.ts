@@ -10,6 +10,7 @@ describe("fila e capacidade", () => {
     expect(kindsWithCapacity({ RECEIPT_OCR: 1, REPORT_EXPORT: 1 })).toEqual([
       "REPORT_EXPORT",
       "ML_CATEGORIZATION",
+      "WEBHOOK_DELIVERY",
     ]);
     expect(kindsWithCapacity({ REPORT_EXPORT: 2, ML_CATEGORIZATION: 2 })).toEqual([]);
   });

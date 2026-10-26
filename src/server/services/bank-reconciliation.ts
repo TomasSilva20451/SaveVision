@@ -35,7 +35,8 @@ export async function getReconciliationPageData(userId: string, workspaceId: str
 
   const canEdit = hasCorporateCapability(membership.role, "reconcile");
 
-  const [accounts, unmatchedCount, matchedCount, duplicateCount, recentUnmatched] = await Promise.all([
+  const [accounts, unmatchedCount, matchedCount, duplicateCount, exceptionCount, recentUnmatched, lastClose] =
+    await Promise.all([
     db.financialAccount.findMany({
       where: { workspaceId, isArchived: false },
       orderBy: { name: "asc" },
@@ -44,11 +45,17 @@ export async function getReconciliationPageData(userId: string, workspaceId: str
     db.bankFeedLine.count({ where: { workspaceId, status: "UNMATCHED" } }),
     db.bankReconciliationMatch.count({ where: { workspaceId } }),
     db.bankFeedLine.count({ where: { workspaceId, status: "DUPLICATE" } }),
+    db.bankFeedLine.count({ where: { workspaceId, status: "EXCEPTION" } }),
     db.bankFeedLine.findMany({
       where: { workspaceId, status: "UNMATCHED" },
       orderBy: { bookingDate: "desc" },
       take: 40,
       include: { account: { select: { name: true } } },
+    }),
+    db.reconciliationDayClose.findFirst({
+      where: { workspaceId },
+      orderBy: { closedAt: "desc" },
+      select: { civilDate: true, closedAt: true, autoMatchRate: true, unmatchedCount: true, exceptionCount: true },
     }),
   ]);
 
@@ -94,7 +101,8 @@ export async function getReconciliationPageData(userId: string, workspaceId: str
     canEdit,
     role: membership.role,
     accounts,
-    kpis: { unmatchedCount, matchedCount, duplicateCount },
+    kpis: { unmatchedCount, matchedCount, duplicateCount, exceptionCount },
+    lastClose,
     feedLines: recentUnmatched.map((line) => ({
       id: line.id,
       accountName: line.account.name,
@@ -418,6 +426,92 @@ export async function listOpenBankingConsents(userId: string, workspaceId: strin
     include: { account: { select: { name: true } } },
     orderBy: { updatedAt: "desc" },
   });
+}
+
+export async function markReconciliationException(
+  userId: string,
+  workspaceId: string,
+  bankFeedLineId: string,
+) {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership || !hasCorporateCapability(membership.role, "reconcile")) return null;
+
+  const line = await db.bankFeedLine.findFirst({
+    where: { id: bankFeedLineId, workspaceId, status: "UNMATCHED" },
+  });
+  if (!line) return { ok: false as const };
+
+  await db.bankFeedLine.update({
+    where: { id: line.id },
+    data: { status: "EXCEPTION" },
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId,
+    action: "RECONCILIATION_EXCEPTION",
+    resourceType: "BankFeedLine",
+    resourceId: line.id,
+    outcome: "SUCCESS",
+    source: "reconciliation",
+  });
+
+  return { ok: true as const };
+}
+
+export async function closeReconciliationDay(userId: string, workspaceId: string, civilDate?: string) {
+  const membership = await requireWorkspaceManager(userId, workspaceId);
+  if (!membership || !hasCorporateCapability(membership.role, "reconcile")) return null;
+
+  const today = civilDateFromInstant(new Date());
+  const dateKey = civilDate ?? formatCivilDateIso(today);
+
+  const lines = await db.bankFeedLine.findMany({
+    where: { workspaceId },
+    select: { status: true, bookingDate: true },
+  });
+
+  const dayLines = lines.filter((line) => formatCivilDateIso(civilDateFromInstant(line.bookingDate)) === dateKey);
+  const matched = dayLines.filter((line) => line.status === "MATCHED").length;
+  const unmatched = dayLines.filter((line) => line.status === "UNMATCHED").length;
+  const exceptions = dayLines.filter((line) => line.status === "EXCEPTION").length;
+  const total = matched + unmatched + exceptions;
+  const autoMatchRate = total === 0 ? 1 : matched / total;
+
+  const workspaceUnmatched = await db.bankFeedLine.count({ where: { workspaceId, status: "UNMATCHED" } });
+  const workspaceExceptions = await db.bankFeedLine.count({ where: { workspaceId, status: "EXCEPTION" } });
+
+  await db.reconciliationDayClose.upsert({
+    where: { workspaceId_civilDate: { workspaceId, civilDate: dateKey } },
+    create: {
+      workspaceId,
+      civilDate: dateKey,
+      closedByUserId: userId,
+      unmatchedCount: workspaceUnmatched,
+      exceptionCount: workspaceExceptions,
+      autoMatchRate,
+    },
+    update: {
+      closedByUserId: userId,
+      closedAt: new Date(),
+      unmatchedCount: workspaceUnmatched,
+      exceptionCount: workspaceExceptions,
+      autoMatchRate,
+    },
+  });
+
+  await appendAuditEvent({
+    actorUserId: userId,
+    workspaceId,
+    action: "RECONCILIATION_DAY_CLOSE",
+    resourceType: "ReconciliationDayClose",
+    resourceId: dateKey,
+    outcome: "SUCCESS",
+    source: "reconciliation",
+    metadata: { autoMatchRate, unmatched: workspaceUnmatched, exceptions: workspaceExceptions },
+  });
+
+  return { ok: true as const, civilDate: dateKey, autoMatchRate, unmatchedCount: workspaceUnmatched, exceptionCount: workspaceExceptions };
 }
 
 export async function searchWorkspaceAuditEvents(

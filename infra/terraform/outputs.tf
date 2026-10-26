@@ -28,3 +28,8 @@ output "redis_configuration_endpoint" {
   value       = var.enable_redis ? aws_elasticache_cluster.fintwin[0].cache_nodes[0].address : null
   description = "Host Redis (staging rate limit); URL completa em Secrets Manager redis-url"
 }
+
+output "audit_worm_bucket" {
+  value       = aws_s3_bucket.audit_worm.id
+  description = "Bucket S3 Object Lock para audit-events.jsonl (WORM)"
+}

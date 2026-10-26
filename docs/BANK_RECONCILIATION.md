@@ -21,10 +21,16 @@ A reconciliação cruza **linhas de extrato** (`BankFeedLine`) com **movimentos 
 
 - Exportação contabilística: `GET /api/reports/accounting-csv` (owners), colunas SNC simplificadas.
 
+## Excepções e fecho diário
+
+- Linhas `UNMATCHED` podem passar a `EXCEPTION` (fila de divergências) sem apagar o extrato.
+- **Fecho diário** (`ReconciliationDayClose`): regista `% auto-match`, pendentes e excepções por dia civil; acção em `/reconciliacao`.
+
 ## Webhooks
 
 - Eventos: `reconciliation.matched`, `bank_feed.imported`.
-- Cabeçalhos: `X-FinTwin-Signature` (HMAC-SHA256 de `{timestamp}.{body}`), `X-FinTwin-Timestamp`, `X-FinTwin-Event`.
+- Entrega assíncrona via `PlatformJob` (`WEBHOOK_DELIVERY`) quando `FINTWIN_WEBHOOKS_ASYNC=1` (omissão).
+- Cabeçalhos: `X-FinTwin-Signature` (HMAC-SHA256 de `{timestamp}.{body}`), `X-FinTwin-Timestamp`, `X-FinTwin-Event`, `X-FinTwin-Delivery-Id`.
 - Segredo guardado cifrado (`secretEnc`); mostrado uma vez na criação.
 
 ## E2E

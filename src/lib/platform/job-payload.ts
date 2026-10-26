@@ -15,10 +15,26 @@ const schemas = {
     workspaceId: z.string().min(1),
     transactionId: z.string().min(1),
   }).strict(),
+  WEBHOOK_DELIVERY: z.object({
+    workspaceId: z.string().min(1),
+    subscriptionId: z.string().min(1),
+    deliveryId: z.string().min(1),
+    event: z.string().min(1),
+    body: z.string().min(1),
+    timestamp: z.string().min(1),
+  }).strict(),
 } satisfies Record<PlatformJobKind, z.ZodType>;
 
 export function parsePlatformJobPayload(kind: PlatformJobKind, payload: unknown) {
   const parsed = schemas[kind].safeParse(payload);
+  if (!parsed.success) throw new Error("PAYLOAD_INVALID");
+  return parsed.data;
+}
+
+export type WebhookDeliveryJobPayload = z.infer<(typeof schemas)["WEBHOOK_DELIVERY"]>;
+
+export function parseWebhookDeliveryPayload(payload: unknown): WebhookDeliveryJobPayload {
+  const parsed = schemas.WEBHOOK_DELIVERY.safeParse(payload);
   if (!parsed.success) throw new Error("PAYLOAD_INVALID");
   return parsed.data;
 }

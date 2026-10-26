@@ -1,4 +1,4 @@
-export const platformJobKinds = ["REPORT_EXPORT", "RECEIPT_OCR", "ML_CATEGORIZATION"] as const;
+export const platformJobKinds = ["REPORT_EXPORT", "RECEIPT_OCR", "ML_CATEGORIZATION", "WEBHOOK_DELIVERY"] as const;
 export type PlatformJobKind = (typeof platformJobKinds)[number];
 
 /** Limites de concorrência por tipo. OCR é o mais pesado. */
@@ -6,6 +6,7 @@ export const JOB_CONCURRENCY: Record<PlatformJobKind, number> = {
   REPORT_EXPORT: 2,
   RECEIPT_OCR: 1,
   ML_CATEGORIZATION: 2,
+  WEBHOOK_DELIVERY: 4,
 };
 
 export const GLOBAL_JOB_CONCURRENCY = 4;

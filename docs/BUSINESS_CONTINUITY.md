@@ -45,6 +45,8 @@ Automatização: `pnpm db:backup:run` (cifra + manifesto + sync opcional). Cron 
 ## Testes trimestrais de restauro
 
 - Script: `pnpm db:backup:drill` (backup → BD temporária `fintwin_drill_*` → comparar contagens → relatório em `storage/backups/drill-reports/`).
+- Game day: `pnpm game-day:drill` (drill + checklist failover manual — `docs/runbooks/game-day-failover.md`).
+- Carga smoke: `pnpm load:smoke` / workflow `load-smoke.yml`.
 - CI: workflow `.github/workflows/backup-restore-drill.yml` (1.º dia de Jan/Abr/Jul/Out + `workflow_dispatch`).
 - Registar no relatório: data, duração, responsável, issues abertas.
 

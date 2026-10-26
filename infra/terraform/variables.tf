@@ -26,3 +26,9 @@ variable "redis_node_type" {
   type    = string
   default = "cache.t4g.micro"
 }
+
+variable "audit_worm_retention_days" {
+  type        = number
+  description = "Object Lock retention para export JSONL de auditoria"
+  default     = 365
+}

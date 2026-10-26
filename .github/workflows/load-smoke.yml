@@ -1,0 +1,41 @@
+name: Load smoke (k6)
+
+on:
+  schedule:
+    - cron: "0 6 * * 2"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "URL alvo (staging HTTPS)"
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  k6-smoke:
+    name: k6 smoke (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve BASE_URL
+        run: |
+          URL="${{ github.event.inputs.base_url }}"
+          if [ -z "$URL" ]; then URL="${{ vars.FINTWIN_DAST_TARGET_URL }}"; fi
+          if [ -z "$URL" ]; then echo "Define base_url ou FINTWIN_DAST_TARGET_URL"; exit 1; fi
+          echo "BASE_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Run k6 smoke
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/load/smoke.js
+        env:
+          BASE_URL: ${{ env.BASE_URL }}
+          FINTWIN_METRICS_TOKEN: ${{ secrets.FINTWIN_METRICS_TOKEN }}
+
+      - name: Note
+        if: failure()
+        run: echo "Smoke falhou — rever limiares ou capacidade staging (R6)."

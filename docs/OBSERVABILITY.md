@@ -61,6 +61,8 @@ Logs: `~/Library/Logs/fintwin-ops-alert.log`.
 
 ## SIEM
 
+Produção/staging: definir `FINTWIN_SIEM_HTTP_ENDPOINT` (Vector HTTP, Datadog, Splunk HEC). `pnpm ops:alert-check` e `pnpm siem:ping` enviam eventos JSON. Config de referência: `infra/siem/vector-fintwin.toml`. Ver `docs/WORM_SIEM.md`.
+
 Logs JSON são compatíveis com ECS-like envelope (`toSiemEnvelope` em `logger.ts`). Correlacionar:
 
 - `traceId` / `requestId` entre access log, app log e traces OTEL

@@ -15,4 +15,15 @@ describe("payloads da fila", () => {
       amount: "10",
     })).toThrow("PAYLOAD_INVALID");
   });
+
+  it("aceita entrega de webhook", () => {
+    expect(parsePlatformJobPayload("WEBHOOK_DELIVERY", {
+      workspaceId: "ws",
+      subscriptionId: "sub",
+      deliveryId: "del",
+      event: "reconciliation.matched",
+      body: "{}",
+      timestamp: "1700000000",
+    })).toMatchObject({ deliveryId: "del" });
+  });
 });

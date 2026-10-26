@@ -25,6 +25,11 @@ export type OpenBankingTransaction = {
   counterparty?: string;
 };
 
+export type OpenBankingConsentRefreshResult = {
+  consentRef: string;
+  expiresAt?: string;
+};
+
 export interface OpenBankingProvider {
   readonly name: ProviderName;
   /** Apenas leitura; nunca inicia pagamentos. */
@@ -34,6 +39,10 @@ export interface OpenBankingProvider {
     from: string;
     to: string;
   }): Promise<OpenBankingTransaction[]>;
+  /** TPP: renovar access token / prolongar consentimento (opcional por adaptador). */
+  refreshConsent?(input: { consentRef: string }): Promise<OpenBankingConsentRefreshResult>;
+  /** TPP: revogar consentimento no agregador (opcional). */
+  revokeConsent?(input: { consentRef: string }): Promise<void>;
 }
 
 /** @deprecated Use OpenBankingProvider */
