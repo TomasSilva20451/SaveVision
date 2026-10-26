@@ -2,10 +2,13 @@
 FROM node:26-bookworm-slim AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+# Node 26 slim não inclui corepack (Node 24 sim); alinhar com packageManager.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
   && rm -rf /var/lib/apt/lists/* \
-  && corepack enable
+  && npm install -g corepack@0.36.0 \
+  && corepack enable \
+  && corepack prepare pnpm@10.22.0 --activate
 WORKDIR /app
 
 FROM base AS dependencies
