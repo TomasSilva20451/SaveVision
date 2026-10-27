@@ -7,7 +7,7 @@ on:
     inputs:
       base_url:
         description: "URL alvo (staging HTTPS)"
-        required: true
+        required: false
         default: ""
 
 permissions:
@@ -22,13 +22,26 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Resolve BASE_URL
+        id: target
+        env:
+          INPUT_URL: ${{ inputs.base_url }}
+          REPOSITORY_URL: ${{ vars.FINTWIN_DAST_TARGET_URL }}
         run: |
-          URL="${{ github.event.inputs.base_url }}"
-          if [ -z "$URL" ]; then URL="${{ vars.FINTWIN_DAST_TARGET_URL }}"; fi
-          if [ -z "$URL" ]; then echo "Define base_url ou FINTWIN_DAST_TARGET_URL"; exit 1; fi
+          URL="${INPUT_URL:-$REPOSITORY_URL}"
+          if [ -z "$URL" ] || [[ "$URL" == *".example"* ]] || [[ "$URL" == *".example/"* ]]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Teste de carga ignorado: defina base_url ou FINTWIN_DAST_TARGET_URL com um staging HTTPS real."
+            exit 0
+          fi
+          if [[ ! "$URL" =~ ^https://[^/]+(/.*)?$ ]]; then
+            echo "::error::BASE_URL tem de ser uma URL HTTPS válida."
+            exit 1
+          fi
+          echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "BASE_URL=$URL" >> "$GITHUB_ENV"
 
       - name: Run k6 smoke
+        if: steps.target.outputs.configured == 'true'
         uses: grafana/k6-action@v0.3.1
         with:
           filename: tests/load/smoke.js
@@ -37,5 +50,9 @@ jobs:
           FINTWIN_METRICS_TOKEN: ${{ secrets.FINTWIN_METRICS_TOKEN }}
 
       - name: Note
-        if: failure()
+        if: steps.target.outputs.configured == 'true' && failure()
         run: echo "Smoke falhou — rever limiares ou capacidade staging (R6)."
+
+      - name: Not configured
+        if: steps.target.outputs.configured != 'true'
+        run: echo "Smoke não executado porque ainda não existe um staging HTTPS configurado."
