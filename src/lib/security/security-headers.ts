@@ -1,5 +1,7 @@
 /** Cabeçalhos HTTP (OWASP ASVS V14). CSP ajustada a Next.js App Router. */
 
+export const CSP_NONCE_HEADER = "x-nonce";
+
 export function contentSecurityPolicy(nonce?: string): string {
   const scriptSrc = nonce
     ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
@@ -30,4 +32,33 @@ export function strictTransportSecurity(): string | null {
     return "max-age=63072000; includeSubDomains; preload";
   }
   return null;
+}
+
+export function createCspNonce(): string {
+  return Buffer.from(crypto.randomUUID()).toString("base64");
+}
+
+/** Cabeçalhos de segurança por pedido (CSP com nonce — R8). */
+export function securityHeadersForRequest(nonce: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": contentSecurityPolicy(nonce),
+    "Permissions-Policy": PERMISSIONS_POLICY,
+  };
+  const hsts = strictTransportSecurity();
+  if (hsts) headers["Strict-Transport-Security"] = hsts;
+  return headers;
+}
+
+/** Dev/local sem proxy: CSP permissiva para hot reload. */
+export function staticDevSecurityHeaders(): Record<string, string> {
+  return {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": contentSecurityPolicy(),
+    "Permissions-Policy": PERMISSIONS_POLICY,
+  };
 }

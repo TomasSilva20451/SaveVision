@@ -1,20 +1,10 @@
 import type { NextConfig } from "next";
-import {
-  contentSecurityPolicy,
-  PERMISSIONS_POLICY,
-  strictTransportSecurity,
-} from "./src/lib/security/security-headers";
+import { staticDevSecurityHeaders } from "./src/lib/security/security-headers";
 
-const securityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "Content-Security-Policy", value: contentSecurityPolicy() },
-  { key: "Permissions-Policy", value: PERMISSIONS_POLICY },
-  ...(strictTransportSecurity()
-    ? [{ key: "Strict-Transport-Security", value: strictTransportSecurity()! }]
-    : []),
-];
+const securityHeaders = Object.entries(staticDevSecurityHeaders()).map(([key, value]) => ({
+  key,
+  value,
+}));
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",

@@ -121,6 +121,11 @@ export function validateEnvironment(input) {
     throw new Error(`${environment} exige AUTH_SECRET com pelo menos 32 caracteres.`);
   }
 
+  const stagingLocalDocker =
+    environment === "staging" &&
+    input.FINTWIN_STAGING_LOCAL === "1" &&
+    ["postgres-staging", "localhost", "127.0.0.1"].includes(database.hostname);
+
   if (environment === "staging" || environment === "production") {
     if (!input.FINTWIN_PUBLIC_URL?.startsWith("https://")) {
       throw new Error(`${environment} exige FINTWIN_PUBLIC_URL com https://.`);
@@ -128,7 +133,10 @@ export function validateEnvironment(input) {
     if (!input.FINTWIN_ENFORCE_TLS || input.FINTWIN_ENFORCE_TLS !== "1") {
       throw new Error(`${environment} exige FINTWIN_ENFORCE_TLS=1.`);
     }
-    if (!["require", "verify-ca", "verify-full"].includes(database.sslmode ?? "")) {
+    if (
+      !stagingLocalDocker &&
+      !["require", "verify-ca", "verify-full"].includes(database.sslmode ?? "")
+    ) {
       throw new Error(`${environment} exige TLS na DATABASE_URL (sslmode=require ou superior).`);
     }
     if (!input.FINTWIN_DOCUMENT_ENCRYPTION_KEY || Buffer.from(input.FINTWIN_DOCUMENT_ENCRYPTION_KEY, "base64").length !== 32) {
@@ -148,8 +156,11 @@ export function validateEnvironment(input) {
     if (input.FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS !== "1") {
       throw new Error(`${environment} exige FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS=1.`);
     }
+    const vercelHosted = input.VERCEL === "1";
     if (input.FINTWIN_AUDIT_ARCHIVE_REQUIRED !== "1") {
-      throw new Error(`${environment} exige FINTWIN_AUDIT_ARCHIVE_REQUIRED=1.`);
+      if (!vercelHosted) {
+        throw new Error(`${environment} exige FINTWIN_AUDIT_ARCHIVE_REQUIRED=1.`);
+      }
     }
   }
 

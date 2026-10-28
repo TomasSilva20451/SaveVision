@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "pnpm exec prisma migrate deploy && pnpm build",
+  "regions": ["cdg1"],
+  "env": {
+    "FINTWIN_CLAMAV_ENABLED": "0",
+    "FINTWIN_LOCAL_AI_ENABLED": "0",
+    "FINTWIN_AUDIT_ARCHIVE_REQUIRED": "0",
+    "FINTWIN_DOCUMENT_STORAGE_DIR": "/tmp/fintwin-documents",
+    "FINTWIN_ENFORCE_TLS": "1"
+  }
+}

@@ -99,6 +99,47 @@ test("bloqueia troca acidental entre staging e produção", () => {
   );
 });
 
+test("Vercel (VERCEL=1) permite arquivo JSONL desligado em staging", () => {
+  const key = Buffer.alloc(32, 7).toString("base64");
+  assert.doesNotThrow(() =>
+    validateEnvironment({
+      VERCEL: "1",
+      FINTWIN_ENV: "staging",
+      DATABASE_URL: "postgresql://u:p@ep-neon.aws/fintwin_staging?sslmode=require",
+      AUTH_SECRET: secret,
+      FINTWIN_PUBLIC_URL: "https://fintwin.vercel.app",
+      FINTWIN_ENFORCE_TLS: "1",
+      FINTWIN_DOCUMENT_ENCRYPTION_KEY: key,
+      FINTWIN_DOCUMENT_ENCRYPTION_KEY_ID: "staging-documents-v1",
+      FINTWIN_AUDIT_SIGNING_KEY: "staging-audit-signing-key-with-32-characters",
+      FINTWIN_AUDIT_SIGNING_KEY_ID: "staging-audit-v1",
+      FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS: "1",
+      FINTWIN_AUDIT_ARCHIVE_REQUIRED: "0",
+    }),
+  );
+});
+
+test("staging local Docker (Path A) aceita Postgres sem TLS na rede compose", () => {
+  const key = Buffer.alloc(32, 5).toString("base64");
+  assert.doesNotThrow(() =>
+    validateEnvironment({
+      FINTWIN_ENV: "staging",
+      FINTWIN_STAGING_LOCAL: "1",
+      DATABASE_URL:
+        "postgresql://fintwin:fintwin@127.0.0.1:5434/fintwin_staging?schema=public&sslmode=prefer",
+      AUTH_SECRET: secret,
+      FINTWIN_PUBLIC_URL: "https://staging-local.trycloudflare.com",
+      FINTWIN_ENFORCE_TLS: "1",
+      FINTWIN_DOCUMENT_ENCRYPTION_KEY: key,
+      FINTWIN_DOCUMENT_ENCRYPTION_KEY_ID: "staging-documents-v1",
+      FINTWIN_AUDIT_SIGNING_KEY: "staging-audit-signing-key-with-32-characters",
+      FINTWIN_AUDIT_SIGNING_KEY_ID: "staging-audit-v1",
+      FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS: "1",
+      FINTWIN_AUDIT_ARCHIVE_REQUIRED: "1",
+    }),
+  );
+});
+
 test("uma substituição explícita não pode reutilizar a base de outro ambiente", () => {
   assert.throws(
     () =>
