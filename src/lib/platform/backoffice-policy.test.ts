@@ -19,4 +19,10 @@ describe("backoffice least privilege", () => {
     expect(canBackoffice("ADMIN", "retry-jobs")).toBe(true);
     expect(canBackoffice("ADMIN", "read-document-bytes")).toBe(false);
   });
+
+  it("só administradores criam contas", () => {
+    expect(canBackoffice("ADMIN", "manage-users")).toBe(true);
+    expect(canBackoffice("SUPPORT", "manage-users")).toBe(false);
+    expect(canBackoffice("USER", "manage-users")).toBe(false);
+  });
 });

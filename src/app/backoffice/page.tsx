@@ -6,12 +6,15 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { canBackoffice, type PlatformRole } from "@/lib/platform/backoffice-policy";
+import { PlatformUsersPanel } from "@/components/platform/platform-users-panel";
 import { retryPlatformJobAction } from "@/lib/platform/backoffice-actions";
+import { readPageFlash } from "@/lib/ui/page-shell";
 import { updateMlFeatureControlAction } from "@/lib/ml/governance-actions";
 import { ML_ADVISORY_CAPABILITIES, ML_ADVISORY_REGISTRY } from "@/lib/ml/advisory-registry";
 import { DEFERRED_HIGH_RISK_ML, ML_CAPABILITIES, ML_REGISTRY } from "@/lib/ml/registry";
 import { db } from "@/lib/db";
 import { listPlatformJobs } from "@/server/services/platform-jobs";
+import { listPlatformUsers } from "@/server/services/platform-users";
 import { getMlGovernanceOverview } from "@/server/services/ml-governance";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
@@ -19,24 +22,35 @@ async function BackofficeContent() {
   await ensureRequestDynamic();
   const user = await requireAuthenticatedUser();
   if (!user) redirect("/login");
-  const [roleRow, workspaceContext, jobs, ml] = await Promise.all([
+  const [roleRow, workspaceContext, jobs, ml, platformUsers, flash] = await Promise.all([
     db.user.findUnique({ where: { id: user.id }, select: { systemRole: true } }),
     resolveWorkspaceContext(user.id),
     listPlatformJobs(),
     getMlGovernanceOverview(),
+    listPlatformUsers(),
+    readPageFlash("/backoffice"),
   ]);
   const role = (roleRow?.systemRole ?? "USER") as PlatformRole;
   if (!canBackoffice(role, "open")) redirect("/inicio");
   const canRetry = canBackoffice(role, "retry-jobs");
+  const canManageUsers = canBackoffice(role, "manage-users");
 
   return (
-    <AppShell userName={user.name} workspaces={workspaceContext.workspaces} activeWorkspaceId={workspaceContext.selected?.id ?? null}>
+    <AppShell
+      userName={user.name}
+      workspaces={workspaceContext.workspaces}
+      activeWorkspaceId={workspaceContext.selected?.id ?? null}
+      flash={flash}
+    >
       <PageHeader
         title="Backoffice"
         description="Fila de trabalhos. Não mostra movimentos, documentos nem dados pessoais."
       />
-      <p className="mt-4 text-sm text-slate-500">Papel da plataforma: {role}. Suporte vê a fila; só um administrador repõe falhas.</p>
-      <div className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      <p className="mt-4 text-sm text-slate-500">
+        Papel da plataforma: {role}. Administradores gerem contas e repõem falhas; suporte só vê a fila.
+      </p>
+      <PlatformUsersPanel users={platformUsers} canManage={canManageUsers} />
+      <div className="mt-8 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
         <table className="min-w-full text-left text-sm">
           <thead className="text-slate-500">
             <tr>

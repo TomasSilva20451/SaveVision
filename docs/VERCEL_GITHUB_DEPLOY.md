@@ -89,7 +89,32 @@ Sem seed automático em staging/produção. Uma vez com BD vazia:
 pnpm db:production:setup
 ```
 
-Ou cria user manualmente via SQL/Prisma Studio.
+Tomás e Telmo recebem **`systemRole=ADMIN`** no bootstrap. Em **Perfil → Backoffice → Contas da plataforma** podem criar mais utilizadores (papel USER, workspace pessoal vazio).
+
+Se já existiam antes desta funcionalidade, volta a correr o bootstrap (idempotente) para promover a ADMIN:
+
+```bash
+set -a && source .env.vercel-neon.local && set +a
+pnpm exec tsx scripts/bootstrap-production-users.ts
+```
+
+### Testes E2E contra o deploy
+
+```bash
+pnpm test:e2e:remote
+# opcional: FINTWIN_E2E_BASE_URL=https://savevision.vercel.app
+```
+
+Corre só **smoke** (health, `/login`, credenciais inválidas). O staging **não** tem `user1@example.local` (seed demo bloqueado).
+
+Sessão completa (login/logout) depois de criares conta com `db:production:setup`:
+
+```bash
+FINTWIN_REMOTE_E2E_EMAIL=… FINTWIN_REMOTE_E2E_PASSWORD=… \
+  pnpm test:e2e:remote:session
+```
+
+URL de preview com **Deployment Protection**: define `VERCEL_AUTOMATION_BYPASS_SECRET` (dashboard Vercel) no mesmo comando.
 
 ---
 

@@ -39,8 +39,20 @@ for (const account of accounts) {
   const verifiedAt = new Date();
   const user = await db.user.upsert({
     where: { email: account.email },
-    update: { name: account.name, passwordHash, emailVerifiedAt: verifiedAt, disabledAt: null },
-    create: { name: account.name, email: account.email, passwordHash, emailVerifiedAt: verifiedAt },
+    update: {
+      name: account.name,
+      passwordHash,
+      emailVerifiedAt: verifiedAt,
+      disabledAt: null,
+      systemRole: "ADMIN",
+    },
+    create: {
+      name: account.name,
+      email: account.email,
+      passwordHash,
+      emailVerifiedAt: verifiedAt,
+      systemRole: "ADMIN",
+    },
   });
   await ensurePersonalWorkspace(user.id, account.name);
   console.log(`OK ${account.email} (${new URL(process.env.DATABASE_URL).pathname.slice(1)})`);

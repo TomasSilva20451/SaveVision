@@ -11,6 +11,14 @@ export const MARIA = {
   password: "demo-maria-2026",
 };
 
+/** Staging remoto: `FINTWIN_REMOTE_E2E_EMAIL` + `FINTWIN_REMOTE_E2E_PASSWORD` (conta real na Neon). */
+export function e2eSessionUser(): typeof JOAO {
+  const email = process.env.FINTWIN_REMOTE_E2E_EMAIL?.trim();
+  const password = process.env.FINTWIN_REMOTE_E2E_PASSWORD?.trim();
+  if (email && password) return { email, password };
+  return JOAO;
+}
+
 export async function loginAs(page: Page, user: typeof JOAO) {
   const health = await page.request.get("/api/health");
   expect(health.ok()).toBeTruthy();

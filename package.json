@@ -28,6 +28,8 @@
     "audit:verify": "tsx scripts/verify-audit-ledger.ts",
     "documents:integrity:check": "tsx scripts/documents-integrity-check.ts",
     "documents:integrity:repair": "tsx scripts/documents-integrity-check.ts --apply",
+    "test:e2e:remote": "DATABASE_URL= playwright test --config=playwright.remote.config.ts",
+    "test:e2e:remote:session": "DATABASE_URL= playwright test --config=playwright.remote.session.config.ts",
     "test:e2e": "pnpm build && FINTWIN_E2E_PRODUCTION=1 playwright test",
     "test:e2e:ci": "pnpm build && CI=1 playwright test",
     "db:generate": "prisma generate",
