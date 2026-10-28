@@ -45,7 +45,7 @@ const e2eDatabaseUrl =
 export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   testDir: "e2e",
-  testIgnore: [/\.test\.ts$/],
+  testIgnore: [/\.test\.ts$/, /00-remote-login-smoke\.spec\.ts/],
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

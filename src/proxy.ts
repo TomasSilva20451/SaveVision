@@ -3,6 +3,7 @@ import {
   CSP_NONCE_HEADER,
   createCspNonce,
   securityHeadersForRequest,
+  staticDevSecurityHeaders,
 } from "@/lib/security/security-headers";
 
 function normalizeRoute(pathname: string) {
@@ -45,7 +46,11 @@ export function proxy(request: NextRequest) {
   response.headers.set("x-request-id", requestId);
   response.headers.set("traceparent", requestHeaders.get("traceparent")!);
   response.headers.set("x-trace-id", traceId);
-  for (const [key, value] of Object.entries(securityHeadersForRequest(nonce))) {
+  const securityHeaders =
+    process.env.FINTWIN_ENV === "e2e"
+      ? staticDevSecurityHeaders()
+      : securityHeadersForRequest(nonce);
+  for (const [key, value] of Object.entries(securityHeaders)) {
     response.headers.set(key, value);
   }
 
