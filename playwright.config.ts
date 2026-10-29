@@ -6,9 +6,10 @@ import path from "node:path";
 dotenv.config();
 const e2eEnvPath = path.join(process.cwd(), ".env.e2e");
 if (fs.existsSync(e2eEnvPath)) {
-  dotenv.config({ path: e2eEnvPath, override: false });
+  dotenv.config({ path: e2eEnvPath, override: true });
 }
 
+const E2E_DATABASE_NAME = "fintwin_e2e";
 const defaultE2eDatabase =
   "postgresql://fintwin:fintwin@localhost:5433/fintwin_e2e?schema=public";
 const configuredE2eDatabase =
@@ -22,13 +23,15 @@ const databaseName = (raw: string | undefined) => {
   }
 };
 
-const expectedE2eDatabase =
-  process.env.FINTWIN_EXPECTED_DATABASE || databaseName(configuredE2eDatabase);
-if (databaseName(process.env.DATABASE_URL) !== expectedE2eDatabase) {
-  process.env.DATABASE_URL = configuredE2eDatabase;
+if (databaseName(configuredE2eDatabase) !== E2E_DATABASE_NAME) {
+  throw new Error(
+    `Playwright exige base ${E2E_DATABASE_NAME}; recebeu «${databaseName(configuredE2eDatabase)}».`,
+  );
 }
+
+process.env.DATABASE_URL = configuredE2eDatabase;
 process.env.FINTWIN_ENV = "e2e";
-process.env.FINTWIN_EXPECTED_DATABASE = expectedE2eDatabase;
+process.env.FINTWIN_EXPECTED_DATABASE = E2E_DATABASE_NAME;
 process.env.FINTWIN_ALLOW_E2E_CLEANUP ??= "yes";
 process.env.FINTWIN_PRIMARY_DATABASE_URL ??=
   "postgresql://fintwin:fintwin@localhost:5433/fintwin?schema=public";
@@ -37,10 +40,7 @@ const e2ePort = process.env.FINTWIN_E2E_PORT ?? "3010";
 const baseURL = `http://localhost:${e2ePort}`;
 const useProductionServer =
   Boolean(process.env.CI) || process.env.FINTWIN_E2E_PRODUCTION === "1";
-const e2eDatabaseUrl =
-  databaseName(process.env.DATABASE_URL) === expectedE2eDatabase
-    ? (process.env.DATABASE_URL ?? configuredE2eDatabase)
-    : configuredE2eDatabase;
+const e2eDatabaseUrl = configuredE2eDatabase;
 
 export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",

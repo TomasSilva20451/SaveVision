@@ -18,6 +18,11 @@ import {
   type ReportPeriod,
 } from "@/lib/finance/report-period";
 import { getLatestMonthlyReportNarrative } from "@/server/services/monthly-report-narrative-queries";
+import { buildSavingsPlanReportSectionForPeriod } from "@/server/services/savings-plan";
+import {
+  appendSavingsPlanReportPdf,
+  formatSavingsPlanReportCsvBlock,
+} from "@/lib/finance/savings-plan-report";
 import { formatEUR } from "@/lib/finance/money";
 import { civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import { db } from "@/lib/db";
@@ -144,6 +149,19 @@ export async function buildFinancialReportCsv(
     }
   }
 
+  let savingsPlanBlock = "";
+  if (isFullCivilMonthPeriod(data.period)) {
+    const section = await buildSavingsPlanReportSectionForPeriod(
+      userId,
+      workspaceId,
+      data.period.from.year,
+      data.period.from.month,
+    );
+    if (section) {
+      savingsPlanBlock = formatSavingsPlanReportCsvBlock(section);
+    }
+  }
+
   const summary = [
     "",
     `"Workspace","${data.workspace?.name ?? workspaceId}"`,
@@ -157,6 +175,7 @@ export async function buildFinancialReportCsv(
     `"Cash flow","${data.totals.cashFlow}"`,
     `"Volume transferências","${data.totals.transferVolume}"`,
     `"Movimentos no período","${data.movementCount}"`,
+    savingsPlanBlock,
   ].join("\n");
 
   return header + lines.join("\n") + "\n" + summary;
@@ -264,6 +283,18 @@ export async function buildFinancialReportPdf(
       );
       doc.fillColor("#000000");
       doc.moveDown();
+    }
+  }
+
+  if (isFullCivilMonthPeriod(data.period)) {
+    const section = await buildSavingsPlanReportSectionForPeriod(
+      userId,
+      workspaceId,
+      data.period.from.year,
+      data.period.from.month,
+    );
+    if (section) {
+      appendSavingsPlanReportPdf(doc, section);
     }
   }
 

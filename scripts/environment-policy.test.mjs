@@ -59,6 +59,19 @@ test("aceita uma base E2E local dedicada", () => {
   );
 });
 
+test("bloqueia E2E com fintwin_staging", () => {
+  assert.throws(
+    () =>
+      validateEnvironment({
+        FINTWIN_ENV: "e2e",
+        DATABASE_URL: "postgresql://u:p@localhost:5433/fintwin_staging",
+        FINTWIN_ALLOW_E2E_CLEANUP: "yes",
+        AUTH_SECRET: secret,
+      }),
+    /reservada ao ambiente staging|não pertence ao ambiente e2e/,
+  );
+});
+
 test("bloqueia E2E sobre a base principal", () => {
   assert.throws(
     () =>
