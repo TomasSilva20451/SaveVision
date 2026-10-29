@@ -1,4 +1,7 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
 import { assertE2eCleanupAllowed } from "@/lib/e2e/cleanup-policy";
 
 type DbClient = typeof import("@/lib/db").db;
