@@ -10,7 +10,7 @@ Modo de coordenação que reutiliza `SavingsGoal`, contribuições confirmadas p
 
 ## Activação
 
-Wizard em `/planeamento` (modelo «Desafio 300 €»). Exige workspace `PERSONAL`. Pré-visualização e confirmação atómica; chave `desafio-300-eur` evita duplo clique.
+Wizard em `/planeamento` (modelo «Desafio 300 €»). Exige workspace `PERSONAL`. Pré-visualização e confirmação atómica; chave `fintwin-savings-challenge-300` evita duplo clique.
 
 ## Alertas
 

@@ -1,6 +1,7 @@
 import type { CategoryBehavior, CategoryNature } from "@/generated/prisma/client";
 
-export const CHALLENGE_300_TEMPLATE_KEY = "desafio-300-eur";
+/** Chave idempotente do modelo (não é credencial). */
+export const CHALLENGE_300_TEMPLATE_KEY = "fintwin-savings-challenge-300";
 
 export type SavingsPlanBudgetTemplateLine = {
   categoryName: string;
