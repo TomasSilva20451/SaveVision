@@ -7,13 +7,17 @@ const baseURL =
 const protectionBypass =
   process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
   process.env.VERCEL_PROTECTION_BYPASS?.trim();
+const oidcToken = process.env.VERCEL_OIDC_TOKEN?.trim();
 
-const extraHTTPHeaders = protectionBypass
-  ? {
-      "x-vercel-protection-bypass": protectionBypass,
-      "x-vercel-set-bypass-cookie": "true",
-    }
-  : undefined;
+const extraHTTPHeaders =
+  oidcToken != null && oidcToken.length > 0
+    ? { "x-vercel-trusted-oidc-idp-token": oidcToken }
+    : protectionBypass
+      ? {
+          "x-vercel-protection-bypass": protectionBypass,
+          "x-vercel-set-bypass-cookie": "true",
+        }
+      : undefined;
 
 /** Smoke remoto apenas — sessão completa: `pnpm test:e2e:remote:session`. */
 export default defineConfig({
