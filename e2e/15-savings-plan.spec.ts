@@ -31,10 +31,21 @@ test.describe("Plano de Poupança", () => {
     await expect(page.getByText("Sem transações automáticas")).toBeVisible({ timeout: 20_000 });
     const activate = page.getByRole("button", { name: "Confirmar activação" });
     await expect(activate).toBeEnabled({ timeout: 10_000 });
+    const activationDone = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/planeamento") &&
+        response.status() < 500,
+      { timeout: 120_000 },
+    );
     await activate.click();
+    await activationDone;
     await page.goto("/dashboard");
-    await expect(page.getByTestId("savings-plan-dashboard-card")).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByText(new RegExp(key))).toBeVisible({ timeout: 15_000 });
+    const card = page.getByTestId("savings-plan-dashboard-card");
+    await expect(card).toBeVisible({ timeout: 30_000 });
+    await expect(card.getByRole("heading", { name: `Plano ${key}` })).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test("cartão no dashboard", async ({ page }) => {
