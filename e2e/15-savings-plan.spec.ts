@@ -32,11 +32,9 @@ test.describe("Plano de Poupança", () => {
     const activate = page.getByRole("button", { name: "Confirmar activação" });
     await expect(activate).toBeEnabled({ timeout: 10_000 });
     await activate.click();
-    await expect(
-      page.getByText(
-        /Plano de poupança activo|já estava activo|nada foi duplicado|Resolve conflitos|Activação recusada/i,
-      ),
-    ).toBeVisible({ timeout: 90_000 });
+    await page.goto("/dashboard");
+    await expect(page.getByTestId("savings-plan-dashboard-card")).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText(new RegExp(key))).toBeVisible({ timeout: 15_000 });
   });
 
   test("cartão no dashboard", async ({ page }) => {

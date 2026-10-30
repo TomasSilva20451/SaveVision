@@ -39,6 +39,9 @@
     ".next-production/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "e2e",
+    "playwright.remote.config.ts",
+    "playwright.remote.session.config.ts"
   ]
 }
