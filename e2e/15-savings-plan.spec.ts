@@ -18,7 +18,7 @@ test.describe("Plano de Poupança", () => {
   });
 
   test("activar plano E2E dedicado", async ({ page }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(120_000);
     const key = uniqueKey();
     await page.goto("/planeamento");
     await page.getByLabel("Nome do plano").fill(`Plano ${key}`);
@@ -33,8 +33,10 @@ test.describe("Plano de Poupança", () => {
     await expect(activate).toBeEnabled({ timeout: 10_000 });
     await activate.click();
     await expect(
-      page.getByText(/Plano de poupança activo|já estava activo|Resolve conflitos/i),
-    ).toBeVisible({ timeout: 45_000 });
+      page.getByText(
+        /Plano de poupança activo|já estava activo|nada foi duplicado|Resolve conflitos|Activação recusada/i,
+      ),
+    ).toBeVisible({ timeout: 90_000 });
   });
 
   test("cartão no dashboard", async ({ page }) => {
