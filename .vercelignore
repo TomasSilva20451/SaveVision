@@ -1,6 +1,9 @@
 node_modules
 .next
 .next-production
+.next-production-review
+.next-ml-governance
+.next-production-turbopack-failed-*
 .next-ml-governance
 .git
 /storage
@@ -19,3 +22,10 @@ dist
 .windsurf
 .cursor
 playwright-report
+tmp
+output
+playwright
+fly.toml
+*.pdf
+.env*
+!.env.example

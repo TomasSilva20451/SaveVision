@@ -72,6 +72,7 @@
     "staging:free:all": "node scripts/staging-free-all.mjs",
     "deploy:public:bootstrap": "node scripts/bootstrap-public-production.mjs",
     "deploy:vercel:env": "node scripts/bootstrap-vercel-env.mjs",
+    "vercel:smtp:push": "node scripts/push-vercel-smtp-env.mjs",
     "golive:evidence": "node scripts/collect-golive-evidence.mjs",
     "security:pentest-cycle": "node scripts/pentest-cycle-check.mjs",
     "security:rate-limit-drill": "node scripts/rate-limit-dual-instance-drill.mjs",

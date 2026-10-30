@@ -20,7 +20,15 @@ Scope **Production** e **Build** para `DATABASE_URL`.
 | `SMTP_FROM` | Alinhado com SPF/DKIM |
 | `SMTP_SECURE` | `1` se porta 465 |
 
-Gerar template: `pnpm deploy:vercel:env --production`.
+Gerar template base: `pnpm deploy:vercel:env --production`.
+
+Push SMTP para a Vercel (Production + Preview) a partir de ficheiro local:
+
+```bash
+cp .env.smtp.local.example .env.smtp.local
+# editar credenciais reais (nunca commitar)
+pnpm vercel:smtp:push
+```
 
 **Não** activar `FINTWIN_LOCAL_AI_ENABLED=1` — `vercel.json` mantém IA local desligada no deploy público.
 
