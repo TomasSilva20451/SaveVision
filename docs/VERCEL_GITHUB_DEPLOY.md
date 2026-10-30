@@ -66,8 +66,18 @@ Copia o bloco para o Vercel. **Ajusta:**
 | `FINTWIN_AUDIT_SIGNING_KEY_ID` | `staging-audit-v1` ou `production-audit-v1` |
 | `FINTWIN_REQUIRE_ENCRYPTED_DOCUMENTS` | `1` |
 | `FINTWIN_REDIS_URL` | Upstash (opcional) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Email transaccional (domínio com SPF/DKIM) |
+| `SMTP_FROM` | Ex. `FinTwin <noreply@teu-dominio.pt>` |
+| `SMTP_SECURE` | `1` só para porta 465 |
+| `APP_NAME` | Opcional (assuntos pt-PT) |
 
-`vercel.json` já define: ClamAV off, arquivo JSONL off (`FINTWIN_AUDIT_ARCHIVE_REQUIRED=0`), documentos em `/tmp` (**não persistentes** entre cold starts — OK para testar; para PDFs persistentes usa depois S3/R2 ou Docker).
+Gerar bloco base + placeholders SMTP: `pnpm deploy:vercel:env --production`.
+
+`vercel.json` já define: ClamAV off, **IA local off** (`FINTWIN_LOCAL_AI_ENABLED=0`), arquivo JSONL off (`FINTWIN_AUDIT_ARCHIVE_REQUIRED=0`), documentos em `/tmp` (**não persistentes** entre cold starts — OK para testar; para PDFs persistentes usa depois S3/R2 ou Docker).
+
+### IA local (Ollama) vs Vercel
+
+O consentimento em `/perfil/privacidade` **não** liga o Ollama do teu Mac ao deploy público: o servidor Vercel não alcança `127.0.0.1:11434` na tua máquina. Para categorização, assistente e ajuda com modelos locais, usa `pnpm setup:production:local` e abre [`http://127.0.0.1:3000/perfil/ia`](http://127.0.0.1:3000/perfil/ia). Na Vercel, `/perfil/ia` mostra aviso e controlos desactivados. Relay futuro: `docs/OLLAMA_PRIVACY.md` § Roadmap relay.
 
 ---
 

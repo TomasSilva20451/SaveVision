@@ -101,6 +101,16 @@ export async function saveLocalAiSettings(
 
 export async function testLocalAiConnection(userId: string) {
   const settings = await getLocalAiSettings(userId);
+  if (!settings.globalEnabled) {
+    return {
+      ok: false as const,
+      error:
+        "A IA local está desactivada nesta instalação. Executa o FinTwin no mesmo Mac que o Ollama.",
+    };
+  }
+  if (!settings.localAiEnabled) {
+    return { ok: false as const, error: "Activa primeiro a IA local para esta conta." };
+  }
   const health = await checkOllamaHealth(settings.ollamaBaseUrl);
   if (!health.ok) {
     return { ok: false as const, error: health.error };

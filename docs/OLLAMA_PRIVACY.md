@@ -39,3 +39,16 @@ Registo no Centro de Privacidade (`/perfil/privacidade`).
 ## Processador
 
 O **Ollama no teu hardware** actua como subprocessador local; FinTwin não controla logs do daemon Ollama — recomenda-se disco encriptado no portátil/servidor.
+
+## Roadmap relay (deploy público → Ollama no Mac)
+
+**Não implementado.** O FinTwin na Vercel nunca deve abrir o Ollama do utilizador via `127.0.0.1` no browser ou no servidor cloud.
+
+Direcção futura (cifrada e autenticada):
+
+1. **Agente local** no Mac (ou LAN) com token de curta duração ou par de chaves; rotação e revogação no centro de segurança.
+2. **Túnel TLS** (WireGuard, Cloudflare Tunnel, ou relay dedicado) — nunca expor a API Ollama directamente à Internet.
+3. **Contrato** `LocalAiRelayProvider` em `src/server/providers/contracts.ts`, activo só com `FINTWIN_OLLAMA_RELAY_URL` + credencial; substitui `fetch` directo em `ollama-config.ts`.
+4. **Consentimento RGPD** separado do relay (além de `local_ai_processing`).
+
+Até lá: produção local loopback (`pnpm setup:production:local`) ou deploy público sem IA generativa local.

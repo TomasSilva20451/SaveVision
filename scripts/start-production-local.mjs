@@ -13,16 +13,23 @@ import { validateEnvironment } from "./environment-policy.mjs";
 const root = process.cwd();
 const distDir = process.env.NEXT_DIST_DIR ?? ".next-production";
 const distRoot = path.join(root, distDir);
+const standaloneRoot = path.join(distRoot, "standalone");
 for (const file of [".env.observability.local", ".env.production.local"]) {
   const full = path.resolve(file);
   if (fs.existsSync(full)) config({ path: full, override: false });
 }
+process.env.FINTWIN_ENV = "production";
+process.env.FINTWIN_PRODUCTION_LOCAL = "1";
+process.env.FINTWIN_PUBLIC_URL = `http://127.0.0.1:${process.env.PORT ?? "3000"}`;
+process.env.FINTWIN_ENFORCE_TLS = "0";
+process.env.FINTWIN_LOCAL_AI_ENABLED = "1";
 mapDeploymentSecretFiles(process.env);
 installResolvedSecrets(process.env);
 validateEnvironment(process.env);
 
-const serverPath = path.join(distRoot, "server", "middleware-manifest.json");
-const staticCssDir = path.join(distRoot, "static", "chunks");
+const manifestPath = path.join(distRoot, "server", "middleware-manifest.json");
+const standaloneServerPath = path.join(standaloneRoot, "server.js");
+const staticCssDir = path.join(distRoot, "static", "css");
 
 if (!fs.existsSync(path.join(distRoot, "BUILD_ID"))) {
   console.error(`Build em falta (${distDir}). Executa: pnpm build:production`);
@@ -37,14 +44,32 @@ if (cssFiles.length === 0) {
   process.exit(1);
 }
 
-if (!fs.existsSync(serverPath)) {
+if (!fs.existsSync(manifestPath)) {
   console.warn(`Aviso: manifesto do servidor incompleto em ${distRoot}; a continuar mesmo assim.`);
+}
+if (!fs.existsSync(standaloneServerPath)) {
+  console.error(`Servidor standalone em falta (${standaloneServerPath}). Executa: pnpm build:production`);
+  process.exit(1);
+}
+
+for (const [source, target] of [
+  [path.join(distRoot, "static"), path.join(standaloneRoot, distDir, "static")],
+  [path.join(root, "public"), path.join(standaloneRoot, "public")],
+]) {
+  if (!fs.existsSync(source)) continue;
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.cpSync(source, target, { recursive: true });
 }
 
 const port = process.env.PORT ?? "3000";
-const child = spawn("pnpm", ["exec", "next", "start", "-p", port], {
-  cwd: root,
-  env: { ...process.env, NEXT_DIST_DIR: distDir },
+const child = spawn(process.execPath, [standaloneServerPath], {
+  cwd: standaloneRoot,
+  env: {
+    ...process.env,
+    HOSTNAME: "127.0.0.1",
+    NEXT_DIST_DIR: distDir,
+    PORT: port,
+  },
   stdio: "inherit",
 });
 

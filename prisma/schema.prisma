@@ -1515,13 +1515,14 @@ model FinancialAlert {
 }
 
 model FinancialAlertUserState {
-  id          String    @id @default(cuid())
-  alertId     String
-  userId      String
-  seenAt      DateTime?
-  dismissedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  alertId         String
+  userId          String
+  seenAt          DateTime?
+  dismissedAt     DateTime?
+  emailNotifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   alert FinancialAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
   user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)

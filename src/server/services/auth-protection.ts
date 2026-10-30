@@ -273,6 +273,10 @@ export async function issueEmailChallenge(input: { userId: string; email: string
   return { token, expiresAt };
 }
 
+export async function revokeEmailChallengeByToken(token: string) {
+  await db.emailChallenge.deleteMany({ where: { tokenHash: sha256(token) } });
+}
+
 export async function readEmailChallenge(token: string, purpose: "VERIFY_EMAIL" | "RECOVER_ACCOUNT") {
   const row = await db.emailChallenge.findUnique({ where: { tokenHash: sha256(token) } });
   if (!row || row.purpose !== purpose || row.consumedAt || row.expiresAt.getTime() < Date.now()) return null;

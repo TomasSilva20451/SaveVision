@@ -151,3 +151,17 @@ export interface ReceiptExtractionProvider {
     mimeType: "image/jpeg" | "image/png";
   }): Promise<ReceiptExtractionModelOutput>;
 }
+
+export type OutboundEmail = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+/** Envio transaccional (auth, alertas). Sem acesso à base de dados. */
+export interface EmailDeliveryProvider {
+  readonly name: ProviderName;
+  isConfigured(): boolean;
+  send(message: OutboundEmail): Promise<void>;
+}

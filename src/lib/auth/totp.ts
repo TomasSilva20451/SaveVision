@@ -6,6 +6,12 @@ export function generateTotpSecret(bytes = 20): string {
   return base32Encode(randomBytes(bytes));
 }
 
+/** Código TOTP do intervalo actual (testes e E2E). */
+export function generateTotpCode(secret: string, now = Date.now()): string {
+  const counter = Math.floor(now / 30_000);
+  return hotp(secret, counter);
+}
+
 export function verifyTotpCode(secret: string, code: string, now = Date.now(), window = 1): boolean {
   const normalized = code.replace(/\s/g, "");
   if (!/^\d{6}$/.test(normalized)) return false;

@@ -13,6 +13,7 @@ type Props = {
 };
 
 export function LocalAiSettingsPanel({ initial }: Props) {
+  const unavailableOnThisInstallation = !initial.globalEnabled;
   const [localAiEnabled, setLocalAiEnabled] = useState(initial.localAiEnabled);
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(initial.ollamaBaseUrl);
   const [textModel, setTextModel] = useState(initial.textModel);
@@ -24,6 +25,7 @@ export function LocalAiSettingsPanel({ initial }: Props) {
   const [pending, startTransition] = useTransition();
 
   function save() {
+    if (unavailableOnThisInstallation) return;
     setMessage(null);
     startTransition(async () => {
       const result = await saveLocalAiSettingsAction({
@@ -39,6 +41,7 @@ export function LocalAiSettingsPanel({ initial }: Props) {
   }
 
   function testConnection() {
+    if (unavailableOnThisInstallation) return;
     setTestResult(null);
     startTransition(async () => {
       const result = await testOllamaConnectionAction();
@@ -57,9 +60,28 @@ export function LocalAiSettingsPanel({ initial }: Props) {
   return (
     <div className="space-y-5">
       {!initial.globalEnabled ? (
-        <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          O administrador desactivou a IA local no servidor (FINTWIN_LOCAL_AI_ENABLED).
-        </p>
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-100"
+        >
+          <p className="font-semibold">
+            O consentimento está aceite, mas esta instalação online não alcança o Ollama do teu Mac.
+          </p>
+          <p className="mt-1 leading-6">
+            Em Vercel, <code>127.0.0.1</code> identifica o servidor online, não o teu computador. Para manter os dados no
+            Mac, executa o FinTwin localmente e abre esta página em{" "}
+            <a
+              className="font-semibold text-blue-700 underline hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-100"
+              href="http://127.0.0.1:3000/perfil/ia"
+            >
+              localhost:3000
+            </a>.
+          </p>
+          <p className="mt-1 text-xs text-amber-800 dark:text-amber-200">
+            A IA financeira continua desactivada nesta instalação pública; as funções manuais e determinísticas mantêm-se
+            disponíveis.
+          </p>
+        </div>
       ) : null}
 
       <p className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-950">
@@ -73,6 +95,7 @@ export function LocalAiSettingsPanel({ initial }: Props) {
           type="checkbox"
           checked={localAiEnabled}
           onChange={(event) => setLocalAiEnabled(event.target.checked)}
+          disabled={unavailableOnThisInstallation}
           className="h-4 w-4 rounded border-slate-300"
         />
         Activar IA local para esta conta
@@ -84,21 +107,37 @@ export function LocalAiSettingsPanel({ initial }: Props) {
           <input
             value={ollamaBaseUrl}
             onChange={(event) => setOllamaBaseUrl(event.target.value)}
-            className={inputClassName}
+            disabled={unavailableOnThisInstallation}
+            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
             placeholder="http://127.0.0.1:11434"
           />
         </label>
         <label className={labelClassName}>
           Modelo de texto
-          <input value={textModel} onChange={(event) => setTextModel(event.target.value)} className={inputClassName} />
+          <input
+            disabled={unavailableOnThisInstallation}
+            value={textModel}
+            onChange={(event) => setTextModel(event.target.value)}
+            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
+          />
         </label>
         <label className={labelClassName}>
           Modelo de ajuda
-          <input value={helpModel} onChange={(event) => setHelpModel(event.target.value)} className={inputClassName} />
+          <input
+            disabled={unavailableOnThisInstallation}
+            value={helpModel}
+            onChange={(event) => setHelpModel(event.target.value)}
+            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
+          />
         </label>
         <label className={`${labelClassName} sm:col-span-2`}>
           Modelo de imagens (recibos)
-          <input value={imageModel} onChange={(event) => setImageModel(event.target.value)} className={inputClassName} />
+          <input
+            disabled={unavailableOnThisInstallation}
+            value={imageModel}
+            onChange={(event) => setImageModel(event.target.value)}
+            className={`${inputClassName} disabled:cursor-not-allowed disabled:opacity-60`}
+          />
         </label>
       </div>
 
@@ -107,6 +146,7 @@ export function LocalAiSettingsPanel({ initial }: Props) {
           type="checkbox"
           checked={storePrompts}
           onChange={(event) => setStorePrompts(event.target.checked)}
+          disabled={unavailableOnThisInstallation}
           className="mt-1 h-4 w-4 rounded border-slate-300"
         />
         <span>
@@ -116,10 +156,20 @@ export function LocalAiSettingsPanel({ initial }: Props) {
       </label>
 
       <div className="flex flex-wrap gap-2">
-        <button type="button" className={primaryButtonClassName} disabled={pending} onClick={save}>
+        <button
+          type="button"
+          className={primaryButtonClassName}
+          disabled={pending || unavailableOnThisInstallation}
+          onClick={save}
+        >
           Guardar
         </button>
-        <button type="button" className={secondaryButtonClassName} disabled={pending} onClick={testConnection}>
+        <button
+          type="button"
+          className={secondaryButtonClassName}
+          disabled={pending || unavailableOnThisInstallation}
+          onClick={testConnection}
+        >
           Testar ligação
         </button>
       </div>

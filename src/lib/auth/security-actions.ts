@@ -8,7 +8,14 @@ import { hashPassword } from "@/lib/auth/password";
 import { grantStepUp, hasStepUp, STEP_UP_REQUIRED_MESSAGE } from "@/lib/auth/step-up";
 import { db } from "@/lib/db";
 import { setFlash } from "@/lib/ui/flash";
-import { emailVerificationDevLinkHint } from "@/lib/auth/email-delivery";
+import {
+  emailVerificationDevLinkHint,
+  isSmtpEmailDeliveryConfigured,
+} from "@/lib/auth/email-delivery";
+import {
+  deliverEmailChallenge,
+  EmailDeliveryFailedError,
+} from "@/server/services/email-challenge-delivery";
 import {
   beginTotpEnrollment,
   confirmTotpEnrollment,
@@ -86,9 +93,24 @@ export async function sendEmailVerificationAction() {
   const profile = await db.user.findUnique({ where: { id: user.id }, select: { email: true } });
   if (!profile) redirect("/login");
   const challenge = await issueEmailChallenge({ userId: user.id, email: profile.email, purpose: "VERIFY_EMAIL" });
+  try {
+    await deliverEmailChallenge({
+      token: challenge.token,
+      email: profile.email,
+      purpose: "VERIFY_EMAIL",
+      verifyContext: "account",
+    });
+  } catch (error) {
+    if (error instanceof EmailDeliveryFailedError) {
+      await setFlash({ type: "error", text: error.message, targetPath: "/perfil/seguranca" });
+      redirect("/perfil/seguranca");
+    }
+    throw error;
+  }
+  const smtpHint = isSmtpEmailDeliveryConfigured() ? " Enviámos um link para a tua caixa de entrada." : "";
   await setFlash({
     type: "success",
-    text: `Pedido de verificação criado.${emailVerificationDevLinkHint(`/verificar-email?token=${challenge.token}`)}`,
+    text: `Pedido de verificação criado.${smtpHint}${emailVerificationDevLinkHint(`/verificar-email?token=${challenge.token}`)}`,
     targetPath: "/perfil/seguranca",
   });
   redirect("/perfil/seguranca");
@@ -247,8 +269,17 @@ export async function requestAccountRecoveryAction(formData: FormData) {
   const user = email ? await db.user.findUnique({ where: { email }, select: { id: true, email: true, disabledAt: true } }) : null;
   if (user && !user.disabledAt) {
     const challenge = await issueEmailChallenge({ userId: user.id, email: user.email, purpose: "RECOVER_ACCOUNT" });
-    if (process.env.NODE_ENV !== "production") {
-      console.info(`[fintwin] recuperação ${user.email}: /recuperar-conta?token=${challenge.token}`);
+    try {
+      const delivery = await deliverEmailChallenge({
+        token: challenge.token,
+        email: user.email,
+        purpose: "RECOVER_ACCOUNT",
+      });
+      if (!delivery.delivered && process.env.NODE_ENV !== "production") {
+        console.info(`[fintwin] recuperação ${user.email}: /recuperar-conta?token=${challenge.token}`);
+      }
+    } catch (error) {
+      if (!(error instanceof EmailDeliveryFailedError)) throw error;
     }
   }
   await setFlash({

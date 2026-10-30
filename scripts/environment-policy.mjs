@@ -126,15 +126,37 @@ export function validateEnvironment(input) {
     input.FINTWIN_STAGING_LOCAL === "1" &&
     ["postgres-staging", "localhost", "127.0.0.1"].includes(database.hostname);
 
+  const publicUrl = (() => {
+    try {
+      return input.FINTWIN_PUBLIC_URL ? new URL(input.FINTWIN_PUBLIC_URL) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const productionLocalRequested =
+    environment === "production" && input.FINTWIN_PRODUCTION_LOCAL === "1";
+  const productionLocal =
+    productionLocalRequested &&
+    ["localhost", "127.0.0.1"].includes(database.hostname) &&
+    publicUrl?.protocol === "http:" &&
+    ["localhost", "127.0.0.1"].includes(publicUrl.hostname);
+
+  if (productionLocalRequested && !productionLocal) {
+    throw new Error(
+      "FINTWIN_PRODUCTION_LOCAL=1 só é permitido com aplicação e PostgreSQL em loopback.",
+    );
+  }
+
   if (environment === "staging" || environment === "production") {
-    if (!input.FINTWIN_PUBLIC_URL?.startsWith("https://")) {
+    if (!productionLocal && !input.FINTWIN_PUBLIC_URL?.startsWith("https://")) {
       throw new Error(`${environment} exige FINTWIN_PUBLIC_URL com https://.`);
     }
-    if (!input.FINTWIN_ENFORCE_TLS || input.FINTWIN_ENFORCE_TLS !== "1") {
+    if (!productionLocal && input.FINTWIN_ENFORCE_TLS !== "1") {
       throw new Error(`${environment} exige FINTWIN_ENFORCE_TLS=1.`);
     }
     if (
       !stagingLocalDocker &&
+      !productionLocal &&
       !["require", "verify-ca", "verify-full"].includes(database.sslmode ?? "")
     ) {
       throw new Error(`${environment} exige TLS na DATABASE_URL (sslmode=require ou superior).`);
@@ -164,11 +186,23 @@ export function validateEnvironment(input) {
     }
   }
 
+  const warnings = [];
+  if (
+    (environment === "staging" || environment === "production") &&
+    !input.SMTP_HOST?.trim()
+  ) {
+    warnings.push(
+      `${environment} sem SMTP_HOST: verificação de email, recuperação e alertas por email não serão enviados.`,
+    );
+  }
+
   return {
     environment,
     databaseName: database.name,
     databaseHost: database.hostname,
     seedAllowed: policy.maySeed,
+    localDeployment: stagingLocalDocker || productionLocal,
+    warnings,
   };
 }
 

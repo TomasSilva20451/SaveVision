@@ -28,7 +28,16 @@ const lines = [
   "# FINTWIN_REDIS_URL=rediss://…",
   "# FINTWIN_RATE_LIMIT_BACKEND=redis",
   "",
-  "# vercel.json já define: FINTWIN_CLAMAV_ENABLED=0, FINTWIN_AUDIT_ARCHIVE_REQUIRED=0",
+  "# Email transaccional (verificação, recuperação, alertas) — docs/SECURITY_CENTER.md § Checklist Vercel",
+  "# SMTP_HOST=smtp.example.com",
+  "# SMTP_PORT=587",
+  "# SMTP_USER=",
+  "# SMTP_PASS=",
+  "# SMTP_FROM=\"FinTwin <noreply@example.com>\"",
+  "# SMTP_SECURE=0",
+  "# APP_NAME=FinTwin",
+  "",
+  "# vercel.json já define: FINTWIN_CLAMAV_ENABLED=0, FINTWIN_LOCAL_AI_ENABLED=0, FINTWIN_AUDIT_ARCHIVE_REQUIRED=0",
 ];
 
 console.log(lines.join("\n"));

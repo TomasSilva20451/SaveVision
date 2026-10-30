@@ -30,6 +30,19 @@ Distinto do **Assistente financeiro** (`/assistente`), que lê dados do workspac
 
 `/perfil/ia` — activar IA, URL Ollama, modelos texto/ajuda/imagem, testar ligação, opção de não guardar prompts.
 
+> **Deploy público:** `127.0.0.1` visto pelo servidor Vercel/Fly não é o Mac do utilizador. A arquitectura actual chama o
+> Ollama no servidor Next.js; por isso, para usar o daemon instalado no Mac, o FinTwin deve ser executado nesse Mac em
+> `http://127.0.0.1:3000`. Definir `FINTWIN_LOCAL_AI_ENABLED=1` num deploy público não cria uma ponte para a máquina do
+> utilizador. Uma integração hospedada futura exige um relay local autenticado e cifrado.
+
+Produção local no Mac:
+
+```bash
+pnpm setup:production:local
+pnpm build:production
+pnpm start:production
+```
+
 Variáveis globais:
 
 ```env

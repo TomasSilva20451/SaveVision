@@ -23,4 +23,7 @@ console.log(
   `[env] ${result.environment}: ${result.databaseName}@${result.databaseHost}; ` +
     `seed=${result.seedAllowed ? "permitido apenas por perfil" : "bloqueado"}`,
 );
+for (const warning of result.warnings ?? []) {
+  console.warn(`[env] aviso: ${warning}`);
+}
 

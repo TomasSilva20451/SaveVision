@@ -4,7 +4,7 @@
 
 - Branch `codex/savings-plan-300`: modelos Prisma (`SavingsPlan*`), migração `20261028220000_savings_plan`, motor `savings-plan-engine.ts`, activação atómica/idempotente, wizard `/planeamento`, detalhe `/planeamento/plano-poupanca/[id]`, cartão dashboard, alertas `SAVINGS_PLAN_*`.
 - **Concluído (portão local):** isolamento E2E (`fintwin_e2e` forçado), testes integração `savings-plan.integration.test.ts`, revisão semanal UI, secção PDF/CSV, pré-visualização wizard, E2E `15-savings-plan.spec.ts` + suite 97/97.
-- **Pendente pós-merge:** `prisma migrate deploy` em staging (smoke wizard utilizador staging), produção; **não** activar plano na conta real do Tomás até validação manual.
+- **Pós-merge (2026-10-30):** `main` verde (Quality, Security, Release); Vercel Production em `af0b2dd`+; Desafio 300 € activo para Tomás na Neon ligada ao deploy; E2E/CI isolamento planos integração.
 
 ## Go-live evidence pack — Fases H–L (2026-10-26)
 
@@ -113,8 +113,9 @@
 ## Identidade e centro de segurança (2026-10-21)
 
 - Verificação de email, TOTP, códigos de recuperação, passkeys, sessões revogáveis, limites por conta/IP/dispositivo e confirmação reforçada.
-- UI em `/perfil/seguranca`, `/verificar-email` e `/recuperar-conta`. Exportação em `GET /api/account/export`.
-- Detalhe em `docs/SECURITY_CENTER.md`.
+- Envio SMTP genérico (verificação, alteração de email, recuperação) e alertas financeiros por email (CRITICAL/HIGH + `SAVINGS_PLAN_*`) após sync.
+- UI em `/perfil/seguranca`, `/verificar-email` e `/recuperar-conta`. Exportação em `GET /api/account/export`. E2E TOTP: `e2e/16-security-totp.spec.ts`.
+- Detalhe em `docs/SECURITY_CENTER.md` e `docs/FINANCIAL_ALERTS.md` (notificações).
 
 ## Fases 20.2–20.7 — ML local de alto valor (2026-10-21)
 

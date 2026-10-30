@@ -1,4 +1,4 @@
-/** Envio real por SMTP (quando existir integração). */
+/** Envio real por SMTP (`SMTP_HOST`). */
 export function isSmtpEmailDeliveryConfigured(): boolean {
   return Boolean(process.env.SMTP_HOST?.trim());
 }

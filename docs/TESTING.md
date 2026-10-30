@@ -10,6 +10,18 @@ Incluem motor financeiro, relatórios, sniff de ficheiros, convites (mock) e iso
 
 Testes de integração que contam transações **saltam** se `DATABASE_URL` apontar para a base principal `fintwin` (evita flakiness com resíduos E2E). Usar `fintwin_e2e` ou `FINTWIN_ALLOW_INTEGRATION_ON_PRIMARY=yes` para forçar.
 
+## MFA TOTP (manual e E2E)
+
+- Manual: checklist em `docs/SECURITY_CENTER.md` (QR, login com TOTP, códigos de recuperação).
+- Automatizado: `e2e/16-security-totp.spec.ts` (utilizador Maria, BD `fintwin_e2e`).
+- Integração Vitest: `src/server/services/auth-totp-login.test.ts` (requer PostgreSQL com seed).
+
+## MFA TOTP (manual e E2E)
+
+- Manual: checklist em `docs/SECURITY_CENTER.md` (QR, login com TOTP, códigos de recuperação).
+- Automatizado: `e2e/16-security-totp.spec.ts` (utilizador Maria, BD `fintwin_e2e`).
+- Integração Vitest: `src/server/services/auth-totp-login.test.ts` (requer PostgreSQL com seed).
+
 ## E2E (Playwright)
 
 ```bash

@@ -24,6 +24,7 @@ import { loadTreasuryContext } from "@/server/services/treasury-forecast";
 import { getPlanningOverview } from "@/server/services/planning";
 import { evaluateSavingsPlanAlertCandidates } from "@/lib/finance/savings-plan-alerts";
 import { loadSavingsPlanAlertContext } from "@/server/services/savings-plan";
+import { notifyFinancialAlertEmails } from "@/server/services/financial-alert-email";
 import type {
   FinancialAlertSeverity,
   FinancialAlertStatus,
@@ -385,6 +386,8 @@ export async function syncFinancialAlerts(userId: string, workspaceId: string): 
       });
     }
   });
+
+  await notifyFinancialAlertEmails(workspaceId);
 
   return candidates.length;
 }

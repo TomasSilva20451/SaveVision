@@ -46,6 +46,15 @@ A listagem em `/alertas` e no dashboard **não** reavalia alertas (sem escritas 
 - Sugestões hipotéticas (ex.: limite mais realista) aparecem com rótulo **Sugestão (não garantida)**.
 - Fallback determinístico se o modelo estiver indisponível.
 
+## Notificações por email
+
+Quando `SMTP_HOST` está configurado, após **Atualizar alertas** (`syncFinancialAlerts`) a app envia email (uma vez por alerta e por membro) para:
+
+- Severidade **CRITICAL** ou **HIGH** (tesouraria, recorrências vencidas, risco de pagamento duplicado, etc.).
+- Qualquer tipo **`SAVINGS_PLAN_*`** (contribuição pendente/em falta, saída da conta protegida, objetivo concluído).
+
+Requisitos: membro `ACTIVE` do workspace e `emailVerifiedAt` definido. Idempotência via `FinancialAlertUserState.emailNotifiedAt`. Limite: 10 emails por utilizador por sync. Falha SMTP não marca envio — retenta no sync seguinte.
+
 ## Futuro
 
 Confirmação financeira unificada e atómica entre ocorrência de recorrência e `LiabilityPayment` (Fase posterior).

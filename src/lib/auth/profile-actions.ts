@@ -12,8 +12,13 @@ import { setFlash } from "@/lib/ui/flash";
 import {
   canRevealEmailVerificationLinksInUi,
   emailVerificationDevLinkHint,
+  isSmtpEmailDeliveryConfigured,
 } from "@/lib/auth/email-delivery";
 import { issueEmailChallenge } from "@/server/services/auth-protection";
+import {
+  deliverEmailChallenge,
+  EmailDeliveryFailedError,
+} from "@/server/services/email-challenge-delivery";
 
 const optionalText = (max: number) => z.string().trim().max(max).transform((value) => value || null);
 
@@ -80,7 +85,46 @@ export async function createEmailChangeVerificationLinkAction(): Promise<
     email: pending.email,
     purpose: "VERIFY_EMAIL",
   });
+  try {
+    await deliverEmailChallenge({
+      token: challenge.token,
+      email: pending.email,
+      purpose: "VERIFY_EMAIL",
+      verifyContext: "email_change",
+    });
+  } catch (error) {
+    if (error instanceof EmailDeliveryFailedError) {
+      return { ok: false, error: error.message };
+    }
+    throw error;
+  }
   return { ok: true, path: `/verificar-email?token=${challenge.token}` };
+}
+
+async function issueProfileEmailVerification(input: {
+  userId: string;
+  email: string;
+  verifyContext: "account" | "email_change";
+}) {
+  const challenge = await issueEmailChallenge({
+    userId: input.userId,
+    email: input.email,
+    purpose: "VERIFY_EMAIL",
+  });
+  try {
+    await deliverEmailChallenge({
+      token: challenge.token,
+      email: input.email,
+      purpose: "VERIFY_EMAIL",
+      verifyContext: input.verifyContext,
+    });
+  } catch (error) {
+    if (error instanceof EmailDeliveryFailedError) {
+      await fail(error.message);
+    }
+    throw error;
+  }
+  return challenge;
 }
 
 export async function updateProfileAction(formData: FormData) {
@@ -128,11 +172,18 @@ export async function updateProfileAction(formData: FormData) {
   });
 
   if (emailChanged) {
-    const challenge = await issueEmailChallenge({ userId: user.id, email: data.email, purpose: "VERIFY_EMAIL" });
+    const challenge = await issueProfileEmailVerification({
+      userId: user.id,
+      email: data.email,
+      verifyContext: "email_change",
+    });
     const dev = emailVerificationDevLinkHint(`/verificar-email?token=${challenge.token}`);
+    const smtpHint = isSmtpEmailDeliveryConfigured()
+      ? " Enviámos um link para a tua caixa de entrada."
+      : "";
     await setFlash({
       type: "success",
-      text: `Guardámos nome e restantes dados. O email só muda depois de confirmares ${data.email}.${dev}`,
+      text: `Guardámos nome e restantes dados. O email só muda depois de confirmares ${data.email}.${smtpHint}${dev}`,
       targetPath: "/perfil",
     });
     redirect("/perfil");
