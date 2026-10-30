@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -55,6 +55,11 @@ describe("SavingsPlan (PostgreSQL)", () => {
     joaoPersonalWs = joaoMember.workspaceId;
     jointWs = jointMember?.workspaceId ?? "";
     ready = true;
+  });
+
+  afterAll(async () => {
+    if (!ready) return;
+    await db.savingsPlan.deleteMany({ where: { name: { startsWith: "E2E Plano " } } });
   });
 
   function wizardInput(suffix: string) {

@@ -29,6 +29,25 @@ export default async function globalSetup() {
     );
     await client.query(`DELETE FROM "RecurringExpense" WHERE name LIKE $1`, [prefixPattern]);
 
+    const leakedPlans = await client.query(
+      `DELETE FROM "SavingsPlan" WHERE name LIKE 'E2E Plano %' RETURNING name`,
+    );
+    // #region agent log
+    fetch("http://127.0.0.1:7610/ingest/17fbe2a7-af6b-4d78-ae47-5d2d2f374366", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35ddd3" },
+      body: JSON.stringify({
+        sessionId: "35ddd3",
+        runId: "pre-e2e",
+        hypothesisId: "A",
+        location: "e2e/global-setup.ts",
+        message: "removed integration-test savings plans before Playwright",
+        data: { deleted: leakedPlans.rowCount, names: leakedPlans.rows.map((row) => row.name) },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+
     for (const email of DEMO_USER_EMAILS) {
       const user = await client.query(`SELECT id FROM "User" WHERE email = $1`, [email]);
       if (user.rowCount === 0) continue;

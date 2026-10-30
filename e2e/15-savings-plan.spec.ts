@@ -43,6 +43,22 @@ test.describe("Plano de Poupança", () => {
     await page.goto("/dashboard");
     const card = page.getByTestId("savings-plan-dashboard-card");
     await expect(card).toBeVisible({ timeout: 30_000 });
+    const heading = (await card.locator("h2").textContent()) ?? "";
+    // #region agent log
+    fetch("http://127.0.0.1:7610/ingest/17fbe2a7-af6b-4d78-ae47-5d2d2f374366", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "35ddd3" },
+      body: JSON.stringify({
+        sessionId: "35ddd3",
+        runId: "pre-fix",
+        hypothesisId: "A",
+        location: "e2e/15-savings-plan.spec.ts",
+        message: "dashboard savings card heading after activation",
+        data: { heading, expected: `Plano ${key}` },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     await expect(card.getByRole("heading", { name: `Plano ${key}` })).toBeVisible({
       timeout: 15_000,
     });
