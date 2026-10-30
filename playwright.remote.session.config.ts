@@ -1,23 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import { vercelRemoteExtraHTTPHeaders } from "./playwright/vercel-remote-headers";
 
 const baseURL =
   process.env.FINTWIN_E2E_BASE_URL?.replace(/\/$/, "") ??
   "https://savevision.vercel.app";
 
-const protectionBypass =
-  process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
-  process.env.VERCEL_PROTECTION_BYPASS?.trim();
-const oidcToken = process.env.VERCEL_OIDC_TOKEN?.trim();
-
-const extraHTTPHeaders =
-  oidcToken != null && oidcToken.length > 0
-    ? { "x-vercel-trusted-oidc-idp-token": oidcToken }
-    : protectionBypass
-      ? {
-          "x-vercel-protection-bypass": protectionBypass,
-          "x-vercel-set-bypass-cookie": "true",
-        }
-      : undefined;
+const extraHTTPHeaders = vercelRemoteExtraHTTPHeaders();
 
 const remoteEmail = process.env.FINTWIN_REMOTE_E2E_EMAIL?.trim() ?? "";
 const remotePassword = process.env.FINTWIN_REMOTE_E2E_PASSWORD?.trim() ?? "";
@@ -48,7 +36,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL,
-    extraHTTPHeaders,
+    ...(extraHTTPHeaders ? { extraHTTPHeaders } : {}),
     trace: "on-first-retry",
     ...devices["Desktop Chrome"],
   },
