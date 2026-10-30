@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { vercelRemoteExtraHTTPHeaders } from "./playwright/vercel-remote-headers";
+import { vercelRemoteExtraHTTPHeaders } from "./e2e/helpers/vercel-remote-headers";
 
 const baseURL =
   process.env.FINTWIN_E2E_BASE_URL?.replace(/\/$/, "") ??
