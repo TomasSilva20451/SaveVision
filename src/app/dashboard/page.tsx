@@ -9,8 +9,10 @@ import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import { safePercentChange } from "@/lib/finance/kpi";
 import { readPageFlash } from "@/lib/ui/page-shell";
+import { SavingsPlanDashboardCard } from "@/components/dashboard/savings-plan-card";
 import { getDashboardMetrics } from "@/server/services/dashboard";
 import { listFinancialAlerts, countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
+import { getSavingsPlanDashboardCard } from "@/server/services/savings-plan";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
 function trendLabel(current: string, previous: string): { text: string | null; positive: boolean | null } {
@@ -35,10 +37,11 @@ async function DashboardContent() {
   const membership = await requireWorkspaceAccess(user.id, selected.id);
   if (!membership) redirect("/inicio");
 
-  const [metrics, alerts, unseenCount] = await Promise.all([
+  const [metrics, alerts, unseenCount, savingsPlanCard] = await Promise.all([
     getDashboardMetrics(user.id, selected.id),
     listFinancialAlerts(user.id, selected.id),
     countUnseenFinancialAlerts(user.id, selected.id),
+    getSavingsPlanDashboardCard(user.id, selected.id),
   ]);
   if (!metrics || !alerts) redirect("/inicio");
 
@@ -100,6 +103,8 @@ async function DashboardContent() {
           trendPositive={resultTrend.positive}
         />
       </div>
+
+      {savingsPlanCard ? <div className="mt-6 grid gap-4 lg:grid-cols-2"><SavingsPlanDashboardCard data={savingsPlanCard} /></div> : null}
 
       <DashboardGrid
         incomeMonth={kpis.incomeMonth}

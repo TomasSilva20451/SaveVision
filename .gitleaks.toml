@@ -10,3 +10,8 @@ paths = [
   '''docs/''',
   '''pnpm-lock\.yaml''',
 ]
+regexes = [
+  # Identificador idempotente histórico do modelo «Desafio 300 €».
+  # Não é uma credencial; a exceção literal manté o scanner restritivo.
+  '''^desafio-300-eur$''',
+]

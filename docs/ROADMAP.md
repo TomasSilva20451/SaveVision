@@ -9,6 +9,7 @@ Cada fase fecha com `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build`.
 5. Receitas, familiar, e-commerce, ténis e despesas — concluída: `/receitas`, `/despesas`.
 6. Dashboard, KPIs e gráficos — concluída: `/dashboard`.
 7. Poupança, objetivos, score e simulador — concluída: `/planeamento`.
+7.1. Plano de Poupança (Desafio 300 €) — **em curso** (`codex/savings-plan-300`): wizard, check-ins, alertas 75%, cartão dashboard; ver `docs/SAVINGS_PLAN.md`.
 8. Conta conjunta por convite — concluída: `/conta-conjunta`.
 9. Relatórios PDF/CSV, documentos e importação — concluída: `/relatorios`.
 10. Investimentos educativos e cripto manual — concluída: `/investimentos`.

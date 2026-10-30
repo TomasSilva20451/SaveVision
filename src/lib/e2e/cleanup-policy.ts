@@ -5,6 +5,13 @@ export type E2eCleanupDecision = {
 
 const BLOCKED_DB_NAME_PATTERN = /(backup|restore|prod|production|primary|replica)/i;
 
+/** Bases remotas/partilhadas — nunca limpar nem correr E2E destrutivo. */
+const PROTECTED_DATABASE_NAMES = new Set([
+  "fintwin_staging",
+  "fintwin_live",
+  "fintwin_production",
+]);
+
 const E2E_DB_SUFFIX = /_e2e$/i;
 
 function isDedicatedE2eDatabaseName(database: string): boolean {
@@ -52,6 +59,13 @@ export function evaluateE2eCleanupPolicy(input: {
   }
 
   const { host, port, database } = parsed;
+
+  if (PROTECTED_DATABASE_NAMES.has(database)) {
+    return {
+      allowed: false,
+      reason: `Base «${database}» protegida (staging/produção). Use fintwin_e2e local.`,
+    };
+  }
 
   if (BLOCKED_DB_NAME_PATTERN.test(database)) {
     return {

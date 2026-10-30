@@ -105,3 +105,11 @@ Numa prestação de 500 € com 450 € capital, 40 € juros e 10 € encargos:
 - **BASE:** saldos e meses observados vêm da BD autorizada; parâmetros hipotéticos são explícitos.
 - **Tesouraria simulada:** reutiliza eventos do forecast 17b; alterações extra são uma camada sobreposta (`financial-simulation-forecast.ts`).
 - **Taxas e prazos:** só entram se o utilizador (ou o passivo registado) os fornecer; não há taxas inventadas.
+
+## Plano de Poupança
+
+- A activação cria objetivo, plano, regras de orçamento e check-ins; **não** cria transações nem contribuições.
+- O progresso do objetivo reflecte apenas `SavingsGoalContribution` confirmadas pelo utilizador (transferência real declarada).
+- Um check-in só passa a `COMPLETED` com contribuição associada; datas vencidas não auto-concluem.
+- Alertas do plano aos 75% aplicam-se às categorias ligadas ao plano; o limite global de 85% mantém-se nos restantes orçamentos.
+- O plano existe só em workspace `PERSONAL`; workspaces `JOINT` não acedem ao plano pessoal.

@@ -47,6 +47,16 @@ describe("evaluateE2eCleanupPolicy (fail-closed)", () => {
     expect(d.allowed).toBe(false);
   });
 
+  it("bloqueia fintwin_staging mesmo em localhost", () => {
+    const d = evaluateE2eCleanupPolicy({
+      connectionString: "postgresql://u:p@127.0.0.1:5434/fintwin_staging",
+      nodeEnv: "test",
+      allowFlag: "yes",
+    });
+    expect(d.allowed).toBe(false);
+    expect(d.reason).toMatch(/protegida|staging/i);
+  });
+
   it("bloqueia nomes backup/prod", () => {
     expect(
       evaluateE2eCleanupPolicy({

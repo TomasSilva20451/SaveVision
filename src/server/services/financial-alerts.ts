@@ -22,6 +22,8 @@ import { describeRecurringLiabilityMismatch } from "@/lib/finance/liability-recu
 import { db } from "@/lib/db";
 import { loadTreasuryContext } from "@/server/services/treasury-forecast";
 import { getPlanningOverview } from "@/server/services/planning";
+import { evaluateSavingsPlanAlertCandidates } from "@/lib/finance/savings-plan-alerts";
+import { loadSavingsPlanAlertContext } from "@/server/services/savings-plan";
 import type {
   FinancialAlertSeverity,
   FinancialAlertStatus,
@@ -41,6 +43,10 @@ const MANAGED_ALERT_TYPES: FinancialAlertType[] = [
   "EMERGENCY_FUND_BELOW_TARGET",
   "RECURRING_LIABILITY_CONFIGURATION",
   "DUPLICATE_PAYMENT_RISK",
+  "SAVINGS_PLAN_CONTRIBUTION_DUE",
+  "SAVINGS_PLAN_CONTRIBUTION_MISSED",
+  "SAVINGS_PLAN_ACCOUNT_WITHDRAWAL",
+  "SAVINGS_PLAN_COMPLETED",
 ];
 
 function toPrismaSeverity(severity: AlertSeverity): FinancialAlertSeverity {
@@ -305,7 +311,32 @@ export async function syncFinancialAlerts(userId: string, workspaceId: string): 
   const input = await buildFinancialAlertsEvaluationInput(userId, workspaceId);
   if (!input) return 0;
 
-  const candidates = evaluateFinancialAlertCandidates(input);
+  let candidates = evaluateFinancialAlertCandidates(input);
+  const savingsCtx = await loadSavingsPlanAlertContext(workspaceId, input.asOf);
+  if (savingsCtx) {
+    const ruleCategoryIds = new Set(
+      savingsCtx.plans.flatMap((p) => p.budgetRules.map((r) => r.categoryId)),
+    );
+    const planBudgetLines = new Map<string, BudgetLineSnapshot>();
+    for (const line of input.budgetLines) {
+      if (ruleCategoryIds.has(line.categoryId)) {
+        planBudgetLines.set(line.categoryId, line);
+      }
+    }
+    candidates = [
+      ...candidates,
+      ...evaluateSavingsPlanAlertCandidates({
+        workspaceId,
+        asOf: input.asOf,
+        plans: savingsCtx.plans,
+        checkIns: savingsCtx.checkIns,
+        budgetLinesByCategory: planBudgetLines,
+        withdrawals: savingsCtx.withdrawals,
+        civilYear: savingsCtx.civilYear,
+        civilMonth: savingsCtx.civilMonth,
+      }),
+    ];
+  }
   const now = new Date();
   const activeKeys = new Set(candidates.map((c) => c.deduplicationKey));
 

@@ -1,5 +1,20 @@
 # Progresso FinTwin
 
+## Plano de Poupança — Desafio 300 € (2026-10-29)
+
+- Branch `codex/savings-plan-300`: modelos Prisma (`SavingsPlan*`), migração `20261028220000_savings_plan`, motor `savings-plan-engine.ts`, activação atómica/idempotente, wizard `/planeamento`, detalhe `/planeamento/plano-poupanca/[id]`, cartão dashboard, alertas `SAVINGS_PLAN_*`.
+- **Concluído (portão local):** isolamento E2E (`fintwin_e2e` forçado), testes integração `savings-plan.integration.test.ts`, revisão semanal UI, secção PDF/CSV, pré-visualização wizard, E2E `15-savings-plan.spec.ts` + suite 97/97.
+- **Pendente pós-merge:** `prisma migrate deploy` em staging (smoke wizard utilizador staging), produção; **não** activar plano na conta real do Tomás até validação manual.
+
+## Go-live evidence pack — Fases H–L (2026-10-26)
+
+- **Perfil predefinido (zero-cost):** [`docs/GO_LIVE_ZERO_COST.md`](GO_LIVE_ZERO_COST.md), `compose.staging-free.yml` (Postgres + Redis OSS + 2 apps), tunnel HTTPS grátis, AppSec via ZAP/CodeQL (sem pentest pago).
+- **Fase H (staging Path B):** `pnpm infra:staging-apply` (AWS opcional), workflow `.github/workflows/staging-apply.yml`, Redis em `compose.deploy.yml`.
+- **Fase I (§13):** `pnpm golive:evidence` → `storage/evidence/golive-*` + `manifest.json`; drill R1 `pnpm security:rate-limit-drill`.
+- **Fase J (pentest):** brief/tracker actualizados; `pnpm security:pentest-cycle`; DAST contínuo via `dast-staging.yml` (execução externa + reteste pendente de fornecedor).
+- **Fase K (R8 CSP):** nonce por pedido em `src/proxy.ts` + testes `security-headers.test.ts`; ASVS actualizado.
+- **Fase L:** portão completo na secção «Portão» abaixo quando `main` verde.
+
 ## Sprints E–G — Resiliência, WORM/SIEM, corporativo (2026-10-26)
 
 - **Sprint E (R6):** k6 smoke (`tests/load/smoke.js`), CI `load-smoke.yml`, `pnpm game-day:drill`, runbooks failover/rotação chaves.

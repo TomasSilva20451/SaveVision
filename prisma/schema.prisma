@@ -64,6 +64,7 @@ model User {
   privacyConsents         PrivacyConsent[]
   erasureRequests         SubjectErasureRequest[]
   platformJobs            PlatformJob[]
+  savingsPlans            SavingsPlan[]
 }
 
 enum PlatformJobKind {
@@ -422,6 +423,8 @@ model Workspace {
   financialApprovals                   FinancialApproval[]
   webhookSubscriptions                 WebhookSubscription[]
   supportCases                         SupportCase[]
+  savingsPlans                         SavingsPlan[]
+  savingsPlanCheckIns                  SavingsPlanCheckIn[]
 
   @@index([type])
   @@index([createdById])
@@ -537,6 +540,7 @@ model FinancialAccount {
   recurringExpenses   RecurringExpense[]
   openBankingConsents OpenBankingConsent[]
   bankFeedLines       BankFeedLine[]
+  linkedSavingsPlans  SavingsPlan[]
 
   @@index([workspaceId, isArchived])
 }
@@ -556,6 +560,7 @@ model Category {
   recurringExpenses              RecurringExpense[]
   transactionCategorizationRules TransactionCategorizationRule[]
   categorizationSuggestions      TransactionCategorizationSuggestion[]
+  savingsPlanBudgetRules         SavingsPlanBudgetRule[]
 
   @@unique([workspaceId, name])
 }
@@ -1076,6 +1081,7 @@ model SavingsGoal {
   workspace     Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   account       FinancialAccount?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
   contributions SavingsGoalContribution[]
+  savingsPlan   SavingsPlan?
 
   @@index([workspaceId, archived])
 }
@@ -1090,10 +1096,96 @@ model SavingsGoalContribution {
   notes         String?
   createdAt     DateTime @default(now())
 
-  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  goal      SavingsGoal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goal                SavingsGoal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  savingsPlanCheckIns SavingsPlanCheckIn[]
 
   @@index([goalId, contributedAt])
+}
+
+enum SavingsPlanStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum SavingsPlanCadence {
+  WEEKLY
+}
+
+enum SavingsPlanCheckInStatus {
+  DUE
+  COMPLETED
+  MISSED
+  SKIPPED
+}
+
+model SavingsPlan {
+  id                       String             @id @default(cuid())
+  workspaceId              String
+  userId                   String
+  goalId                   String             @unique
+  savingsAccountId         String
+  name                     String
+  status                   SavingsPlanStatus  @default(DRAFT)
+  plannedContributionAmount Decimal           @db.Decimal(19, 4)
+  cadence                  SavingsPlanCadence @default(WEEKLY)
+  contributionWeekday      Int
+  reviewWeekday            Int
+  alertThresholdPercent    Int                @default(75)
+  activatedAt              DateTime?
+  nextContributionDueAt    DateTime?
+  investmentGuardEnabled   Boolean            @default(true)
+  activationKey            String
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+
+  workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal           SavingsGoal             @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  savingsAccount FinancialAccount        @relation(fields: [savingsAccountId], references: [id], onDelete: Restrict)
+  budgetRules    SavingsPlanBudgetRule[]
+  checkIns       SavingsPlanCheckIn[]
+
+  @@unique([workspaceId, activationKey])
+  @@index([workspaceId, status])
+}
+
+model SavingsPlanBudgetRule {
+  id                    String  @id @default(cuid())
+  savingsPlanId         String
+  categoryId            String
+  monthlyLimitAmount    Decimal @db.Decimal(19, 4)
+  alertThresholdPercent Int
+
+  plan     SavingsPlan @relation(fields: [savingsPlanId], references: [id], onDelete: Cascade)
+  category Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([savingsPlanId, categoryId])
+}
+
+model SavingsPlanCheckIn {
+  id                 String                   @id @default(cuid())
+  workspaceId        String
+  savingsPlanId      String
+  periodStart        DateTime
+  periodEnd          DateTime
+  expectedAmount     Decimal                  @db.Decimal(19, 4)
+  status             SavingsPlanCheckInStatus @default(DUE)
+  contributionId     String?
+  completedAt        DateTime?
+  notes              String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  workspace    Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan         SavingsPlan              @relation(fields: [savingsPlanId], references: [id], onDelete: Cascade)
+  contribution SavingsGoalContribution? @relation(fields: [contributionId], references: [id], onDelete: SetNull)
+
+  @@unique([savingsPlanId, periodStart])
+  @@index([workspaceId, savingsPlanId, status])
 }
 
 model WorkspacePlanningSettings {
@@ -1388,6 +1480,10 @@ enum FinancialAlertType {
   EMERGENCY_FUND_BELOW_TARGET
   RECURRING_LIABILITY_CONFIGURATION
   DUPLICATE_PAYMENT_RISK
+  SAVINGS_PLAN_CONTRIBUTION_DUE
+  SAVINGS_PLAN_CONTRIBUTION_MISSED
+  SAVINGS_PLAN_ACCOUNT_WITHDRAWAL
+  SAVINGS_PLAN_COMPLETED
 }
 
 model FinancialAlert {
