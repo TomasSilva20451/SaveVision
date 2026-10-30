@@ -33,7 +33,6 @@ import {
   type WeeklyReviewSnapshot,
 } from "@/lib/finance/savings-plan-weekly-review";
 import type { BudgetLineSnapshot } from "@/lib/finance/budget";
-import { getBudgetOverview } from "@/server/services/budgets";
 
 export type SavingsPlanWizardInput = {
   templateKey?: string;
@@ -370,7 +369,7 @@ export async function activateSavingsPlan(
     }
 
     return plan;
-  });
+  }, { timeout: 60_000 });
 
   await appendAuditEvent({
     actorUserId: userId,
@@ -699,6 +698,7 @@ export async function getWeeklyReviewForPlan(
   const asOf = new Date();
   const today = civilDateFromInstant(asOf);
   const civil = today;
+  const { getBudgetOverview } = await import("@/server/services/budgets");
   const budget = await getBudgetOverview(userId, workspaceId, civil.year, civil.month);
   const ruleCategoryIds = new Set(plan.budgetRules.map((r) => r.categoryId));
   const budgetLines: BudgetLineSnapshot[] =
@@ -796,6 +796,7 @@ export async function buildSavingsPlanReportSectionForPeriod(
   });
   if (!plan) return null;
 
+  const { getBudgetOverview } = await import("@/server/services/budgets");
   const budget = await getBudgetOverview(userId, workspaceId, year, month);
   const ruleCategoryIds = new Set(plan.budgetRules.map((r) => r.categoryId));
   const budgetLines: BudgetLineSnapshot[] =
