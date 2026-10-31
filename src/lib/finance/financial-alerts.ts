@@ -347,7 +347,7 @@ function evaluateEmergencyAlert(input: FinancialAlertsEvaluationInput): AlertCan
         target: target.toFixed(2),
         gap: target.minus(current).toFixed(2),
       },
-      actionUrl: "/planeamento",
+      actionUrl: "/plano",
     },
   ];
 }

@@ -485,7 +485,7 @@ async function emergencyFundGap(userId: string, workspaceId: string): Promise<As
     },
     evidence,
     links: [
-      { label: "Planeamento", href: "/planeamento" },
+      { label: "Plano", href: "/plano" },
       { label: "Previsões", href: "/previsoes" },
     ],
   };

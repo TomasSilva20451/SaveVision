@@ -60,8 +60,8 @@ const ROUTE_CONTEXT: Record<string, Omit<PageHelpContext, "routeKey">> = {
     intro:
       "Centro de alertas financeiros persistentes. Podes marcar como visto, filtrar e pedir explicação (texto gerado localmente a partir dos factos do alerta).",
   },
-  "/planeamento": {
-    title: "Planeamento",
+  "/plano": {
+    title: "Plano",
     intro: "Objetivos, fundo de emergência, score explicável e sugestões (ex.: cash sweep) sem execução automática.",
   },
   "/conta-conjunta": {

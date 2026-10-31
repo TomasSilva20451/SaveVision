@@ -2,11 +2,15 @@ import { expect, test } from "@playwright/test";
 
 const uniqueKey = () => `e2e-sp-${Date.now()}`;
 
+async function openSavingsWizard(page: import("@playwright/test").Page) {
+  await page.goto("/plano?novo-plano=1");
+  await expect(page.getByRole("heading", { name: "Plano", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Criar plano de poupança", level: 2 })).toBeVisible();
+}
+
 test.describe("Plano de Poupança", () => {
   test("wizard completo e pré-visualização no passo 5", async ({ page }) => {
-    await page.goto("/planeamento");
-    await expect(page.getByRole("heading", { name: "Planeamento", level: 1 })).toBeVisible();
-    await expect(page.getByText("Criar plano de poupança")).toBeVisible();
+    await openSavingsWizard(page);
 
     await page.getByRole("button", { name: "Seguinte" }).click();
     await page.getByRole("button", { name: "Seguinte" }).click();
@@ -20,7 +24,7 @@ test.describe("Plano de Poupança", () => {
   test("activar plano E2E dedicado", async ({ page }) => {
     test.setTimeout(120_000);
     const key = uniqueKey();
-    await page.goto("/planeamento");
+    await openSavingsWizard(page);
     await page.getByLabel("Nome do plano").fill(`Plano ${key}`);
     await page.getByRole("button", { name: "Seguinte" }).click();
     await page.getByLabel("Nome da nova conta").fill(`Poupança ${key}`);
@@ -34,7 +38,7 @@ test.describe("Plano de Poupança", () => {
     const activationDone = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        response.url().includes("/planeamento") &&
+        response.url().includes("/plano") &&
         response.status() < 500,
       { timeout: 120_000 },
     );
@@ -73,8 +77,15 @@ test.describe("Plano de Poupança", () => {
 
   test("layout mobile — wizard", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto("/planeamento");
-    await expect(page.getByText("Criar plano de poupança")).toBeVisible();
+    await openSavingsWizard(page);
+  });
+
+  test("página plano — botão abre assistente", async ({ page }) => {
+    await page.goto("/plano");
+    await expect(page.getByRole("heading", { name: "Plano", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Criar plano de poupança", level: 2 })).not.toBeVisible();
+    await page.getByRole("link", { name: "Criar plano de poupança" }).click();
+    await expect(page.getByRole("heading", { name: "Criar plano de poupança", level: 2 })).toBeVisible();
   });
 
   test("relatórios — página carrega", async ({ page }) => {
@@ -87,7 +98,7 @@ test.describe("Isolamento workspace conjunto", () => {
   test.use({ storageState: "playwright/.auth/maria.json" });
 
   test("Maria não vê wizard activo no workspace conjunto", async ({ page }) => {
-    await page.goto("/planeamento");
+    await page.goto("/plano?novo-plano=1");
     const jointHint = page.getByText(/workspace pessoal|conta conjunta/i);
     if (await jointHint.count()) {
       await expect(jointHint.first()).toBeVisible();

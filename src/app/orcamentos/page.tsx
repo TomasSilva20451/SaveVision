@@ -264,8 +264,8 @@ async function OrcamentosContent({ searchParams }: { searchParams: SearchParams 
           <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-base font-semibold">Metas e objetivos</h2>
-              <Link href="/planeamento" className="text-xs font-medium text-blue-600 hover:underline">
-                Ver planeamento
+              <Link href="/plano" className="text-xs font-medium text-blue-600 hover:underline">
+                Ver plano
               </Link>
             </div>
             {goals.length === 0 ? (

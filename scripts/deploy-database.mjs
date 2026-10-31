@@ -4,7 +4,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { config } from "dotenv";
 import { validateEnvironment } from "./environment-policy.mjs";
-import { installResolvedSecrets } from "./secret-files.mjs";
+import { installResolvedSecrets, mapDeploymentSecretFiles, SECRET_NAMES } from "./secret-files.mjs";
 
 const environment = process.argv[2];
 if (environment !== "staging" && environment !== "production") {
@@ -17,10 +17,13 @@ if (fs.existsSync(envPath)) {
   if (loaded.error) throw loaded.error;
 }
 process.env.FINTWIN_ENV ??= environment;
-process.env.DATABASE_URL_FILE ??= process.env.FINTWIN_DATABASE_URL_SECRET_FILE;
-process.env.AUTH_SECRET_FILE ??= process.env.FINTWIN_AUTH_SECRET_FILE;
-process.env.FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE ??= process.env.FINTWIN_DOCUMENT_KEY_SECRET_FILE;
-process.env.FINTWIN_AUDIT_SIGNING_KEY_FILE ??= process.env.FINTWIN_AUDIT_KEY_SECRET_FILE;
+mapDeploymentSecretFiles(process.env);
+// .env.*.local no Mac costuma ter DATABASE_URL inline *e* caminhos Docker — preferir inline.
+for (const name of SECRET_NAMES) {
+  if (process.env[name]?.trim()) {
+    delete process.env[`${name}_FILE`];
+  }
+}
 installResolvedSecrets(process.env);
 
 const checked = validateEnvironment(process.env);

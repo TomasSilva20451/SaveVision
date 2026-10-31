@@ -25,6 +25,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/planeamento",
+        destination: "/plano",
+        permanent: true,
+      },
+      {
+        source: "/planeamento/plano-poupanca/:id",
+        destination: "/plano/plano-poupanca/:id",
+        permanent: true,
+      },
+    ];
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

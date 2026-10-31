@@ -74,7 +74,7 @@ export function SavingsPlanDashboardCard({ data }: { data: CardData }) {
             </button>
           </form>
         ) : null}
-        <Link href={`/planeamento/plano-poupanca/${data.planId}`} className={secondaryButtonClassName}>
+        <Link href={`/plano/plano-poupanca/${data.planId}`} className={secondaryButtonClassName}>
           Ver plano
         </Link>
         <Link href="/orcamentos" className={secondaryButtonClassName}>

@@ -122,11 +122,11 @@ export async function activateSavingsPlanAction(formData: FormData): Promise<voi
       "Plano de poupança activo. Cada contribuição semanal cria uma transferência da conta de origem para a poupança.",
     );
   }
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
   revalidatePath("/dashboard");
   revalidatePath("/contas");
   revalidatePath("/transacoes");
-  revalidatePath(`/planeamento/plano-poupanca/${result.planId}`);
+  revalidatePath(`/plano/plano-poupanca/${result.planId}`);
 }
 
 export async function registerSavingsPlanContributionAction(formData: FormData): Promise<void> {
@@ -179,10 +179,10 @@ export async function registerSavingsPlanContributionAction(formData: FormData):
       : "Contribuição registada.",
   );
   revalidatePath("/dashboard");
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
   revalidatePath("/contas");
   revalidatePath("/transacoes");
-  revalidatePath(`/planeamento/plano-poupanca/${parsed.data.planId}`);
+  revalidatePath(`/plano/plano-poupanca/${parsed.data.planId}`);
 }
 
 export async function syncSavingsPlanTransfersAction(formData: FormData): Promise<void> {
@@ -211,7 +211,7 @@ export async function syncSavingsPlanTransfersAction(formData: FormData): Promis
   revalidatePath("/dashboard");
   revalidatePath("/contas");
   revalidatePath("/transacoes");
-  revalidatePath(`/planeamento/plano-poupanca/${planId}`);
+  revalidatePath(`/plano/plano-poupanca/${planId}`);
 }
 
 export async function setSavingsPlanStatusAction(formData: FormData): Promise<void> {
@@ -230,6 +230,6 @@ export async function setSavingsPlanStatusAction(formData: FormData): Promise<vo
     });
   if (!parsed.success) return;
   await setSavingsPlanStatus(user.id, selected.id, parsed.data.planId, parsed.data.status);
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
   revalidatePath("/dashboard");
 }

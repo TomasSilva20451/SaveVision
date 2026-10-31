@@ -98,7 +98,7 @@ export function evaluateSavingsPlanAlertCandidates(
           ]),
           sourceType: "SavingsPlan",
           sourceId: plan.planId,
-          actionUrl: `/planeamento/plano-poupanca/${plan.planId}`,
+          actionUrl: `/plano/plano-poupanca/${plan.planId}`,
           evidence: { utilizationPercent: util, thresholdPercent: threshold },
         });
       }
@@ -140,7 +140,7 @@ export function evaluateSavingsPlanAlertCandidates(
         ]),
         sourceType: "SavingsPlan",
         sourceId: plan.planId,
-        actionUrl: `/planeamento/plano-poupanca/${plan.planId}`,
+        actionUrl: `/plano/plano-poupanca/${plan.planId}`,
       });
     }
 
@@ -162,7 +162,7 @@ export function evaluateSavingsPlanAlertCandidates(
           sourceId: checkIn.checkInId,
           periodStart: checkIn.periodStart,
           periodEnd: checkIn.periodEnd,
-          actionUrl: `/planeamento/plano-poupanca/${plan.planId}`,
+          actionUrl: `/plano/plano-poupanca/${plan.planId}`,
         });
       } else {
         out.push({
@@ -176,7 +176,7 @@ export function evaluateSavingsPlanAlertCandidates(
           ]),
           sourceType: "SavingsPlanCheckIn",
           sourceId: checkIn.checkInId,
-          actionUrl: `/planeamento/plano-poupanca/${plan.planId}`,
+          actionUrl: `/plano/plano-poupanca/${plan.planId}`,
         });
       }
     }

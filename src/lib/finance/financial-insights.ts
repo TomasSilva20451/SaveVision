@@ -436,7 +436,7 @@ export function buildFinancialInsights(input: FinancialInsightsInput): {
         `Mês anterior: ${input.savingsRatePrevious.toFixed(1)}%`,
         `Mês actual: ${input.savingsRateCurrent.toFixed(1)}%`,
       ],
-      linkHref: "/planeamento",
+      linkHref: "/plano",
     });
   }
 

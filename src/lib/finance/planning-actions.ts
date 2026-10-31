@@ -46,7 +46,7 @@ export async function createSavingsGoalAction(formData: FormData): Promise<void>
     return;
   }
   await flashSuccess("Objetivo criado.");
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
 }
 
 export async function addGoalContributionAction(formData: FormData): Promise<void> {
@@ -73,7 +73,7 @@ export async function addGoalContributionAction(formData: FormData): Promise<voi
     ...parsed.data,
     contributedAt: new Date(),
   });
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
 }
 
 export async function updatePlanningSettingsAction(
@@ -98,7 +98,7 @@ export async function updatePlanningSettingsAction(
   if (!parsed.success) return;
 
   await updatePlanningSettings(user.id, selected.id, parsed.data);
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
 }
 
 export async function registerCgdProductAction(formData: FormData): Promise<void> {
@@ -124,5 +124,5 @@ export async function registerCgdProductAction(formData: FormData): Promise<void
   if (!parsed.success) return;
 
   await registerCgdProduct(user.id, selected.id, parsed.data);
-  revalidatePath("/planeamento");
+  revalidatePath("/plano");
 }

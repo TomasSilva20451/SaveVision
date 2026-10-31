@@ -10,7 +10,7 @@ Modo de coordenação que reutiliza `SavingsGoal`, contribuições confirmadas p
 
 ## Activação
 
-Wizard em `/planeamento` (modelo «Desafio 300 €»). Exige workspace `PERSONAL`. Pré-visualização e confirmação atómica; chave `fintwin-savings-challenge-300` evita duplo clique.
+Wizard em `/plano` (botão «Criar plano de poupança»; modelo «Desafio 300 €»). Exige workspace `PERSONAL`. Pré-visualização e confirmação atómica; chave `fintwin-savings-challenge-300` evita duplo clique.
 
 ## Alertas
 
@@ -18,8 +18,8 @@ Tipos `SAVINGS_PLAN_*` e orçamentos do plano aos 75% (dedupe separado do limite
 
 ## Deploy
 
-1. Aplicar migração `20261028220000_savings_plan` em dev/staging antes de produção.
-2. `pnpm exec prisma migrate deploy` + `prisma generate`.
-3. Utilizador inicia sessão → workspace pessoal → Planeamento → confirmar activação.
+1. Migrações Prisma na **mesma** base que o Vercel (`DATABASE_URL` Production), incluindo `20261031120000_savings_plan_source_transfer` (origem + `transferId` na contribuição). Passo a passo: [VERCEL_GITHUB_DEPLOY.md § Migrações Neon](VERCEL_GITHUB_DEPLOY.md#migrações-neon-manualmente-savevision--vercel) — comando habitual: `pnpm db:deploy:vercel-neon`.
+2. Deploy da app (`git push` ou `vercel --prod`); o build também corre `prisma migrate deploy`.
+3. Utilizador inicia sessão → **Dashboard** (repara transferências em falta) ou plano → **Criar transferências em falta** → confirmar **Transações** / **Contas**.
 
 Rollback funcional: cancelar plano (`CANCELLED`) — não apaga dados financeiros.

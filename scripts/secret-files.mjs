@@ -1,6 +1,6 @@
 import fs from "node:fs";
 
-const SECRET_NAMES = [
+export const SECRET_NAMES = [
   "DATABASE_URL",
   "AUTH_SECRET",
   "FINTWIN_DOCUMENT_ENCRYPTION_KEY",
@@ -38,10 +38,16 @@ export function mapDeploymentSecretFiles(target = process.env) {
   if (env !== "staging" && env !== "production") {
     return target;
   }
-  target.DATABASE_URL_FILE ??= target.FINTWIN_DATABASE_URL_SECRET_FILE;
-  target.AUTH_SECRET_FILE ??= target.FINTWIN_AUTH_SECRET_FILE;
-  target.FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE ??= target.FINTWIN_DOCUMENT_KEY_SECRET_FILE;
-  target.FINTWIN_AUDIT_SIGNING_KEY_FILE ??= target.FINTWIN_AUDIT_KEY_SECRET_FILE;
+  const mappings = [
+    ["DATABASE_URL_FILE", "FINTWIN_DATABASE_URL_SECRET_FILE"],
+    ["AUTH_SECRET_FILE", "FINTWIN_AUTH_SECRET_FILE"],
+    ["FINTWIN_DOCUMENT_ENCRYPTION_KEY_FILE", "FINTWIN_DOCUMENT_KEY_SECRET_FILE"],
+    ["FINTWIN_AUDIT_SIGNING_KEY_FILE", "FINTWIN_AUDIT_KEY_SECRET_FILE"],
+  ];
+  for (const [targetName, sourceName] of mappings) {
+    const source = target[sourceName]?.trim();
+    if (!target[targetName]?.trim() && source) target[targetName] = source;
+  }
   return target;
 }
 

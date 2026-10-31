@@ -22,7 +22,7 @@ test("rotas principais carregam", async ({ page }) => {
     "/previsoes?horizon=7",
     "/analises",
     "/relatorios",
-    "/planeamento",
+    "/plano",
     "/receitas",
     "/despesas",
     "/despesas-recorrentes",

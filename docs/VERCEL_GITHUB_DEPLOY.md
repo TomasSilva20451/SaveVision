@@ -17,13 +17,54 @@ Escolhe **uma** (conta grátis; alguns pedem cartão só na BD — se recusares,
 | **Vercel → Storage → Postgres** | Integração no dashboard (se disponível na tua conta) |
 | **[Supabase](https://supabase.com)** | Postgres; usar connection string “Session pooler” + TLS |
 
-Cria a base (ex. `fintwin_staging` ou `fintwin_live`) e corre **uma vez** no teu Mac:
+Cria a base (ex. `fintwin_staging` ou `fintwin_live`) e aplica migrações **antes ou depois** do 1.º deploy Vercel (o [`vercel.json`](../vercel.json) também corre `prisma migrate deploy` no build).
+
+### Migrações Neon manualmente (savevision / Vercel)
+
+Escolhe **um** método. Confirma sempre o **nome da base** no log (`fintwin_staging` vs `fintwin_live`) — tem de coincidir com `FINTWIN_EXPECTED_DATABASE` no Vercel.
+
+#### Método A — recomendado (Neon = Vercel)
+
+1. Vercel → projecto **savevision** → **Settings → Environment Variables** → copia `DATABASE_URL` (Production).
+2. No repo:
+   ```bash
+   cp .env.vercel-neon.local.example .env.vercel-neon.local
+   ```
+3. Cola a URL em `DATABASE_URL` no `.env.vercel-neon.local` (ficheiro gitignored).
+4. Aplica migrações:
+   ```bash
+   pnpm db:deploy:vercel-neon
+   ```
+5. Verifica: o comando termina com `Database schema is up to date!`
+
+#### Método B — `.env.production.local` (Docker + URL inline)
+
+Se usas `DATABASE_URL` **e** caminhos `FINTWIN_*_SECRET_FILE` (como no `.env.production.example`), o script antigo falhava com *«DATABASE_URL e DATABASE_URL_FILE não podem ser usados em simultâneo»*. Isso está corrigido: valores **inline** têm prioridade sobre ficheiros montados.
 
 ```bash
-DATABASE_URL="postgresql://…?sslmode=require" FINTWIN_ENV=staging pnpm exec prisma migrate deploy
+pnpm db:deploy:production
 ```
 
-*(Ou `db:deploy:production` se usares `fintwin_live` + env production.)*
+Requisitos: `.env.production.local` com `DATABASE_URL` apontando ao Neon **correcto** e `FINTWIN_EXPECTED_DATABASE` alinhado.
+
+#### Método C — uma linha (sem ficheiro)
+
+```bash
+DATABASE_URL="postgresql://…?sslmode=require" \
+  FINTWIN_ENV=staging \
+  FINTWIN_EXPECTED_DATABASE=fintwin_staging \
+  pnpm exec prisma migrate deploy
+```
+
+#### Erro comum
+
+| Sintoma | Causa | Acção |
+|--------|--------|--------|
+| `DATABASE_URL e DATABASE_URL_FILE não podem…` | URL inline + caminhos Docker no mesmo env | Usa **Método A** ou actualiza o repo (`deploy-database.mjs` preferir inline) |
+| Migração OK local mas app antiga | Só migraste uma base; Vercel usa outra URL | Copia `DATABASE_URL` **de Production** no Vercel, não de Preview/local |
+| Build Vercel falha em `migrate deploy` | IP/firewall Neon | Neon → allow all; confirma `sslmode=require` |
+
+Depois das migrações: `vercel --prod` ou push para `main` (se Git ligado).
 
 ---
 
@@ -104,6 +145,7 @@ Tomás e Telmo recebem **`systemRole=ADMIN`** no bootstrap. Em **Perfil → Back
 Se já existiam antes desta funcionalidade, volta a correr o bootstrap (idempotente) para promover a ADMIN:
 
 ```bash
+pnpm db:deploy:vercel-neon   # se ainda não aplicaste migrações nesta base
 set -a && source .env.vercel-neon.local && set +a
 pnpm exec tsx scripts/bootstrap-production-users.ts
 ```

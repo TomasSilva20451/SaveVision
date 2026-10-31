@@ -89,7 +89,7 @@ test("I. transferências", async ({ page }) => {
 
 test("J. objetivo de poupança", async ({ page }) => {
   const title = `E2E objetivo ${Date.now()}`;
-  await page.goto("/planeamento");
+  await page.goto("/plano");
   await page.getByText("＋ Novo objetivo", { exact: true }).click();
   await page.getByPlaceholder("Título").fill(title);
   await page.getByPlaceholder("Montante alvo").fill("500");
