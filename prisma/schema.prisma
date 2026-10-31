@@ -540,7 +540,8 @@ model FinancialAccount {
   recurringExpenses   RecurringExpense[]
   openBankingConsents OpenBankingConsent[]
   bankFeedLines       BankFeedLine[]
-  linkedSavingsPlans  SavingsPlan[]
+  savingsPlansAsTarget SavingsPlan[] @relation("SavingsPlanSavingsAccount")
+  savingsPlansAsSource SavingsPlan[] @relation("SavingsPlanSourceAccount")
 
   @@index([workspaceId, isArchived])
 }
@@ -657,8 +658,9 @@ model Transfer {
   createdByUserId String
   createdAt       DateTime @default(now())
 
-  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  workspace               Workspace                  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions            Transaction[]
+  savingsGoalContributions SavingsGoalContribution[]
 
   @@index([workspaceId, occurredAt])
 }
@@ -1094,10 +1096,12 @@ model SavingsGoalContribution {
   amount        Decimal  @db.Decimal(19, 4)
   contributedAt DateTime
   notes         String?
+  transferId    String?  @unique
   createdAt     DateTime @default(now())
 
   workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   goal                SavingsGoal          @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  transfer            Transfer?            @relation(fields: [transferId], references: [id], onDelete: SetNull)
   savingsPlanCheckIns SavingsPlanCheckIn[]
 
   @@index([goalId, contributedAt])
@@ -1128,6 +1132,7 @@ model SavingsPlan {
   userId                   String
   goalId                   String             @unique
   savingsAccountId         String
+  sourceAccountId          String?
   name                     String
   status                   SavingsPlanStatus  @default(DRAFT)
   plannedContributionAmount Decimal           @db.Decimal(19, 4)
@@ -1145,7 +1150,8 @@ model SavingsPlan {
   workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user           User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   goal           SavingsGoal             @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  savingsAccount FinancialAccount        @relation(fields: [savingsAccountId], references: [id], onDelete: Restrict)
+  savingsAccount FinancialAccount        @relation("SavingsPlanSavingsAccount", fields: [savingsAccountId], references: [id], onDelete: Restrict)
+  sourceAccount  FinancialAccount?       @relation("SavingsPlanSourceAccount", fields: [sourceAccountId], references: [id], onDelete: SetNull)
   budgetRules    SavingsPlanBudgetRule[]
   checkIns       SavingsPlanCheckIn[]
 

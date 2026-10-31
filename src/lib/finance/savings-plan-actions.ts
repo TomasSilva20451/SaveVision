@@ -29,6 +29,7 @@ const wizardSchema = z.object({
   reviewWeekday: z.coerce.number().int().min(1).max(7),
   alertThresholdPercent: z.coerce.number().int().min(50).max(100),
   savingsAccountId: z.string().optional(),
+  sourceAccountId: z.string().optional(),
   createSavingsAccountName: z.string().optional(),
   budgetStartMode: z.enum(["NEXT_MONTH", "PROPORTIONAL_CURRENT"]),
   budgetLines: z.array(budgetLineSchema).min(1),
@@ -56,6 +57,10 @@ function parseWizardForm(formData: FormData): SavingsPlanWizardInput | null {
     alertThresholdPercent: formData.get("alertThresholdPercent"),
     savingsAccountId: (() => {
       const v = formData.get("savingsAccountId");
+      return typeof v === "string" && v.length > 0 ? v : undefined;
+    })(),
+    sourceAccountId: (() => {
+      const v = formData.get("sourceAccountId");
       return typeof v === "string" && v.length > 0 ? v : undefined;
     })(),
     createSavingsAccountName: (() => {
@@ -113,10 +118,14 @@ export async function activateSavingsPlanAction(formData: FormData): Promise<voi
   if (result.reused) {
     await flashSuccess("Plano já estava activo — nada foi duplicado.");
   } else {
-    await flashSuccess("Plano de poupança activo. Nenhuma transação foi criada.");
+    await flashSuccess(
+      "Plano de poupança activo. Cada contribuição semanal cria uma transferência da conta de origem para a poupança.",
+    );
   }
   revalidatePath("/planeamento");
   revalidatePath("/dashboard");
+  revalidatePath("/contas");
+  revalidatePath("/transacoes");
   revalidatePath(`/planeamento/plano-poupanca/${result.planId}`);
 }
 
@@ -133,7 +142,7 @@ export async function registerSavingsPlanContributionAction(formData: FormData):
       amount: z.string().min(1),
       contributedAtIso: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
       notes: z.string().optional(),
-      transferConfirmed: z.literal("on"),
+      transferConfirmed: z.enum(["on", "true"]).optional(),
     })
     .safeParse({
       planId: formData.get("planId"),
@@ -141,11 +150,11 @@ export async function registerSavingsPlanContributionAction(formData: FormData):
       amount: formData.get("amount"),
       contributedAtIso: formData.get("contributedAtIso"),
       notes: formData.get("notes") || undefined,
-      transferConfirmed: formData.get("transferConfirmed"),
+      transferConfirmed: formData.get("transferConfirmed") ?? "on",
     });
 
   if (!parsed.success) {
-    await flashError("Confirma que efectuaste a transferência real.");
+    await flashError("Dados da contribuição inválidos.");
     return;
   }
 
@@ -159,13 +168,50 @@ export async function registerSavingsPlanContributionAction(formData: FormData):
     transferConfirmed: true,
   });
   if (!result) {
-    await flashError("Não foi possível registar a contribuição.");
+    await flashError(
+      "Não foi possível registar a contribuição. Verifica a conta de origem (ex.: CaixaJovem) nas definições do plano.",
+    );
     return;
   }
-  await flashSuccess("Contribuição registada.");
+  await flashSuccess(
+    result.transferCreated
+      ? "Contribuição registada e transferência criada entre contas."
+      : "Contribuição registada.",
+  );
   revalidatePath("/dashboard");
   revalidatePath("/planeamento");
+  revalidatePath("/contas");
+  revalidatePath("/transacoes");
   revalidatePath(`/planeamento/plano-poupanca/${parsed.data.planId}`);
+}
+
+export async function syncSavingsPlanTransfersAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await resolveWorkspaceContext(user.id);
+  if (!selected) return;
+  const planId = formData.get("planId");
+  if (typeof planId !== "string" || !planId) return;
+
+  const { syncMissingSavingsPlanContributionTransfers } = await import(
+    "@/server/services/savings-plan"
+  );
+  const result = await syncMissingSavingsPlanContributionTransfers(user.id, selected.id, planId);
+  if (!result) {
+    await flashError("Sem permissão para sincronizar transferências.");
+    return;
+  }
+  if (result.repaired === 0) {
+    await flashSuccess("Não havia transferências em falta.");
+  } else {
+    await flashSuccess(
+      `${result.repaired} transferência(s) criada(s) para contribuições anteriores.`,
+    );
+  }
+  revalidatePath("/dashboard");
+  revalidatePath("/contas");
+  revalidatePath("/transacoes");
+  revalidatePath(`/planeamento/plano-poupanca/${planId}`);
 }
 
 export async function setSavingsPlanStatusAction(formData: FormData): Promise<void> {

@@ -13,6 +13,7 @@ import { computePlanProgress } from "@/lib/finance/savings-plan-engine";
 import {
   registerSavingsPlanContributionAction,
   setSavingsPlanStatusAction,
+  syncSavingsPlanTransfersAction,
 } from "@/lib/finance/savings-plan-actions";
 import { formatEUR } from "@/lib/finance/money";
 import { readPageFlash } from "@/lib/ui/page-shell";
@@ -49,6 +50,7 @@ async function PlanDetailContent({ planId }: { planId: string }) {
   });
 
   const dueCheckIn = plan.checkIns.find((c) => c.status === "DUE");
+  const missingTransfers = plan.goal.contributions.some((c) => !c.transferId);
 
   return (
     <AppShell
@@ -119,6 +121,17 @@ async function PlanDetailContent({ planId }: { planId: string }) {
               </form>
             ) : null}
           </div>
+          {missingTransfers ? (
+            <form action={syncSavingsPlanTransfersAction} className="mt-4">
+              <input type="hidden" name="planId" value={plan.id} />
+              <button type="submit" className={primaryButtonClassName}>
+                Criar transferências em falta
+              </button>
+              <p className="mt-2 text-xs text-slate-500">
+                Contribuições registadas antes da actualização podem não ter movimentado as contas.
+              </p>
+            </form>
+          ) : null}
           <p className="mt-4 text-xs text-slate-500">
             Cancelar não elimina objetivo, conta, contribuições nem orçamentos.
           </p>
@@ -141,11 +154,8 @@ async function PlanDetailContent({ planId }: { planId: string }) {
               Valor (€)
               <input name="amount" defaultValue={plan.plannedContributionAmount.toString()} className="mt-1 block rounded-lg border px-2 py-1" required />
             </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="transferConfirmed" required />
-              Confirmo transferência real
-            </label>
-            <button className={primaryButtonClassName}>Registar</button>
+            <input type="hidden" name="transferConfirmed" value="on" />
+            <button className={primaryButtonClassName}>Registar e transferir</button>
           </form>
         </section>
       ) : null}

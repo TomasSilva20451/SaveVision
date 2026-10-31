@@ -65,10 +65,10 @@ export function SavingsPlanDashboardCard({ data }: { data: CardData }) {
                 required
               />
             </label>
-            <label className="flex items-center gap-1 text-xs">
-              <input type="checkbox" name="transferConfirmed" required />
-              Transferência real feita
-            </label>
+            <input type="hidden" name="transferConfirmed" value="on" />
+            <p className="text-xs text-slate-500">
+              Será criada uma transferência da conta de origem do plano para a poupança.
+            </p>
             <button type="submit" className={primaryButtonClassName}>
               Registar contribuição
             </button>

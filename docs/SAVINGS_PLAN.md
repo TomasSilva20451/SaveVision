@@ -1,6 +1,6 @@
 # Plano de Poupança
 
-Modo de coordenação que reutiliza `SavingsGoal`, contribuições confirmadas pelo utilizador, contas, orçamentos mensais e `FinancialAlert`. **Não cria transações nem contribuições fictícias.**
+Modo de coordenação que reutiliza `SavingsGoal`, contribuições confirmadas pelo utilizador, contas, orçamentos mensais e `FinancialAlert`. A **activação** do plano não cria movimentos; cada **contribuição semanal** regista o progresso do objetivo e cria uma **transferência** (`Transfer` + dois lançamentos `TRANSFER`) da conta de origem (`SavingsPlan.sourceAccountId`, ou heurística «Caixa» / conta à ordem) para a conta de poupança do plano.
 
 ## Modelos
 

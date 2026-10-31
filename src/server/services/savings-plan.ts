@@ -24,6 +24,10 @@ import { db } from "@/lib/db";
 import type { CategoryBehavior, CategoryNature } from "@/generated/prisma/client";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
+import { createTransferInTransaction } from "@/server/services/transfers";
+import type { Prisma } from "@/generated/prisma/client";
+
+type DbOrTx = typeof db | Prisma.TransactionClient;
 import {
   buildSavingsPlanReportSection,
   type SavingsPlanReportSection,
@@ -44,6 +48,7 @@ export type SavingsPlanWizardInput = {
   reviewWeekday: number;
   alertThresholdPercent: number;
   savingsAccountId?: string;
+  sourceAccountId?: string;
   createSavingsAccountName?: string;
   budgetStartMode: "NEXT_MONTH" | "PROPORTIONAL_CURRENT";
   budgetLines: readonly {
@@ -104,6 +109,19 @@ export async function buildSavingsPlanActivationPreview(
     entities.push({ kind: "create", label: "Objetivo de poupança", detail: input.name });
     entities.push({ kind: "create", label: "Plano de poupança", detail: input.name });
     entities.push({ kind: "create", label: "Check-ins semanais", detail: "Um por semana até à data-alvo" });
+  }
+
+  if (input.sourceAccountId) {
+    const source = await db.financialAccount.findFirst({
+      where: { id: input.sourceAccountId, workspaceId, isArchived: false },
+    });
+    if (source) {
+      entities.push({
+        kind: "reuse",
+        label: "Conta de origem (contribuições)",
+        detail: source.name,
+      });
+    }
   }
 
   if (input.savingsAccountId) {
@@ -255,6 +273,26 @@ export async function activateSavingsPlan(
       if (!account) throw new Error("Conta inválida");
     }
 
+    let sourceAccountId: string | null = input.sourceAccountId ?? null;
+    if (sourceAccountId) {
+      const source = await tx.financialAccount.findFirst({
+        where: {
+          id: sourceAccountId,
+          workspaceId,
+          isArchived: false,
+          type: { in: ["CURRENT", "CASH", "OTHER"] },
+        },
+      });
+      if (!source || source.id === savingsAccountId) {
+        throw new Error("Conta de origem inválida");
+      }
+    } else {
+      sourceAccountId = await resolveSavingsPlanSourceAccountId(tx, workspaceId, {
+        sourceAccountId: null,
+        savingsAccountId: savingsAccountId!,
+      });
+    }
+
     const goal = await tx.savingsGoal.create({
       data: {
         workspaceId,
@@ -277,6 +315,7 @@ export async function activateSavingsPlan(
         userId,
         goalId: goal.id,
         savingsAccountId: savingsAccountId!,
+        sourceAccountId,
         name: input.name,
         status: "ACTIVE",
         plannedContributionAmount: decimal(input.plannedWeeklyContribution).toString(),
@@ -410,6 +449,157 @@ export function defaultWizardFromTemplate(templateKey: string): SavingsPlanWizar
   };
 }
 
+async function resolveSavingsPlanSourceAccountId(
+  client: DbOrTx,
+  workspaceId: string,
+  plan: { sourceAccountId: string | null; savingsAccountId: string },
+): Promise<string | null> {
+  if (plan.sourceAccountId && plan.sourceAccountId !== plan.savingsAccountId) {
+    const configured = await client.financialAccount.findFirst({
+      where: {
+        id: plan.sourceAccountId,
+        workspaceId,
+        isArchived: false,
+      },
+    });
+    if (configured) return configured.id;
+  }
+
+  const candidates = await client.financialAccount.findMany({
+    where: {
+      workspaceId,
+      isArchived: false,
+      type: { in: ["CURRENT", "CASH"] },
+      id: { not: plan.savingsAccountId },
+    },
+    orderBy: { name: "asc" },
+  });
+  if (candidates.length === 0) return null;
+
+  const caixa = candidates.find((a) => /caixa/i.test(a.name));
+  if (caixa) return caixa.id;
+
+  const current = candidates.find((a) => a.type === "CURRENT");
+  return current?.id ?? candidates[0]!.id;
+}
+
+async function ensureContributionTransfer(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  workspaceId: string,
+  plan: { id: string; name: string; savingsAccountId: string; sourceAccountId: string | null },
+  contribution: {
+    id: string;
+    amount: { toString(): string };
+    contributedAt: Date;
+    transferId: string | null;
+  },
+): Promise<boolean> {
+  if (contribution.transferId) return false;
+
+  const sourceAccountId = await resolveSavingsPlanSourceAccountId(tx, workspaceId, plan);
+  if (!sourceAccountId) return false;
+
+  const amount = decimal(contribution.amount.toString()).toString();
+  const transferResult = await createTransferInTransaction(tx, userId, workspaceId, {
+    fromAccountId: sourceAccountId,
+    toAccountId: plan.savingsAccountId,
+    amount,
+    occurredAt: contribution.contributedAt,
+    description: `Plano poupança: ${plan.name}`,
+  });
+  if (!transferResult.ok) return false;
+
+  await tx.savingsGoalContribution.update({
+    where: { id: contribution.id },
+    data: { transferId: transferResult.transfer.id },
+  });
+
+  if (!plan.sourceAccountId) {
+    await tx.savingsPlan.update({
+      where: { id: plan.id },
+      data: { sourceAccountId },
+    });
+  }
+
+  return true;
+}
+
+export async function syncMissingSavingsPlanContributionTransfers(
+  userId: string,
+  workspaceId: string,
+  planId: string,
+): Promise<{ repaired: number } | null> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return null;
+
+  const plan = await db.savingsPlan.findFirst({
+    where: { id: planId, workspaceId },
+    include: {
+      goal: { include: { contributions: { where: { transferId: null } } } },
+    },
+  });
+  if (!plan || plan.goal.contributions.length === 0) {
+    return { repaired: 0 };
+  }
+
+  let repaired = 0;
+  for (const contribution of plan.goal.contributions) {
+    const created = await db.$transaction(async (tx) =>
+      ensureContributionTransfer(tx, userId, workspaceId, plan, contribution),
+    );
+    if (created) repaired += 1;
+  }
+
+  if (repaired > 0) {
+    await appendAuditEvent({
+      actorUserId: userId,
+      workspaceId,
+      action: "SAVINGS_PLAN_TRANSFERS_REPAIRED",
+      resourceType: "SavingsPlan",
+      resourceId: planId,
+      outcome: "SUCCESS",
+      source: "financial-service",
+      metadata: { repaired },
+    });
+  }
+
+  return { repaired };
+}
+
+export async function setSavingsPlanSourceAccount(
+  userId: string,
+  workspaceId: string,
+  planId: string,
+  sourceAccountId: string,
+): Promise<boolean> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return false;
+
+  const plan = await db.savingsPlan.findFirst({
+    where: { id: planId, workspaceId },
+  });
+  if (!plan) return false;
+
+  if (sourceAccountId === plan.savingsAccountId) return false;
+
+  const source = await db.financialAccount.findFirst({
+    where: {
+      id: sourceAccountId,
+      workspaceId,
+      isArchived: false,
+      type: { in: ["CURRENT", "CASH", "OTHER"] },
+    },
+  });
+  if (!source) return false;
+
+  await db.savingsPlan.update({
+    where: { id: planId },
+    data: { sourceAccountId: source.id },
+  });
+  return true;
+}
+
 export async function getSavingsPlanDashboardCard(
   userId: string,
   workspaceId: string,
@@ -427,6 +617,22 @@ export async function getSavingsPlanDashboardCard(
     orderBy: { activatedAt: "desc" },
   });
   if (!plan) return null;
+
+  const editor = await requireWorkspaceEditor(userId, workspaceId);
+  if (editor) {
+    await syncMissingSavingsPlanContributionTransfers(userId, workspaceId, plan.id);
+    const refreshed = await db.savingsPlan.findFirst({
+      where: { id: plan.id },
+      include: {
+        goal: { include: { contributions: true } },
+        savingsAccount: true,
+        checkIns: { orderBy: { periodStart: "asc" } },
+      },
+    });
+    if (refreshed) {
+      Object.assign(plan, refreshed);
+    }
+  }
 
   const today = civilDateFromInstant(new Date());
   const targetIso = plan.goal.targetDate
@@ -479,7 +685,7 @@ export async function registerSavingsPlanWeeklyContribution(
     notes?: string;
     transferConfirmed: boolean;
   },
-): Promise<{ contributionId: string } | null> {
+): Promise<{ contributionId: string; transferCreated?: boolean } | null> {
   if (!input.transferConfirmed) return null;
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
@@ -499,22 +705,54 @@ export async function registerSavingsPlanWeeklyContribution(
   });
   if (!checkIn || checkIn.status === "COMPLETED") {
     if (checkIn?.contributionId) {
-      return { contributionId: checkIn.contributionId };
+      const repaired = await syncMissingSavingsPlanContributionTransfers(
+        userId,
+        workspaceId,
+        plan.id,
+      );
+      return {
+        contributionId: checkIn.contributionId,
+        transferCreated: (repaired?.repaired ?? 0) > 0,
+      };
     }
     return null;
   }
 
+  const sourceAccountId = await resolveSavingsPlanSourceAccountId(db, workspaceId, plan);
+  if (!sourceAccountId) return null;
+
+  const amountStr = decimal(input.amount).toString();
+
   const result = await db.$transaction(async (tx) => {
+    const transferResult = await createTransferInTransaction(tx, userId, workspaceId, {
+      fromAccountId: sourceAccountId,
+      toAccountId: plan.savingsAccountId,
+      amount: amountStr,
+      occurredAt: input.contributedAt,
+      description: `Plano poupança: ${plan.name}`,
+    });
+    if (!transferResult.ok) {
+      throw new Error(transferResult.reason);
+    }
+
     const contribution = await tx.savingsGoalContribution.create({
       data: {
         workspaceId,
         goalId: plan.goalId,
         userId,
-        amount: decimal(input.amount).toString(),
+        amount: amountStr,
         contributedAt: input.contributedAt,
         notes: input.notes,
+        transferId: transferResult.transfer.id,
       },
     });
+
+    if (!plan.sourceAccountId) {
+      await tx.savingsPlan.update({
+        where: { id: plan.id },
+        data: { sourceAccountId },
+      });
+    }
     await tx.savingsPlanCheckIn.update({
       where: { id: checkIn.id },
       data: {
@@ -556,7 +794,7 @@ export async function registerSavingsPlanWeeklyContribution(
     metadata: { planId: plan.id, checkInId: checkIn.id },
   });
 
-  return { contributionId: result.id };
+  return { contributionId: result.id, transferCreated: true };
 }
 
 export async function setSavingsPlanStatus(

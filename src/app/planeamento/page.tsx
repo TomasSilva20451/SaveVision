@@ -30,7 +30,16 @@ async function PlaneamentoContent(){
   const activeGoals=overview.goals.length; const average=activeGoals?Math.round(overview.goals.reduce((sum,g)=>sum+(g.progressPercent??0),0)/activeGoals):0;
   return <AppShell visualTheme="aurora" userName={user.name} workspaces={workspaces} activeWorkspaceId={selected.id} flash={flash}>
     <PageHeader title="Planeamento" description="Transforma objetivos em planos mensais claros e acompanha a tua margem de segurança." actions={<Link href="/simulacoes" className={secondaryButtonClassName}>Abrir simulador</Link>}/>
-    <SavingsPlanWizard defaults={defaultWizardFromTemplate(CHALLENGE_300_TEMPLATE_KEY)!} savingsAccounts={(accounts??[]).filter(a=>a.type==="SAVINGS").map(a=>({id:a.id,name:a.name}))} isPersonalWorkspace={selected.type==="PERSONAL"}/>
+    <SavingsPlanWizard
+      defaults={defaultWizardFromTemplate(CHALLENGE_300_TEMPLATE_KEY)!}
+      savingsAccounts={(accounts ?? [])
+        .filter((a) => a.type === "SAVINGS")
+        .map((a) => ({ id: a.id, name: a.name }))}
+      sourceAccounts={(accounts ?? [])
+        .filter((a) => a.type === "CURRENT" || a.type === "CASH")
+        .map((a) => ({ id: a.id, name: a.name }))}
+      isPersonalWorkspace={selected.type === "PERSONAL"}
+    />
     <div className="mt-6"><MetricGrid><FinanceMetricCard label="Saúde financeira" value={`${overview.health.score}/100`} rawValue hint="Pontuação explicável com dados atuais" tone={overview.health.score>=70?"income":"warning"} icon="♡"/><FinanceMetricCard label="Fundo de emergência" value={`${emergencyProgress}%`} rawValue hint={`${formatEUR(overview.dashboardKpis.savingsBalance)} de ${formatEUR(overview.emergencyTarget)}`} tone="accent" icon="▣"/><FinanceMetricCard label="Objetivos ativos" value={String(activeGoals)} rawValue hint={activeGoals?`Progresso médio de ${average}%`:"Cria o teu primeiro objetivo"} tone="analytic" icon="◎"/><FinanceMetricCard label="Margem mensal" value={overview.dashboardKpis.economicResultMonth} hint="Receitas menos despesas deste mês" tone={decimal(overview.dashboardKpis.economicResultMonth).gte(0)?"income":"expense"} icon="↗"/></MetricGrid></div>
     <div className="mt-5 grid gap-5 lg:grid-cols-5">
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] lg:col-span-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">Financial Health Score</h2><p className="mt-1 text-sm text-slate-500">Cada fator mostra como a pontuação foi calculada.</p></div><strong className="text-3xl text-blue-600">{overview.health.score}<span className="text-base text-slate-400">/100</span></strong></div><ProgressBar value={overview.health.score} className="mt-5" tone={overview.health.score>=70?"income":"warning"}/><ul className="mt-5 grid gap-3 sm:grid-cols-3">{overview.health.factors.map(f=><li key={f.id} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-900"><div className="flex justify-between gap-2"><strong className="text-sm">{f.label}</strong><span className={`text-xs font-semibold ${f.impact>=0?"text-emerald-600":"text-rose-600"}`}>{f.impact>=0?"+":""}{f.impact}</span></div><p className="mt-1 text-xs leading-5 text-slate-500">{f.detail}</p></li>)}</ul></section>

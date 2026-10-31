@@ -178,6 +178,7 @@ describe("SavingsPlan (PostgreSQL)", () => {
       orderBy: { periodStart: "asc" },
     });
     if (!checkIn) return;
+    const txBefore = await db.transaction.count({ where: { workspaceId: joaoPersonalWs } });
     const result = await registerSavingsPlanWeeklyContribution(joaoId, joaoPersonalWs, {
       planId: activated.planId,
       checkInId: checkIn.id,
@@ -186,9 +187,16 @@ describe("SavingsPlan (PostgreSQL)", () => {
       transferConfirmed: true,
     });
     expect(result).not.toBeNull();
+    expect(result!.transferCreated).toBe(true);
+    const txAfter = await db.transaction.count({ where: { workspaceId: joaoPersonalWs } });
+    expect(txAfter).toBe(txBefore + 2);
     const updated = await db.savingsPlanCheckIn.findUnique({ where: { id: checkIn.id } });
     expect(updated?.status).toBe("COMPLETED");
     expect(updated?.contributionId).not.toBeNull();
+    const contribution = await db.savingsGoalContribution.findUnique({
+      where: { id: updated!.contributionId! },
+    });
+    expect(contribution?.transferId).not.toBeNull();
   });
 
   it("pré-visualização declara zero transacções", async () => {

@@ -20,6 +20,7 @@ import {
 type Props = {
   defaults: SavingsPlanWizardInput;
   savingsAccounts: { id: string; name: string }[];
+  sourceAccounts: { id: string; name: string }[];
   isPersonalWorkspace: boolean;
 };
 
@@ -37,11 +38,17 @@ function formDataFromWizard(form: SavingsPlanWizardInput, budgetJson: string): F
   fd.set("alertThresholdPercent", String(form.alertThresholdPercent));
   fd.set("budgetStartMode", form.budgetStartMode);
   if (form.savingsAccountId) fd.set("savingsAccountId", form.savingsAccountId);
+  if (form.sourceAccountId) fd.set("sourceAccountId", form.sourceAccountId);
   if (form.createSavingsAccountName) fd.set("createSavingsAccountName", form.createSavingsAccountName);
   return fd;
 }
 
-export function SavingsPlanWizard({ defaults, savingsAccounts, isPersonalWorkspace }: Props) {
+export function SavingsPlanWizard({
+  defaults,
+  savingsAccounts,
+  sourceAccounts,
+  isPersonalWorkspace,
+}: Props) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(defaults);
   const [preview, setPreview] = useState<SavingsPlanActivationPreview | null>(null);
@@ -112,6 +119,9 @@ export function SavingsPlanWizard({ defaults, savingsAccounts, isPersonalWorkspa
         {form.createSavingsAccountName ? (
           <input type="hidden" name="createSavingsAccountName" value={form.createSavingsAccountName} />
         ) : null}
+        {form.sourceAccountId ? (
+          <input type="hidden" name="sourceAccountId" value={form.sourceAccountId} />
+        ) : null}
 
         {step === 1 ? (
           <>
@@ -171,10 +181,34 @@ export function SavingsPlanWizard({ defaults, savingsAccounts, isPersonalWorkspa
         {step === 2 ? (
           <>
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              A conta não será movimentada automaticamente. Saldo inicial: 0 €.
+              Cada contribuição semanal cria uma transferência da conta de origem para a poupança.
+              Saldo inicial da poupança: 0 €.
             </p>
             <label className={labelClassName}>
-              Conta existente
+              Conta de origem (de onde sai o dinheiro)
+              <select
+                className={inputClassName}
+                value={form.sourceAccountId ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    sourceAccountId: e.target.value.length > 0 ? e.target.value : undefined,
+                  })
+                }
+                required={sourceAccounts.length > 0}
+              >
+                <option value="">
+                  {sourceAccounts.length > 0 ? "Escolher conta…" : "Nenhuma conta à ordem/caixa"}
+                </option>
+                {sourceAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className={labelClassName}>
+              Conta de poupança (destino)
               <select
                 className={inputClassName}
                 value={form.savingsAccountId ?? ""}
