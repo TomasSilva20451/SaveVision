@@ -9,6 +9,7 @@ import { calculateCashFlow, calculateExpenses, calculateIncome } from "@/lib/fin
 import { decimal } from "@/lib/finance/money";
 import type { LedgerMovement } from "@/lib/finance/types";
 import { db } from "@/lib/db";
+import { ensureDefaultCategories } from "@/server/services/expenses";
 
 const PAGE_SIZE = 20;
 
@@ -65,6 +66,8 @@ export async function getTransactionsPage(
 ) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
+
+  await ensureDefaultCategories(workspaceId);
 
   const defaults = defaultRange();
   const from = query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from) ? query.from : defaults.from;

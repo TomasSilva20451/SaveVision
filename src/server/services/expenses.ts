@@ -17,6 +17,9 @@ const DEFAULT_CATEGORIES = [
   { name: "Alimentação", nature: "NECESSARY" as const, behavior: "VARIABLE" as const },
   { name: "Transportes", nature: "NECESSARY" as const, behavior: "VARIABLE" as const },
   { name: "Lazer", nature: "DISCRETIONARY" as const, behavior: "VARIABLE" as const },
+  { name: "Comissões / Serviços bancários", nature: "NECESSARY" as const, behavior: "VARIABLE" as const },
+  { name: "Numerário / Levantamentos", nature: "NECESSARY" as const, behavior: "VARIABLE" as const },
+  { name: "Transferências pessoais", nature: "DISCRETIONARY" as const, behavior: "VARIABLE" as const },
 ];
 
 export async function ensureDefaultCategories(workspaceId: string) {
@@ -98,6 +101,8 @@ export async function createExpense(
 export async function listExpenses(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
+
+  await ensureDefaultCategories(workspaceId);
 
   const [categories, transactions] = await Promise.all([
     db.category.findMany({ where: { workspaceId }, orderBy: { name: "asc" } }),

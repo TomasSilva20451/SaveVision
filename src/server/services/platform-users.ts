@@ -2,6 +2,7 @@ import { hashPassword } from "@/lib/auth/password";
 import type { CreatePlatformUserInput } from "@/lib/platform/platform-user-schema";
 import { db } from "@/lib/db";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
+import { ensureDefaultCategories } from "@/server/services/expenses";
 
 export type PlatformUserSummary = {
   id: string;
@@ -33,7 +34,7 @@ async function ensurePersonalWorkspace(userId: string, name: string) {
   });
   if (membership) return;
 
-  await db.$transaction(async (tx) => {
+  const workspaceId = await db.$transaction(async (tx) => {
     const workspace = await tx.workspace.create({
       data: { name, type: "PERSONAL", createdById: userId },
     });
@@ -46,7 +47,9 @@ async function ensurePersonalWorkspace(userId: string, name: string) {
         joinedAt: new Date(),
       },
     });
+    return workspace.id;
   });
+  await ensureDefaultCategories(workspaceId);
 }
 
 export async function provisionPlatformUser(
