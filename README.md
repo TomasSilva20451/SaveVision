@@ -2,16 +2,19 @@
 
 Gestão financeira privada para dois utilizadores, com espaços pessoais separados e workspace conjunto por convite.
 
-## Funcionalidades (Fases 1 a 12)
+## Funcionalidades
 
-- Autenticação local (Auth.js, Argon2id) e workspaces com cookie `fintwin_workspace`
-- Contas, transações, transferências e motor decimal (`Europe/Lisbon`)
-- Receitas (familiar, e-commerce, ténis) e despesas com categorias
-- Dashboard com KPIs e gráficos a partir da base de dados
-- Planeamento: objetivos, fundo de emergência, health score, simulador, registo CGD manual
-- Conta conjunta: convites, membros, objetivos partilhados (isolamento de dados pessoais)
-- Relatórios PDF/CSV e upload de documentos privados
-- Investimentos manuais, previsões determinísticas e categorização opcional de transações com Ollama local
+- Autenticação local (Auth.js, Argon2id, cookie de sessão HttpOnly). A sessão expira após 30 minutos sem pedidos ao servidor e, no máximo, 12 horas depois do início de sessão. Ao voltar ao separador, a app confirma a sessão ou pede novo login.
+- Workspaces com cookie `fintwin_workspace`. Um espaço conjunto não abre o workspace pessoal de outro membro.
+- Contas, transações, transferências e motor decimal (`Europe/Lisbon`). Registar um movimento no drawer volta à lista e mostra o resultado.
+- Receitas (familiar, e-commerce, ténis), despesas, recorrências e orçamentos
+- Dashboard, análises, património e plano de poupança
+- Alertas e simulações determinísticas (não criam movimentos)
+- Conta conjunta: convites, membros e objetivos partilhados
+- Relatórios PDF/CSV e documentos privados
+- Investimentos manuais e previsões por regras
+- Open banking só de leitura e reconciliação bancária
+- Categorização opcional de transações com Ollama local
 - Testes unitários (Vitest) e E2E (Playwright)
 
 ## Stack
@@ -63,7 +66,7 @@ pnpm build:production
 pnpm start:production
 ```
 
-O build de produção usa Turbopack e uma pasta separada (`.next-production`), para não desformatar nem interromper a versão de desenvolvimento. Não usar `next build --webpack`: essa variante não aplica o pipeline visual configurado e produz uma interface desformatada.
+`pnpm build` e `pnpm build:production` usam `next build --webpack`, o mesmo comando do deploy na Vercel. A variante local de produção escreve para `.next-production`, para não substituir o artefacto de `pnpm dev`.
 
 O bootstrap de produção não cria contas bancárias, movimentos, categorias, objetivos, investimentos, alertas ou qualquer outro dado financeiro de demonstração.
 
@@ -77,13 +80,13 @@ ollama pull qwen3.5:4b-mlx
 
 O formulário «Nova transação» sugere comerciante, categoria, tipo, natureza, etiquetas e confiança. A sugestão nunca grava uma transação; o utilizador confirma ou corrige antes de submeter. Configuração e garantias: `docs/LOCAL_ML_CATEGORIZATION.md`.
 
-## Verificação (inclui Fase 13)
+## Verificação
 
 ```bash
 pnpm ci:verify
 ```
 
-Este comando cria uma base isolada por execução com sufixo `_e2e`, executa migrações e seed E2E, lint, geração de tipos, 235 testes unitários/integração, build offline e 87 testes Playwright contra o artefacto standalone. Escolhe uma porta E2E livre a partir de 3010, sem interferir com a aplicação normal na porta 3000.
+Este comando cria uma base isolada por execução com sufixo `_e2e`, executa migrações e seed E2E, lint, geração de tipos, testes unitários e de integração, build e Playwright contra o artefacto standalone. Escolhe uma porta E2E livre a partir de 3010, sem interferir com a aplicação normal na porta 3000.
 
 ## Build e deploy reproduzíveis
 
@@ -102,6 +105,19 @@ pnpm deploy:production
 ```
 
 Os dois comandos voltam a executar o portão completo e não iniciam o serviço se qualquer etapa falhar. Os perfis e nomes de base permitidos são validados antes de uma migração ou deploy.
+
+### Vercel e Neon
+
+A instância pública está em [savevision.vercel.app](https://savevision.vercel.app). O build na Vercel corre `prisma migrate deploy` e `pnpm build`. A base é Neon, com `sslmode=require`.
+
+Para migrar a mesma base a partir do Mac, copia o exemplo e cola a `DATABASE_URL` só no ficheiro local, que o Git ignora:
+
+```bash
+cp .env.vercel-neon.local.example .env.vercel-neon.local
+pnpm db:deploy:vercel-neon
+```
+
+`.env.vercel-neon.local.example` tem placeholders. Não commits palavras-passe, connection strings nem ficheiros `.env*.local`. Passos e erros comuns: `docs/VERCEL_GITHUB_DEPLOY.md`.
 
 Documentação de testes e auditoria: `docs/TESTING.md`, `docs/SECURITY_AUDIT.md`.
 
@@ -149,7 +165,7 @@ pnpm exec playwright install chromium
 | `APP_NAME` | Nome na interface (omissão: FinTwin) |
 | `FINTWIN_ENV` | `development`, `demo`, `e2e`, `staging` ou `production` |
 | `DATABASE_URL` | Ligação PostgreSQL |
-| `AUTH_SECRET` | Segredo da sessão (≥ 32 caracteres) |
+| `AUTH_SECRET` | Segredo da sessão (≥ 32 caracteres). Inatividade: 30 minutos. Tecto: 12 horas. |
 
 Documentação adicional: `docs/ARCHITECTURE.md`, `docs/FINANCIAL_RULES.md`, `docs/SECURITY.md`, `AGENTS.md`.
 
