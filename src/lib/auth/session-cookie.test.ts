@@ -12,5 +12,6 @@ describe("sessionCookie", () => {
     expect(production.options.httpOnly).toBe(true);
     expect(production.options.secure).toBe(true);
     expect(production.name.startsWith("__Secure-")).toBe(true);
+    expect(production.options.maxAge).toBe(30 * 60);
   });
 });

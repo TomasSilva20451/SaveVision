@@ -9,8 +9,13 @@ import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 // deve bloquear até a sessão ser resolvida em vez de tentar gerar uma shell.
 export const instant = false;
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ expired?: string }>;
+}) {
   await ensureRequestDynamic();
+  const { expired } = await searchParams;
   const user = await requireAuthenticatedUser();
   if (user) redirect("/inicio");
 
@@ -20,9 +25,11 @@ export default async function LoginPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-semibold tracking-tight">Entrar</h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          {showDevelopmentCredentials
-            ? `${appConfig.name}. As credenciais abaixo são só de desenvolvimento.`
-            : `${appConfig.name}. Introduz as credenciais da tua conta.`}
+          {expired === "1"
+            ? "A sessão expirou. Entra novamente para continuar."
+            : showDevelopmentCredentials
+              ? `${appConfig.name}. As credenciais abaixo são só de desenvolvimento.`
+              : `${appConfig.name}. Introduz as credenciais da tua conta.`}
         </p>
       </div>
       <LoginForm />

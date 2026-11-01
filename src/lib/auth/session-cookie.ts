@@ -1,3 +1,5 @@
+import { SESSION_IDLE_SECONDS } from "@/lib/auth/session-policy";
+
 export function sessionCookie(nodeEnv: string | undefined) {
   const secure = nodeEnv === "production";
 
@@ -8,6 +10,7 @@ export function sessionCookie(nodeEnv: string | undefined) {
       sameSite: "lax" as const,
       secure,
       path: "/",
+      maxAge: SESSION_IDLE_SECONDS,
     },
   };
 }

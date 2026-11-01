@@ -4,6 +4,7 @@ import { INVALID_CREDENTIALS_MESSAGE } from "@/lib/auth/login-policy";
 import { loginSchema } from "@/lib/auth/login-schema";
 import { DUMMY_PASSWORD_HASH, verifyPassword } from "@/lib/auth/password";
 import { sessionCookie } from "@/lib/auth/session-cookie";
+import { SESSION_IDLE_SECONDS, absoluteSessionExpired } from "@/lib/auth/session-policy";
 import { db } from "@/lib/db";
 
 import { isLoginRateLimitBypassAllowed } from "@/lib/auth/rate-limit-policy";
@@ -28,7 +29,7 @@ const cookie = sessionCookie(process.env.NODE_ENV);
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_IDLE_SECONDS },
   pages: { signIn: "/login" },
   cookies: {
     sessionToken: cookie,
@@ -141,9 +142,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     jwt({ token, user }) {
+      const now = Math.floor(Date.now() / 1000);
       if (user) {
         token.sub = user.id;
         token.sessionId = typeof user.sessionId === "string" ? user.sessionId : undefined;
+        token.loginAt = now;
+        return token;
+      }
+      const loginAt = typeof token.loginAt === "number"
+        ? token.loginAt
+        : typeof token.iat === "number"
+          ? token.iat
+          : now;
+      token.loginAt = loginAt;
+      if (absoluteSessionExpired(loginAt, now)) {
+        return null;
       }
       return token;
     },

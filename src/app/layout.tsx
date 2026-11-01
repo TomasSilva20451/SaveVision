@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
+import { SessionResume } from "@/components/auth/session-resume";
 import { ThemeBootstrap } from "@/components/shell/theme-bootstrap";
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeBootstrap />
+        <SessionResume />
         {children}
       </body>
     </html>
