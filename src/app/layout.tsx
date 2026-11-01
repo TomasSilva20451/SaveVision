@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import { ThemeBootstrap } from "@/components/shell/theme-bootstrap";
@@ -21,6 +21,12 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "FinTwin",
   description: "Gestão financeira privada",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

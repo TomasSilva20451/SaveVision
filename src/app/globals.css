@@ -87,6 +87,14 @@ body {
   backdrop-filter: blur(16px);
 }
 
+@media (max-width: 767px) {
+  .aurora-shell .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
 .dark .aurora-shell .app-header {
   border-bottom: 1px solid rgb(148 163 184 / 0.12);
   background: linear-gradient(180deg, rgb(8 17 31 / 0.96), rgb(11 22 40 / 0.76));
@@ -460,6 +468,26 @@ dialog.side-drawer {
 }
 
 dialog.side-drawer::backdrop {
+  background: rgb(15 23 42 / 0.45);
+}
+
+dialog.mobile-nav-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  height: 100svh;
+  max-height: 100svh;
+  width: min(20rem, 86vw);
+  max-width: 100vw;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+}
+
+dialog.mobile-nav-drawer::backdrop {
   background: rgb(15 23 42 / 0.45);
 }
 
