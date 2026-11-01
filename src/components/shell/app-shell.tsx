@@ -69,7 +69,11 @@ export async function AppShell({
       </aside>
       <div className="relative flex min-w-0 flex-1 flex-col overflow-x-clip">
         <header className="app-header sticky top-0 z-30 flex flex-wrap items-center gap-3 px-4 py-2.5 md:static md:px-8">
-          <MobileNav unseenAlertsCount={unseenAlertsCount} />
+          <MobileNav
+            unseenAlertsCount={unseenAlertsCount}
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+          />
           {headerLeading ? (
             <div className="order-3 w-full min-w-0 md:order-none md:w-auto md:min-w-60 md:flex-1">{headerLeading}</div>
           ) : (

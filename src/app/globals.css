@@ -483,8 +483,14 @@ dialog.mobile-nav-drawer {
   padding: 0;
   border: 0;
   overflow: hidden;
-  background: var(--sidebar);
-  color: var(--sidebar-foreground);
+  color-scheme: dark;
+  background: linear-gradient(180deg, #081426 0%, #0b162a 55%, #11112f 100%);
+  color: #e2e8f0;
+  box-shadow: 12px 0 40px rgb(15 23 42 / 0.35);
+}
+
+.mobile-nav-drawer-panel {
+  background: linear-gradient(180deg, #081426 0%, #0b162a 55%, #11112f 100%);
 }
 
 dialog.mobile-nav-drawer::backdrop {
