@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { MainNav } from "@/components/shell/main-nav";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
@@ -18,6 +18,14 @@ type MobileNavProps = {
   activeWorkspaceId: string | null;
 };
 
+function useIsClient() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
+}
+
 const drawerStyle = {
   backgroundColor: "#0b1220",
   backgroundImage: "linear-gradient(180deg, #081426 0%, #0b162a 55%, #11112f 100%)",
@@ -30,12 +38,8 @@ export function MobileNav({
   activeWorkspaceId,
 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
   const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     const dialog = dialogRef.current;
