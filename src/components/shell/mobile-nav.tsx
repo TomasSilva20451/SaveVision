@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { MainNav } from "@/components/shell/main-nav";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
 import { appConfig } from "@/lib/config";
@@ -29,14 +29,6 @@ export function MobileNav({
 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<ViewportBox | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,10 +52,19 @@ export function MobileNav({
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  const panelStyle = box
+    ? { top: box.top, height: box.height, maxHeight: box.height }
+    : { top: 0, height: "100svh", maxHeight: "100svh" };
 
   return (
     <div className="md:hidden">
@@ -76,49 +77,55 @@ export function MobileNav({
       >
         Menu
       </button>
-      <dialog
-        ref={dialogRef}
-        className="mobile-nav-drawer"
-        aria-label={appConfig.name}
-        style={box ? { top: box.top, height: box.height, maxHeight: box.height } : undefined}
-        onClose={() => setOpen(false)}
-        onCancel={(event) => {
-          event.preventDefault();
-          setOpen(false);
-        }}
-        onClick={(event) => {
-          if (event.target === dialogRef.current) setOpen(false);
-        }}
-      >
-        <div className="mobile-nav-drawer-panel flex h-full min-h-0 flex-col text-[var(--sidebar-foreground)]">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="brand-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white">
-                <span className="brand-mark-dot" aria-hidden />
-                <span className="sr-only">{appConfig.name}</span>
-              </span>
-              <p className="truncate text-sm font-semibold tracking-tight">{appConfig.name}</p>
-            </div>
-            <button
-              type="button"
-              className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-slate-100"
-              onClick={() => setOpen(false)}
-            >
-              Fechar
-            </button>
-          </div>
-          <div
-            id="mobile-main-nav"
-            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3"
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[100] bg-slate-900/45 md:hidden"
+            aria-label="Fechar menu"
+            onClick={() => setOpen(false)}
+          />
+          <aside
+            id="mobile-main-nav-root"
+            className="mobile-nav-drawer-panel fixed left-0 z-[101] flex w-[min(20rem,86vw)] max-w-[86vw] flex-col text-[#e2e8f0] shadow-[12px_0_40px_rgb(15_23_42/0.35)] md:hidden"
+            style={panelStyle}
+            role="dialog"
+            aria-modal="true"
+            aria-label={appConfig.name}
           >
-            <MainNav onNavigate={() => setOpen(false)} unseenAlertsCount={unseenAlertsCount} />
-          </div>
-          <div className="shrink-0 border-t border-white/10 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-            <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Espaço</p>
-            <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
-          </div>
-        </div>
-      </dialog>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="brand-mark grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold text-white">
+                  <span className="brand-mark-dot" aria-hidden />
+                  <span className="sr-only">{appConfig.name}</span>
+                </span>
+                <p className="truncate text-sm font-semibold tracking-tight text-slate-100">{appConfig.name}</p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 rounded-lg border border-white/15 px-3 py-1.5 text-sm font-medium text-slate-100"
+                onClick={() => setOpen(false)}
+              >
+                Fechar
+              </button>
+            </div>
+            <div
+              id="mobile-main-nav"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-3"
+            >
+              <MainNav
+                className="mobile-nav-sidebar"
+                onNavigate={() => setOpen(false)}
+                unseenAlertsCount={unseenAlertsCount}
+              />
+            </div>
+            <div className="shrink-0 border-t border-white/10 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Espaço</p>
+              <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} />
+            </div>
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }
