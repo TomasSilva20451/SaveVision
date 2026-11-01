@@ -471,11 +471,27 @@ dialog.side-drawer::backdrop {
   background: rgb(15 23 42 / 0.45);
 }
 
-.mobile-nav-drawer-panel {
+dialog.mobile-nav-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  height: 100svh;
+  max-height: 100svh;
+  width: min(20rem, 86vw);
+  max-width: 86vw;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   color-scheme: dark;
-  background-color: #0b1220;
-  background-image: linear-gradient(180deg, #081426 0%, #0b162a 55%, #11112f 100%);
+  background-color: #0b1220 !important;
+  background-image: linear-gradient(180deg, #081426 0%, #0b162a 55%, #11112f 100%) !important;
+  color: #e2e8f0 !important;
+  box-shadow: 12px 0 40px rgb(15 23 42 / 0.35);
+}
+
+dialog.mobile-nav-drawer::backdrop {
+  background: rgb(15 23 42 / 0.55);
 }
 
 .mobile-nav-sidebar p {
