@@ -14,6 +14,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/ui/form-styles";
+import { FormReturnTo } from "@/components/ui/form-return-to";
 import { SideDrawer } from "@/components/ui/side-drawer";
 
 type AccountOption = { id: string; name: string };
@@ -149,6 +150,7 @@ export function NewTransactionDrawer({
             }
             className="flex min-h-0 flex-1 flex-col"
           >
+            <FormReturnTo to="/transacoes" />
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
               {mode === "transfer" ? (
                 <>

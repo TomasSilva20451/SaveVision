@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import {
@@ -11,11 +12,20 @@ import {
   createTournamentIncomeRecord,
 } from "@/server/services/income";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+import { readReturnTo } from "@/lib/ui/form-return";
 import { createExpense } from "@/server/services/expenses";
 import { civilDateIsoToInstant } from "@/lib/datetime/civil-date";
 
 const INCOME_PATH = "/receitas";
 const EXPENSE_PATH = "/despesas";
+function flashPath(formData: FormData, fallback: string) {
+  return readReturnTo(formData) ?? fallback;
+}
+
+function finishFormNavigation(formData: FormData) {
+  const returnTo = readReturnTo(formData);
+  if (returnTo) redirect(returnTo);
+}
 
 function workspaceOrAbort(userId: string) {
   return resolveWorkspaceContext(userId);
@@ -49,15 +59,18 @@ export async function createIncomeAction(formData: FormData): Promise<void> {
     categorization: categorizationFrom(formData),
   });
 
+  const target = flashPath(formData, INCOME_PATH);
   if (!created) {
-    await flashError("Não foi possível registar a receita. Verifica a conta e o montante.", INCOME_PATH);
+    await flashError("Não foi possível registar a receita. Verifica a conta e o montante.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Receita registada.", INCOME_PATH);
+  await flashSuccess("Receita registada.", target);
 
   revalidatePath("/receitas");
   revalidatePath("/transacoes");
   revalidatePath("/contas");
+  finishFormNavigation(formData);
 }
 
 export async function createFamilyIncomeAction(formData: FormData): Promise<void> {
@@ -75,13 +88,16 @@ export async function createFamilyIncomeAction(formData: FormData): Promise<void
     certainty: String(formData.get("certainty")) as "HIGH" | "MEDIUM" | "LOW",
   });
 
+  const target = flashPath(formData, INCOME_PATH);
   if (!created) {
-    await flashError("Não foi possível criar a série familiar.", INCOME_PATH);
+    await flashError("Não foi possível criar a série familiar.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Série familiar criada.", INCOME_PATH);
+  await flashSuccess("Série familiar criada.", target);
 
   revalidatePath("/receitas");
+  finishFormNavigation(formData);
 }
 
 export async function confirmOccurrenceAction(formData: FormData): Promise<void> {
@@ -129,14 +145,17 @@ export async function createEcommerceAction(formData: FormData): Promise<void> {
     recordPayout: formData.get("recordPayout") === "on",
   });
 
+  const target = flashPath(formData, INCOME_PATH);
   if (!created) {
-    await flashError("Não foi possível registar a venda.", INCOME_PATH);
+    await flashError("Não foi possível registar a venda.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Venda registada.", INCOME_PATH);
+  await flashSuccess("Venda registada.", target);
 
   revalidatePath("/receitas");
   revalidatePath("/transacoes");
+  finishFormNavigation(formData);
 }
 
 export async function createTennisAction(formData: FormData): Promise<void> {
@@ -156,14 +175,17 @@ export async function createTennisAction(formData: FormData): Promise<void> {
     recordPayout: formData.get("recordPayout") === "on",
   });
 
+  const target = flashPath(formData, INCOME_PATH);
   if (!created) {
-    await flashError("Não foi possível registar o torneio.", INCOME_PATH);
+    await flashError("Não foi possível registar o torneio.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Torneio registado.", INCOME_PATH);
+  await flashSuccess("Torneio registado.", target);
 
   revalidatePath("/receitas");
   revalidatePath("/transacoes");
+  finishFormNavigation(formData);
 }
 
 export async function createExpenseAction(formData: FormData): Promise<void> {
@@ -183,15 +205,18 @@ export async function createExpenseAction(formData: FormData): Promise<void> {
     categorization: categorizationFrom(formData),
   });
 
+  const target = flashPath(formData, EXPENSE_PATH);
   if (!created) {
-    await flashError("Não foi possível registar a despesa. Verifica a conta e o montante.", EXPENSE_PATH);
+    await flashError("Não foi possível registar a despesa. Verifica a conta e o montante.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Despesa registada.", EXPENSE_PATH);
+  await flashSuccess("Despesa registada.", target);
 
   revalidatePath("/despesas");
   revalidatePath("/transacoes");
   revalidatePath("/contas");
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
+  finishFormNavigation(formData);
 }

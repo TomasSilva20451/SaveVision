@@ -1,10 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import { createInvestmentPosition } from "@/server/services/investments";
+import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+import { readReturnTo } from "@/lib/ui/form-return";
+
+const INVESTMENTS_PATH = "/investimentos";
 
 export async function createInvestmentPositionAction(
   formData: FormData,
@@ -38,8 +43,23 @@ export async function createInvestmentPositionAction(
       linkedAccountId: formData.get("linkedAccountId") || undefined,
     });
 
-  if (!parsed.success) return;
+  const target = readReturnTo(formData) ?? INVESTMENTS_PATH;
+  if (!parsed.success) {
+    await flashError("Dados da posição inválidos.", target);
+    const returnTo = readReturnTo(formData);
+    if (returnTo) redirect(returnTo);
+    return;
+  }
 
-  await createInvestmentPosition(user.id, selected.id, parsed.data);
+  const created = await createInvestmentPosition(user.id, selected.id, parsed.data);
+  if (!created) {
+    await flashError("Não foi possível registar a posição.", target);
+    const returnTo = readReturnTo(formData);
+    if (returnTo) redirect(returnTo);
+    return;
+  }
+  await flashSuccess("Posição registada.", target);
   revalidatePath("/investimentos");
+  const returnTo = readReturnTo(formData);
+  if (returnTo) redirect(returnTo);
 }

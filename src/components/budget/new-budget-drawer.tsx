@@ -9,6 +9,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/ui/form-styles";
+import { FormReturnTo } from "@/components/ui/form-return-to";
 import { SideDrawer } from "@/components/ui/side-drawer";
 
 function SubmitButton() {
@@ -40,6 +41,7 @@ export function NewBudgetDrawer({
       </button>
       <SideDrawer open={open} onClose={() => setOpen(false)} titleId={titleId} returnFocusRef={triggerRef}>
         <form action={upsertBudgetLineAction} className="flex h-full min-h-0 flex-col">
+          <FormReturnTo to="/orcamentos" />
           <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
             <div>
               <h2 id={titleId} className="text-lg font-semibold">

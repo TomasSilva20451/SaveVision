@@ -3,6 +3,7 @@
 import { useId, useRef, useState } from "react";
 import { createAccountAction } from "@/lib/finance/actions";
 import { inputClassName, labelClassName, primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
+import { FormReturnTo } from "@/components/ui/form-return-to";
 import { SideDrawer } from "@/components/ui/side-drawer";
 
 export function AddAccountDrawer() {
@@ -17,6 +18,7 @@ export function AddAccountDrawer() {
       </button>
       <SideDrawer open={open} onClose={() => setOpen(false)} titleId={titleId} returnFocusRef={triggerRef}>
         <form action={createAccountAction} className="flex h-full min-h-0 flex-col">
+          <FormReturnTo to="/contas" />
           <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
             <div>
               <h2 id={titleId} className="text-lg font-semibold">

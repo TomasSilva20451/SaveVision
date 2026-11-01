@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+import { readReturnTo } from "@/lib/ui/form-return";
 
 const BUDGET_PATH = "/orcamentos";
 import {
@@ -27,9 +29,12 @@ export async function upsertBudgetLineAction(formData: FormData): Promise<void> 
   const { selected } = await resolveWorkspaceContext(user.id);
   if (!selected) return;
 
+  const target = readReturnTo(formData) ?? BUDGET_PATH;
   const ym = parseYearMonth(formData);
   if (!ym) {
-    await flashError("Mês ou ano inválido.", BUDGET_PATH);
+    await flashError("Mês ou ano inválido.", target);
+    const returnTo = readReturnTo(formData);
+    if (returnTo) redirect(returnTo);
     return;
   }
 
@@ -40,13 +45,17 @@ export async function upsertBudgetLineAction(formData: FormData): Promise<void> 
   });
 
   if (!created) {
-    await flashError("Não foi possível guardar o limite. Verifica a categoria.", BUDGET_PATH);
+    await flashError("Não foi possível guardar o limite. Verifica a categoria.", target);
+    const returnTo = readReturnTo(formData);
+    if (returnTo) redirect(returnTo);
     return;
   }
 
-  await flashSuccess("Limite de orçamento guardado.", BUDGET_PATH);
+  await flashSuccess("Limite de orçamento guardado.", target);
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
+  const returnTo = readReturnTo(formData);
+  if (returnTo) redirect(returnTo);
 }
 
 export async function deleteBudgetLineAction(formData: FormData): Promise<void> {

@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import { archiveAccount, createAccount } from "@/server/services/accounts";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+import { readReturnTo } from "@/lib/ui/form-return";
 import { createTransfer } from "@/server/services/transfers";
 
 const accountSchema = z.object({
@@ -22,6 +24,14 @@ const accountSchema = z.object({
   openingBalance: z.string().min(1),
   institution: z.string().optional(),
 });
+
+const ACCOUNTS_PATH = "/contas";
+const TRANSACTIONS_PATH = "/transacoes";
+
+function finishFormNavigation(formData: FormData) {
+  const returnTo = readReturnTo(formData);
+  if (returnTo) redirect(returnTo);
+}
 
 const transferSchema = z.object({
   fromAccountId: z.string().min(1),
@@ -44,20 +54,24 @@ export async function createAccountAction(formData: FormData): Promise<void> {
     institution: formData.get("institution") || undefined,
   });
 
+  const target = readReturnTo(formData) ?? ACCOUNTS_PATH;
   if (!parsed.success) {
-    await flashError("Dados da conta inválidos.");
+    await flashError("Dados da conta inválidos.", target);
+    finishFormNavigation(formData);
     return;
   }
 
   const account = await createAccount(user.id, selected.id, parsed.data);
   if (!account) {
-    await flashError("Não foi possível criar a conta.");
+    await flashError("Não foi possível criar a conta.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Conta criada.");
+  await flashSuccess("Conta criada.", target);
 
   revalidatePath("/contas");
   revalidatePath("/transacoes");
+  finishFormNavigation(formData);
 }
 
 export async function createTransferAction(formData: FormData): Promise<void> {
@@ -74,8 +88,10 @@ export async function createTransferAction(formData: FormData): Promise<void> {
     description: formData.get("description") || undefined,
   });
 
+  const target = readReturnTo(formData) ?? TRANSACTIONS_PATH;
   if (!parsed.success) {
-    await flashError("Dados da transferência inválidos.");
+    await flashError("Dados da transferência inválidos.", target);
+    finishFormNavigation(formData);
     return;
   }
 
@@ -85,13 +101,15 @@ export async function createTransferAction(formData: FormData): Promise<void> {
   });
 
   if (!result.ok) {
-    await flashError("Transferência não realizada. Verifica contas e montante.");
+    await flashError("Transferência não realizada. Verifica contas e montante.", target);
+    finishFormNavigation(formData);
     return;
   }
-  await flashSuccess("Transferência registada.");
+  await flashSuccess("Transferência registada.", target);
 
   revalidatePath("/contas");
   revalidatePath("/transacoes");
+  finishFormNavigation(formData);
 }
 
 export async function archiveAccountAction(formData: FormData): Promise<void> {

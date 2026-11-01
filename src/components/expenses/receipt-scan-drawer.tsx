@@ -179,6 +179,7 @@ export function ReceiptScanDrawer({ open, onClose, accounts, categories, today, 
               ))}
             </ul>
             <form action={createExpenseFromReceiptAction} className="grid gap-4">
+              <input type="hidden" name="_returnTo" value="/despesas" />
               <input type="hidden" name="receiptDocumentId" value={documentId ?? ""} />
               <input
                 type="hidden"

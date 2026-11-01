@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { civilDateIsoToInstant } from "@/lib/datetime/civil-date";
 import { normalizeDecimalInput } from "@/lib/finance/money";
@@ -10,8 +11,14 @@ import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import { createExpense } from "@/server/services/expenses";
 import { db } from "@/lib/db";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
+import { readReturnTo } from "@/lib/ui/form-return";
 
 const EXPENSE_PATH = "/despesas";
+
+function finishReceiptNavigation(formData: FormData) {
+  const returnTo = readReturnTo(formData);
+  if (returnTo) redirect(returnTo);
+}
 
 export type ReceiptExtractActionResult =
   | {
@@ -80,19 +87,22 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
   const { selected } = await resolveWorkspaceContext(user.id);
   if (!selected) return;
 
+  const target = readReturnTo(formData) ?? EXPENSE_PATH;
   const receiptDocumentId = String(formData.get("receiptDocumentId") ?? "").trim();
   const acknowledged = formData.get("receiptReviewAcknowledged") === "yes";
   const duplicateAck = formData.get("receiptDuplicateAcknowledged") === "yes";
   const duplicateScore = Number(formData.get("receiptDuplicateScore") ?? "0");
   if (receiptDocumentId && !acknowledged) {
-    await flashError("Confirma que reviste o total e os dados do recibo antes de registar.", EXPENSE_PATH);
+    await flashError("Confirma que reviste o total e os dados do recibo antes de registar.", target);
+    finishReceiptNavigation(formData);
     return;
   }
   if (duplicateScore >= RECEIPT_DUPLICATE_HIGH_SCORE && !duplicateAck) {
     await flashError(
       "Existe uma despesa semelhante. Confirma que não é duplicado antes de registar.",
-      EXPENSE_PATH,
+      target,
     );
+    finishReceiptNavigation(formData);
     return;
   }
 
@@ -101,7 +111,8 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
       where: { id: receiptDocumentId, workspaceId: selected.id },
     });
     if (!doc) {
-      await flashError("O recibo associado já não está disponível neste workspace.", EXPENSE_PATH);
+      await flashError("O recibo associado já não está disponível neste workspace.", target);
+      finishReceiptNavigation(formData);
       return;
     }
   }
@@ -112,7 +123,8 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
     amount = normalizeDecimalInput(String(formData.get("amount")));
     occurredAt = civilDateIsoToInstant(String(formData.get("occurredAt")));
   } catch {
-    await flashError("Montante ou data inválidos.", EXPENSE_PATH);
+    await flashError("Montante ou data inválidos.", target);
+    finishReceiptNavigation(formData);
     return;
   }
 
@@ -125,7 +137,8 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
   });
 
   if (!created) {
-    await flashError("Não foi possível registar a despesa. Verifica a conta e o montante.", EXPENSE_PATH);
+    await flashError("Não foi possível registar a despesa. Verifica a conta e o montante.", target);
+    finishReceiptNavigation(formData);
     return;
   }
 
@@ -133,7 +146,7 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
     receiptDocumentId
       ? "Despesa registada. O recibo permanece nos documentos privados do workspace."
       : "Despesa registada.",
-    EXPENSE_PATH,
+    target,
   );
 
   revalidatePath("/despesas");
@@ -142,4 +155,5 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
   revalidatePath("/orcamentos");
   revalidatePath("/dashboard");
   revalidatePath("/relatorios");
+  finishReceiptNavigation(formData);
 }
