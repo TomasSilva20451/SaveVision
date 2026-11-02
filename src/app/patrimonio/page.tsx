@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { NewPatrimonyDrawer } from "@/components/patrimony/new-patrimony-drawer";
@@ -41,4 +42,4 @@ async function PatrimonioContent({history}:{history:string}){
   </AppShell>;
 }
 async function PatrimonioInner({searchParams}:PageProps){const params=await searchParams;const history=["6","12","all"].includes(params.history??"")?params.history!:"12";return <PatrimonioContent history={history}/>;}
-export default function PatrimonioPage(props:PageProps){return <Suspense fallback={<p className="p-6 text-sm">A carregar património…</p>}><PatrimonioInner searchParams={props.searchParams}/></Suspense>;}
+export default function PatrimonioPage(props:PageProps){return <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}><PatrimonioInner searchParams={props.searchParams}/></Suspense>;}

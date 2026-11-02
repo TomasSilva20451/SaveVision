@@ -5,6 +5,7 @@ import { BudgetOverviewCharts } from "@/components/budget/budget-overview-charts
 import { NewBudgetDrawer } from "@/components/budget/new-budget-drawer";
 import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card";
 import { AppShell } from "@/components/shell/app-shell";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import {
   FinanceTable,
   FinanceTableBody,
@@ -313,7 +314,7 @@ async function OrcamentosContent({ searchParams }: { searchParams: SearchParams 
 
 export default function OrcamentosPage(props: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar orçamentos…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="expenses" />}>
       <OrcamentosContent searchParams={props.searchParams} />
     </Suspense>
   );

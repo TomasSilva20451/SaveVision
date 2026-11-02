@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { TreasuryForecastPanel } from "@/components/forecast/treasury-forecast-panel";
@@ -90,7 +91,7 @@ async function PrevisoesContent({ searchParams }: PageProps) {
 
 export default function PrevisoesPage(props: PageProps) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar previsões…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
       <PrevisoesContent searchParams={props.searchParams} />
     </Suspense>
   );

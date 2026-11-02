@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { RequestDynamicPage } from "@/components/shell/request-dynamic-page";
+import { EmptyState } from "@/components/ui/empty-state";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { formatEUR } from "@/lib/finance/money";
+import { isAdvisoryReleaseAllowed } from "@/lib/ml/release-eval-gate";
 import { getAdvancedFinancialIntelligence } from "@/server/services/advanced-financial-intelligence";
 import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
@@ -21,13 +23,65 @@ async function InteligenciaPageContent() {
   const user = await requireAuthenticatedUser();
   if (!user) redirect("/login");
   const { workspaces, selected } = await resolveWorkspaceContext(user.id);
-  if (!selected) redirect("/inicio");
+  if (!selected) {
+    return (
+      <AppShell userName={user.name} workspaces={workspaces} activeWorkspaceId={null}>
+        <EmptyState
+          title="Sem workspace ativo"
+          description="Seleciona ou cria um espaço financeiro para ver cenários probabilísticos."
+          action={
+            <Link href="/conta-conjunta" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white">
+              Gerir espaços
+            </Link>
+          }
+        />
+      </AppShell>
+    );
+  }
 
+  const gate = await isAdvisoryReleaseAllowed();
   const [data, unseenAlertsCount] = await Promise.all([
-    getAdvancedFinancialIntelligence(user.id, selected.id),
+    gate.allowed ? getAdvancedFinancialIntelligence(user.id, selected.id) : Promise.resolve(null),
     countUnseenFinancialAlerts(user.id, selected.id),
   ]);
-  if (!data) redirect("/inicio");
+
+  const gateMessage =
+    gate.reason === "NO_PASSED_EVAL" || gate.reason === "EVAL_STALE"
+      ? "Em produção, os cenários P10/P50/P90 só aparecem depois de uma avaliação ML recente (últimos 30 dias). Usa previsões determinísticas enquanto isso."
+      : gate.reason === "EVAL_GATE_DISABLED_BY_ENV"
+        ? "A funcionalidade advisory está desativada neste ambiente."
+        : gate.reason === "EVAL_STORE_UNAVAILABLE"
+          ? "Não foi possível verificar a avaliação ML. Tenta novamente mais tarde."
+          : "Ainda não há dados suficientes neste workspace para calcular cenários.";
+
+  if (!gate.allowed || !data) {
+    return (
+      <AppShell
+        userName={user.name}
+        workspaces={workspaces}
+        activeWorkspaceId={selected.id}
+        unseenAlertsCount={unseenAlertsCount}
+        headerLeading={
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Inteligência financeira</h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Cenários estatísticos e recomendações explicáveis, sempre em modo de leitura.
+            </p>
+          </div>
+        }
+      >
+        <EmptyState
+          title={gate.allowed ? "Dados insuficientes" : "Cenários probabilísticos indisponíveis"}
+          description={gateMessage}
+          action={
+            <Link href="/previsoes" className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-semibold">
+              Ir para previsões
+            </Link>
+          }
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
@@ -104,7 +158,7 @@ async function InteligenciaPageContent() {
 
 export default function InteligenciaPage() {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar inteligência…</p>}>
+    <RequestDynamicPage contentShape="dashboard">
       <InteligenciaPageContent />
     </RequestDynamicPage>
   );

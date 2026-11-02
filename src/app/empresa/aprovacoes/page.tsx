@@ -87,7 +87,7 @@ async function EmpresaAprovacoesPageContent() {
 
 export default function EmpresaAprovacoesPage() {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar aprovações…</p>}>
+    <RequestDynamicPage contentShape="table">
       <EmpresaAprovacoesPageContent />
     </RequestDynamicPage>
   );

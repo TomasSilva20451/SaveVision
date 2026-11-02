@@ -14,7 +14,7 @@ import {
   FinanceTableHeaderCell,
   FinanceTableRow,
 } from "@/components/ui/finance-table";
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { filterApplyButtonClassName, inputClassName } from "@/components/ui/form-styles";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
@@ -250,7 +250,7 @@ async function TransacoesContent({ searchParams }: { searchParams: SearchParams 
 
 export default function TransacoesPage(props: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<PageSkeleton variant="transactions" />}>
+    <Suspense fallback={<PageSuspenseFallback shape="transactions" />}>
       <TransacoesContent searchParams={props.searchParams} />
     </Suspense>
   );

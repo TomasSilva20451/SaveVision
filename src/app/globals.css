@@ -45,6 +45,19 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
+@keyframes route-load-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.route-load-bar {
+  animation: route-load-indeterminate 1.15s ease-in-out infinite;
+}
+
 .brand-mark {
   position: relative;
   overflow: hidden;

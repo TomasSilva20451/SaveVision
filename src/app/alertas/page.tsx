@@ -17,6 +17,7 @@ import { readPageFlash } from "@/lib/ui/page-shell";
 import { countUnseenFinancialAlerts, listFinancialAlerts, type FinancialAlertView } from "@/server/services/financial-alerts";
 import { loadTreasuryContext } from "@/server/services/treasury-forecast";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 
 type Params = { period?:string; view?:string; type?:string; severity?:string; sort?:string; q?:string; calendar?:string; day?:string };
 type PageProps = { searchParams:Promise<Params> };
@@ -76,4 +77,4 @@ async function AlertasContent({ params }: { params:Params }) {
 }
 
 async function AlertasPageInner({searchParams}:PageProps){return <AlertasContent params={await searchParams}/>;}
-export default function AlertasPage(props:PageProps){return <Suspense fallback={<p className="p-6 text-sm">A carregar alertas…</p>}><AlertasPageInner searchParams={props.searchParams}/></Suspense>;}
+export default function AlertasPage(props:PageProps){return <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}><AlertasPageInner searchParams={props.searchParams}/></Suspense>;}

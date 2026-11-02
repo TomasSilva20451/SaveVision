@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -57,7 +58,7 @@ async function IaContent() {
 
 export default function PerfilIaPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar configuração…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="table" />}>
       <IaContent />
     </Suspense>
   );

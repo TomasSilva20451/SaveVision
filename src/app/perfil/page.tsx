@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -131,5 +132,5 @@ async function PerfilContent() {
 }
 
 export default function PerfilPage() {
-  return <Suspense fallback={<p className="p-6 text-sm">A carregar perfil…</p>}><PerfilContent/></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback shape="table" />}><PerfilContent/></Suspense>;
 }

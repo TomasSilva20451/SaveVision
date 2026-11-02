@@ -110,7 +110,7 @@ async function OpenBankingPageContent() {
 
 export default function OpenBankingPage() {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar Open Banking…</p>}>
+    <RequestDynamicPage contentShape="accounts">
       <OpenBankingPageContent />
     </RequestDynamicPage>
   );

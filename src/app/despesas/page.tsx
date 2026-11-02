@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { AppShell } from "@/components/shell/app-shell";
 import { ExpenseDashboard } from "@/components/expenses/expense-dashboard";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,4 +35,4 @@ async function DespesasContent(){
     {safeAccounts.length===0?<div className="mt-5"><EmptyState title="Cria primeiro uma conta" description="Uma despesa precisa de uma conta de origem." action={<Link href="/contas" className={primaryButtonClassName}>Ir para contas</Link>}/></div>:<div className="mt-5"><ExpenseDashboard accounts={safeAccounts.map(a=>({id:a.id,name:a.name}))} categories={(data?.categories??[]).map(c=>({id:c.id,name:c.name}))} transactions={rows.map(tx=>({id:tx.id,accountName:tx.account.name,categoryName:tx.category?.name??"Sem categoria",description:tx.description??"Sem descrição",amount:tx.amount.toString(),occurredAt:tx.occurredAt.toISOString()}))} monthly={(analysis?.monthlyTotals??[]).map(row=>({label:`${MONTHS[row.month-1]} ${String(row.year).slice(-2)}`,value:Number(row.total)}))} byCategory={(analysis?.byCategory??[]).map(row=>({name:row.name,value:Number(row.total)}))} today={formatCivilDateIso(civil)}/></div>}
   </AppShell>;
 }
-export default function DespesasPage(){return <Suspense fallback={<PageSkeleton variant="expenses" />}><DespesasContent/></Suspense>}
+export default function DespesasPage(){return <Suspense fallback={<PageSuspenseFallback shape="expenses" />}><DespesasContent/></Suspense>}

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { RouteSegmentLoading } from "@/components/ui/loading";
 
-export default function ContasLoading() {
-  return <PageSkeleton variant="accounts" />;
+export default function Loading() {
+  return <RouteSegmentLoading />;
 }

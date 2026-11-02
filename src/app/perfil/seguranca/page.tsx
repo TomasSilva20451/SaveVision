@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { MfaTotpPanel } from "@/components/auth/mfa-totp-panel";
@@ -194,7 +195,7 @@ async function SecurityContent() {
 
 export default function SecurityPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar segurança…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="table" />}>
       <SecurityContent />
     </Suspense>
   );

@@ -209,7 +209,7 @@ async function ReconciliacaoPageContent() {
 
 export default function ReconciliacaoPage() {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar reconciliação…</p>}>
+    <RequestDynamicPage contentShape="transactions">
       <ReconciliacaoPageContent />
     </RequestDynamicPage>
   );

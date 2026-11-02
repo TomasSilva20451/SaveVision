@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -180,7 +181,7 @@ async function PlanDetailContent({ planId }: { planId: string }) {
 
 export default function SavingsPlanDetailPage(props: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar plano…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
       <PlanDetailWrapper params={props.params} />
     </Suspense>
   );

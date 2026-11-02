@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
@@ -72,7 +73,7 @@ async function ContaDetailRoute({ params }: PageProps) {
 
 export default function ContaDetailPage({ params }: PageProps) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar conta…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="accounts" />}>
       <ContaDetailRoute params={params} />
     </Suspense>
   );

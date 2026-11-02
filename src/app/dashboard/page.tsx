@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
 import { DashboardGreeting, DashboardHeaderActions } from "@/components/dashboard/dashboard-header";
 import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card";
@@ -129,7 +129,7 @@ async function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<PageSkeleton variant="dashboard" />}>
+    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
       <DashboardContent />
     </Suspense>
   );

@@ -134,7 +134,7 @@ async function EmpresaTesourariaPageContent({ searchParams }: PageProps) {
 
 export default function EmpresaTesourariaPage(props: PageProps) {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar tesouraria…</p>}>
+    <RequestDynamicPage contentShape="dashboard">
       <EmpresaTesourariaPageContent {...props} />
     </RequestDynamicPage>
   );

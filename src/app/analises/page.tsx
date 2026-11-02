@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AnalyticsDashboard } from "@/components/insights/analytics-dashboard";
@@ -74,5 +75,5 @@ async function AnalisesInner({ searchParams }: PageProps) {
 }
 
 export default function AnalisesPage(props: PageProps) {
-  return <Suspense fallback={<p className="p-6 text-sm">A carregar análises…</p>}><AnalisesInner searchParams={props.searchParams}/></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback shape="expenses" />}><AnalisesInner searchParams={props.searchParams}/></Suspense>;
 }

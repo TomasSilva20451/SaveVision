@@ -70,7 +70,7 @@ async function EmpresaWebhooksPageContent() {
 
 export default function EmpresaWebhooksPage() {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar webhooks…</p>}>
+    <RequestDynamicPage contentShape="table">
       <EmpresaWebhooksPageContent />
     </RequestDynamicPage>
   );

@@ -1,19 +1,19 @@
 import { Suspense, type ReactNode } from "react";
 
+import { PageSuspenseFallback, type ContentLoadingShape } from "@/components/ui/loading";
+
 type RequestDynamicPageProps = {
   fallback?: ReactNode;
+  /** Skeleton atrasado quando a forma do conteúdo é conhecida. */
+  contentShape?: ContentLoadingShape;
   children: ReactNode;
 };
 
 /** Envolve páginas que chamam `connection()` / auth para cumprir Cache Components + prerender. */
-export function RequestDynamicPage({ fallback, children }: RequestDynamicPageProps) {
+export function RequestDynamicPage({ fallback, contentShape, children }: RequestDynamicPageProps) {
   return (
     <Suspense
-      fallback={
-        fallback ?? (
-          <p className="p-6 text-sm text-slate-600 dark:text-slate-300">A carregar…</p>
-        )
-      }
+      fallback={fallback ?? <PageSuspenseFallback shape={contentShape} />}
     >
       {children}
     </Suspense>

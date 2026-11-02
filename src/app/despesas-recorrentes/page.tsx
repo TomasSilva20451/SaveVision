@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { Suspense } from "react";
 import { NewRecurringDrawer } from "@/components/recurring/new-recurring-drawer";
 import { RecurringCharts } from "@/components/recurring/recurring-charts";
@@ -141,7 +142,7 @@ async function RecorrentesContent({ searchParams }: { searchParams: SearchParams
 
 export default function DespesasRecorrentesPage(props: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar despesas recorrentes…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="transactions" />}>
       <RecorrentesContent searchParams={props.searchParams} />
     </Suspense>
   );

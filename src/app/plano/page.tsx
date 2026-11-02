@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
 import { inputClassName, labelClassName, primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
 import { PageHeader } from "@/components/ui/page-header";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
@@ -320,7 +321,7 @@ async function PlanoContent({ searchParams }: { searchParams: SearchParams }) {
 
 export default function PlanoPage({ searchParams }: { searchParams: SearchParams }) {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar plano…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
       <PlanoContent searchParams={searchParams} />
     </Suspense>
   );

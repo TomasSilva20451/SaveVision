@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
@@ -152,5 +153,5 @@ async function BackofficeContent() {
 }
 
 export default function BackofficePage() {
-  return <Suspense fallback={<p className="p-6 text-sm">A carregar o backoffice…</p>}><BackofficeContent /></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback />}><BackofficeContent /></Suspense>;
 }

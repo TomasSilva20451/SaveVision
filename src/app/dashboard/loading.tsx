@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { RouteSegmentLoading } from "@/components/ui/loading";
 
-export default function DashboardLoading() {
-  return <PageSkeleton variant="dashboard" />;
+export default function Loading() {
+  return <RouteSegmentLoading />;
 }

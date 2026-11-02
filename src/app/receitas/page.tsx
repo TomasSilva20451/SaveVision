@@ -7,7 +7,7 @@ import { IncomeSourcesTable } from "@/components/income/income-sources-table";
 import { NewIncomeDrawer } from "@/components/income/new-income-drawer";
 import { UpcomingIncomePanel } from "@/components/income/upcoming-income-panel";
 import { FinanceMetricCard, MetricGrid } from "@/components/ui/finance-metric-card";
-import { PageSkeleton } from "@/components/ui/skeleton";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { filterApplyButtonClassName } from "@/components/ui/form-styles";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
@@ -96,5 +96,5 @@ async function ReceitasContent({ searchParams }: { searchParams: SearchParams })
 }
 
 export default function ReceitasPage({ searchParams }: { searchParams: SearchParams }) {
-  return <Suspense fallback={<PageSkeleton variant="income" />}><ReceitasContent searchParams={searchParams}/></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback shape="income" />}><ReceitasContent searchParams={searchParams}/></Suspense>;
 }

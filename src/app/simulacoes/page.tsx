@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 import { Suspense } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { FinancialSimulationsPanel } from "@/components/simulations/financial-simulations-panel";
@@ -54,7 +55,7 @@ async function SimulacoesContent() {
 
 export default function SimulacoesPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar simulações…</p>}>
+    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
       <SimulacoesContent />
     </Suspense>
   );

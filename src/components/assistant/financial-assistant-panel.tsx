@@ -11,6 +11,7 @@ import {
   primaryButtonClassName,
   secondaryButtonClassName,
 } from "@/components/ui/form-styles";
+import { InlineSpinner } from "@/components/ui/loading";
 
 const examples = [
   "Quanto gastei em Alimentação este mês?",
@@ -171,6 +172,12 @@ export function FinancialAssistantPanel() {
           </button>
         ))}
       </div>
+
+      {pending && !result && !displayAnswer ? (
+        <div className="mt-5">
+          <InlineSpinner showLabel label="A analisar…" />
+        </div>
+      ) : null}
 
       {result || displayAnswer ? (
         <div

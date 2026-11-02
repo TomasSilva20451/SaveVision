@@ -121,7 +121,7 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
 
 export default function EmpresaAuditoriaPage(props: Props) {
   return (
-    <RequestDynamicPage fallback={<p className="p-6 text-sm">A carregar auditoria…</p>}>
+    <RequestDynamicPage contentShape="table">
       <EmpresaAuditoriaPageContent {...props} />
     </RequestDynamicPage>
   );
