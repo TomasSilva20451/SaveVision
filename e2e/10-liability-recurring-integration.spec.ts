@@ -39,7 +39,7 @@ test.describe("Fase 17c.1 — passivos e recorrências", () => {
 
   test("E5 consultar associação no formulário", async ({ page }) => {
     await page.goto("/despesas-recorrentes");
-    await page.locator('summary[aria-label^="Ações de "]').first().click();
+    await page.getByRole("button", { name: /^Ações de / }).first().click();
     await expect(page.getByTestId("recurring-liability-link-form").first()).toBeVisible();
   });
 

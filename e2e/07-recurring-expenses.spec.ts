@@ -8,7 +8,7 @@ async function createForm(page: import("@playwright/test").Page) {
 
 async function upcomingItem(page: import("@playwright/test").Page, name: string) {
   const row = page.getByRole("row").filter({ hasText: name }).first();
-  await row.locator(`summary[aria-label="Ações de ${name}"]`).click();
+  await row.getByRole("button", { name: `Ações de ${name}` }).click();
   return row;
 }
 
