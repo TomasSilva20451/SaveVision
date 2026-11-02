@@ -7,33 +7,14 @@ import {
   FinanceTableHeaderCell,
   FinanceTableRow,
 } from "@/components/ui/finance-table";
-import {
-  inputClassName,
-  primaryButtonClassName,
-  secondaryButtonClassName,
-} from "@/components/ui/form-styles";
+import { inputClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
-import {
-  civilDateFromInstant,
-  formatCivilDateIso,
-} from "@/lib/datetime/civil-date";
-import {
-  confirmRecurringExpenseAction,
-  endRecurringExpenseAction,
-  pauseRecurringExpenseAction,
-  postponeRecurringExpenseAction,
-  skipRecurringExpenseAction,
-  restoreRecurringExpenseOccurrenceAction,
-  updateRecurringAmountAction,
-  updateRecurringLiabilityLinkAction,
-} from "@/lib/finance/recurring-expense-actions";
+import { civilDateFromInstant } from "@/lib/datetime/civil-date";
+import { restoreRecurringExpenseOccurrenceAction } from "@/lib/finance/recurring-expense-actions";
+import { RecurringSeriesActionsMenu } from "@/components/recurring/recurring-series-actions-menu";
 import { formatEUR } from "@/lib/finance/money";
-import {
-  paymentAccountLabel,
-  preferredPaymentAccountId,
-  sortPaymentAccounts,
-} from "@/lib/finance/payment-account";
+import { preferredPaymentAccountId, sortPaymentAccounts } from "@/lib/finance/payment-account";
 
 const FREQUENCY_LABEL: Record<string, string> = {
   WEEKLY: "Semanal",
@@ -120,10 +101,16 @@ function shortDate(date: Date) {
     .replace(".", "");
 }
 
-function nextPending(series: Series) {
-  return series.occurrences
+/** Próxima ocorrência relevante: a primeira com vencimento hoje ou no futuro; senão a menos antiga em atraso. */
+function nextPending(series: Series, now: Date) {
+  const pending = series.occurrences
     .filter((occurrence) => occurrence.status === "EXPECTED" || occurrence.status === "POSTPONED")
-    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0] ?? null;
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  if (pending.length === 0) return null;
+  const today = civilDayNumber(now);
+  const upcoming = pending.find((occurrence) => civilDayNumber(occurrence.dueDate) >= today);
+  if (upcoming) return upcoming;
+  return pending[pending.length - 1] ?? null;
 }
 
 function filterHref(status: string, query: string, categoryId: string) {
@@ -233,7 +220,7 @@ export function RecurringExpensesTable({
           </FinanceTableHead>
           <FinanceTableBody>
             {visibleSeries.map((series) => {
-              const next = nextPending(series);
+              const next = nextPending(series, now);
               const state = statusPresentation(series.status);
               const tone = CATEGORY_TONES[Math.abs(series.categoryId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % CATEGORY_TONES.length];
               const preferredAccountId = preferredPaymentAccountId(paymentAccounts, series.accountId);
@@ -266,80 +253,15 @@ export function RecurringExpensesTable({
                     ) : "—"}
                   </FinanceTableCell>
                   <FinanceTableCell><StatusBadge variant={state.variant}>{state.label}</StatusBadge></FinanceTableCell>
-                  <FinanceTableCell>
-                    <details className="group relative">
-                      <summary className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg border border-[var(--border)] text-lg text-slate-600 hover:bg-slate-50" aria-label={`Ações de ${series.name}`}>
-                        ⋮
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-2 w-80 max-w-[80vw] space-y-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-xl">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gerir recorrência</p>
-                        <div className="flex flex-wrap gap-2">
-                          {series.status !== "ENDED" ? (
-                            <form action={pauseRecurringExpenseAction}>
-                              <input type="hidden" name="seriesId" value={series.id} />
-                              {series.status === "PAUSED" ? <input type="hidden" name="resume" value="1" /> : null}
-                              <button type="submit" className={secondaryButtonClassName}>{series.status === "PAUSED" ? "Retomar" : "Pausar"}</button>
-                            </form>
-                          ) : null}
-                          {series.status !== "ENDED" ? (
-                            <form action={endRecurringExpenseAction}>
-                              <input type="hidden" name="seriesId" value={series.id} />
-                              <button type="submit" className={secondaryButtonClassName}>Terminar</button>
-                            </form>
-                          ) : null}
-                        </div>
-                        <form action={updateRecurringAmountAction} className="space-y-2 border-t border-[var(--border)] pt-3">
-                          <input type="hidden" name="seriesId" value={series.id} />
-                          <label className="block text-xs font-medium text-slate-600">
-                            Valor futuro
-                            <input name="expectedAmount" inputMode="decimal" defaultValue={series.expectedAmount.toString()} className={`${inputClassName} mt-1`} />
-                          </label>
-                          <button type="submit" className={secondaryButtonClassName}>Atualizar valor</button>
-                        </form>
-                        <form action={updateRecurringLiabilityLinkAction} className="space-y-2 border-t border-[var(--border)] pt-3" data-testid="recurring-liability-link-form">
-                          <input type="hidden" name="seriesId" value={series.id} />
-                          <label className="block text-xs font-medium text-slate-600">
-                            Passivo associado
-                            <select name="linkedLiabilityId" defaultValue={series.linkedLiabilityId ?? ""} className={`${inputClassName} mt-1`}>
-                              <option value="">— Nenhum —</option>
-                              {liabilities.map((liability) => <option key={liability.id} value={liability.id}>{liability.title}</option>)}
-                            </select>
-                          </label>
-                          <button type="submit" className={secondaryButtonClassName}>Guardar associação</button>
-                        </form>
-                        {next && accounts.length > 0 ? (
-                          <div className="space-y-3 border-t border-[var(--border)] pt-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próxima ocorrência</p>
-                            <form action={confirmRecurringExpenseAction} className="space-y-2">
-                              <input type="hidden" name="occurrenceId" value={next.id} />
-                              <input type="hidden" name="idempotencyKey" value={`pay-${next.id}`} />
-                              <input type="hidden" name="paidAt" value={now.toISOString()} />
-                              <select name="accountId" required defaultValue={preferredAccountId} aria-label="Conta do pagamento" className={`${inputClassName} mt-0`}>
-                                {paymentAccounts.map((account) => <option key={account.id} value={account.id}>{paymentAccountLabel(account)}</option>)}
-                              </select>
-                              <p className="text-xs text-slate-500">Conta à ordem preferida automaticamente; poupança só por escolha explícita.</p>
-                              <input name="actualAmount" inputMode="decimal" defaultValue={next.expectedAmount.toString()} aria-label="Valor pago" className={`${inputClassName} mt-0`} />
-                              {series.linkedLiabilityId ? (
-                                <label className="flex items-start gap-2 text-xs text-amber-800">
-                                  <input type="checkbox" name="acknowledgeLinkedLiabilityRisk" className="mt-0.5" data-testid="ack-linked-liability-recurring" />
-                                  Compreendo o risco de duplicar a saída se registar também o pagamento do passivo.
-                                </label>
-                              ) : null}
-                              <button type="submit" className={primaryButtonClassName}>Confirmar pagamento</button>
-                            </form>
-                            <form action={postponeRecurringExpenseAction} className="flex items-end gap-2">
-                              <input type="hidden" name="occurrenceId" value={next.id} />
-                              <input name="newDueDate" type="date" required min={formatCivilDateIso(civilDateFromInstant(now))} aria-label="Nova data" className={`${inputClassName} mt-0 min-w-0`} />
-                              <button type="submit" className={secondaryButtonClassName}>Adiar</button>
-                            </form>
-                            <form action={skipRecurringExpenseAction}>
-                              <input type="hidden" name="occurrenceId" value={next.id} />
-                              <button type="submit" className="text-sm font-medium text-rose-700 hover:underline">Ignorar ocorrência</button>
-                            </form>
-                          </div>
-                        ) : null}
-                      </div>
-                    </details>
+                  <FinanceTableCell className="overflow-visible">
+                    <RecurringSeriesActionsMenu
+                      series={series}
+                      nextOccurrence={next}
+                      accounts={accounts}
+                      liabilities={liabilities}
+                      preferredAccountId={preferredAccountId}
+                      now={now}
+                    />
                   </FinanceTableCell>
                 </FinanceTableRow>
               );

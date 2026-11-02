@@ -101,16 +101,25 @@ export function NewRecurringDrawer({
               </select>
             </label>
             <label className={labelClassName}>
-              Início
+              Início do contrato
               <input name="startDate" type="date" required defaultValue={todayIso} className={inputClassName} />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Quando a despesa passou a existir. Os vencimentos gerados começam hoje ou no primeiro dia útil do calendário — nunca no passado.
+              </span>
             </label>
             <label className={labelClassName}>
               Fim (opcional)
               <input name="endDate" type="date" className={inputClassName} />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Deixa vazio se a recorrência não tiver data de fim. Só limita vencimentos futuros, não altera pagamentos já confirmados.
+              </span>
             </label>
             <label className={labelClassName}>
-              Dia do mês (mensal+)
-              <input name="dueDayOfMonth" type="number" min={1} max={31} className={inputClassName} />
+              Dia do mês (mensal e superiores)
+              <input name="dueDayOfMonth" type="number" min={1} max={31} placeholder="ex.: 5" className={inputClassName} />
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Opcional. Se vazio, usa o dia da data de início. Ex.: 5 = vence todo dia 5; em fevereiro usa o último dia do mês se necessário.
+              </span>
             </label>
             <label className={labelClassName}>
               Conta predefinida (opcional)

@@ -64,12 +64,15 @@ function horizonEnd(from: Date): { year: number; month: number; day: number } {
   return { year, month, day: civil.day };
 }
 
-function plannedOccurrenceDates(series: {
-  frequency: string;
-  startDate: Date;
-  endDate: Date | null;
-  dueDayOfMonth: number | null;
-}) {
+function plannedOccurrenceDates(
+  series: {
+    frequency: string;
+    startDate: Date;
+    endDate: Date | null;
+    dueDayOfMonth: number | null;
+  },
+  notBefore?: ReturnType<typeof civilDateFromInstant>,
+) {
   const start = civilDateFromInstant(series.startDate);
   const endCivil = series.endDate
     ? civilDateFromInstant(series.endDate)
@@ -81,6 +84,7 @@ function plannedOccurrenceDates(series: {
     end: endCivil,
     dueDayOfMonth: series.dueDayOfMonth ?? start.day,
     maxOccurrences: MAX_OCCURRENCES,
+    after: notBefore ?? start,
   });
 }
 
@@ -242,17 +246,29 @@ export async function createRecurringExpense(
   const startCivil = civilDateFromInstant(input.startDate);
   const dueDay = input.dueDayOfMonth ?? startCivil.day;
 
+  const todayCivil = civilDateFromInstant(new Date());
+  const scheduleNotBefore =
+    startCivil.year < todayCivil.year ||
+    (startCivil.year === todayCivil.year &&
+      (startCivil.month < todayCivil.month ||
+        (startCivil.month === todayCivil.month && startCivil.day < todayCivil.day)))
+      ? todayCivil
+      : startCivil;
+
   const occurrenceCreates =
     supportedFrequency(input.frequency)
       ? occurrenceRowsForDates(
           workspaceId,
           expectedAmount,
-          plannedOccurrenceDates({
-            frequency: input.frequency,
-            startDate: civilDateToDueInstant(startCivil),
-            endDate: input.endDate ?? null,
-            dueDayOfMonth: dueDay,
-          }),
+          plannedOccurrenceDates(
+            {
+              frequency: input.frequency,
+              startDate: civilDateToDueInstant(startCivil),
+              endDate: input.endDate ?? null,
+              dueDayOfMonth: dueDay,
+            },
+            scheduleNotBefore,
+          ),
         )
       : [];
 
