@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
+import { revalidateFinancialPages } from "@/lib/cache/revalidate-financial";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
 import { readReturnTo } from "@/lib/ui/form-return";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
@@ -82,9 +83,11 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
     redirect(target);
   }
   await flashSuccess("Despesa recorrente criada.", target);
-  revalidatePath("/despesas-recorrentes");
-  revalidatePath("/dashboard");
-  revalidatePath("/previsoes");
+  await revalidateFinancialPages(selected.id, [
+    "/despesas-recorrentes",
+    "/dashboard",
+    "/previsoes",
+  ]);
   redirect(target);
 }
 
@@ -110,9 +113,11 @@ export async function settlePriorRecurringMonthsAction(formData: FormData): Prom
       ? `${result.settled} mês(es) anterior(es) ficaram como já debitados. O saldo da conta não mudou; o próximo vencimento continua por pagar.`
       : "Não havia meses anteriores em aberto. O próximo vencimento mantém-se por pagar.",
   );
-  revalidatePath("/despesas-recorrentes");
-  revalidatePath("/dashboard");
-  revalidatePath("/previsoes");
+  await revalidateFinancialPages(selected.id, [
+    "/despesas-recorrentes",
+    "/dashboard",
+    "/previsoes",
+  ]);
 }
 
 export async function updateRecurringLiabilityLinkAction(formData: FormData): Promise<void> {
@@ -174,10 +179,13 @@ export async function confirmRecurringExpenseAction(formData: FormData): Promise
   await recurringSuccess(
     result.alreadyConfirmed ? "Pagamento já estava confirmado." : "Pagamento confirmado.",
   );
-  revalidatePath("/despesas-recorrentes");
-  revalidatePath("/dashboard");
-  revalidatePath("/contas");
-  revalidatePath("/despesas");
+  await revalidateFinancialPages(selected.id, [
+    "/despesas-recorrentes",
+    "/dashboard",
+    "/contas",
+    "/despesas",
+    "/previsoes",
+  ]);
 }
 
 export async function postponeRecurringExpenseAction(formData: FormData): Promise<void> {

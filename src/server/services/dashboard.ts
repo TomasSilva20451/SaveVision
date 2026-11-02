@@ -2,6 +2,7 @@ import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import {
   civilDateFromInstant,
   isInstantInCivilMonth,
+  startOfCivilDay,
   startOfNextCivilMonth,
 } from "@/lib/datetime/civil-date";
 import {
@@ -203,14 +204,25 @@ async function computeDashboardMetrics(userId: string, workspaceId: string) {
       where: {
         workspaceId,
         status: { in: ["EXPECTED", "POSTPONED"] },
-        dueDate: { gte: new Date() },
+        dueDate: {
+          gte: startOfCivilDay(civilDateFromInstant(new Date())),
+        },
       },
       orderBy: { dueDate: "asc" },
-      take: 5,
+      take: 40,
       include: { recurringExpense: { select: { name: true } } },
     }),
     getTreasuryForecastAllHorizons(userId, workspaceId),
   ]);
+
+  const upcomingRecurringNext: typeof upcomingRecurring = [];
+  const upcomingSeriesSeen = new Set<string>();
+  for (const row of upcomingRecurring) {
+    if (upcomingSeriesSeen.has(row.recurringExpenseId)) continue;
+    upcomingSeriesSeen.add(row.recurringExpenseId);
+    upcomingRecurringNext.push(row);
+    if (upcomingRecurringNext.length >= 5) break;
+  }
 
   const accountSnapshots = accounts.map((account) => ({
     id: account.id,
@@ -409,7 +421,7 @@ async function computeDashboardMetrics(userId: string, workspaceId: string) {
       budgetSummary,
       treasuryBars,
       realBalance: totalBalance.toFixed(2),
-      upcomingRecurring: upcomingRecurring.map((row) => ({
+      upcomingRecurring: upcomingRecurringNext.map((row) => ({
         name: row.recurringExpense.name,
         dueDate: row.dueDate.toISOString(),
         amount: row.expectedAmount.toString(),

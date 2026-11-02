@@ -445,7 +445,8 @@ export function DashboardGrid(props: DashboardGridProps) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-slate-800">{row.name}</p>
                     <p className="text-xs text-slate-500">
-                      {formatCivilDate(civilDateFromInstant(new Date(row.dueDate)))} · {row.status}
+                      {formatCivilDate(civilDateFromInstant(new Date(row.dueDate)))} ·{" "}
+                      {row.status === "POSTPONED" ? "Adiada" : "Por pagar"}
                     </p>
                   </div>
                   <span className="shrink-0 tabular-nums font-medium text-slate-800">
