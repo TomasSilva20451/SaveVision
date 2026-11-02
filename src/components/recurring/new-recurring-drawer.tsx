@@ -104,7 +104,16 @@ export function NewRecurringDrawer({
               Início do contrato
               <input name="startDate" type="date" required defaultValue={todayIso} className={inputClassName} />
               <span className="mt-1 block text-xs font-normal text-slate-500">
-                Quando a despesa passou a existir. Os vencimentos gerados começam hoje ou no primeiro dia útil do calendário — nunca no passado.
+                Quando a despesa passou a existir. Se for uma data antiga, usa a opção abaixo para não reabrir meses já debitados.
+              </span>
+            </label>
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" name="priorMonthsSettled" value="1" defaultChecked className="mt-1" />
+              <span>
+                Meses anteriores já foram debitados
+                <span className="mt-1 block text-xs font-normal text-slate-500">
+                  Débito direto no cartão: o histórico fica pago e o saldo não muda. Só o próximo vencimento (por exemplo novembro) fica por pagar.
+                </span>
               </span>
             </label>
             <label className={labelClassName}>
@@ -122,7 +131,7 @@ export function NewRecurringDrawer({
               </span>
             </label>
             <label className={labelClassName}>
-              Conta predefinida (opcional)
+              Conta do débito
               <select name="accountId" className={inputClassName} defaultValue={preferredAccountId}>
                 <option value="">—</option>
                 {paymentAccounts.map((account) => (
@@ -131,7 +140,9 @@ export function NewRecurringDrawer({
                   </option>
                 ))}
               </select>
-              <span className="mt-1 block text-xs font-normal text-slate-500">Por segurança, uma conta à ordem é escolhida antes de qualquer conta de poupança.</span>
+              <span className="mt-1 block text-xs font-normal text-slate-500">
+                Cartão ou conta à ordem de onde sai o débito direto. Confirmar o próximo mês usa esta conta; meses já pagos não voltam a sair.
+              </span>
             </label>
             <label className={labelClassName}>
               Associar a empréstimo/passivo (opcional)

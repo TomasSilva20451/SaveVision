@@ -281,6 +281,7 @@ export function RecurringExpensesTable({
           <ul className="mt-4 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)]">
             {history.slice(0, 8).map((occurrence) => {
               const wasPaid = occurrence.status === "PAID";
+              const acknowledged = wasPaid && !occurrence.transaction;
               const amount = occurrence.actualAmount ?? occurrence.expectedAmount;
               return (
                 <li key={occurrence.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -289,6 +290,7 @@ export function RecurringExpensesTable({
                     <p className="mt-0.5 text-xs text-slate-500">
                       {shortDate(occurrence.dueDate)} · {formatEUR(amount.toString())}
                       {wasPaid && occurrence.transaction ? ` · ${occurrence.transaction.account.name}` : ""}
+                      {acknowledged ? " · débito já feito, sem movimento novo" : ""}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -296,13 +298,15 @@ export function RecurringExpensesTable({
                     <form action={restoreRecurringExpenseOccurrenceAction}>
                       <input type="hidden" name="occurrenceId" value={occurrence.id} />
                       <ConfirmSubmitButton
-                        confirmMessage={wasPaid
-                          ? `Anular este pagamento de ${formatEUR(amount.toString())}? O saldo será reposto em ${occurrence.transaction?.account.name ?? "a conta debitada"}.`
-                          : "Repor esta ocorrência como pendente?"}
+                        confirmMessage={acknowledged
+                          ? "Reabrir este mês como por pagar? O saldo da conta não muda."
+                          : wasPaid
+                            ? `Anular este pagamento de ${formatEUR(amount.toString())}? O saldo será reposto em ${occurrence.transaction?.account.name ?? "a conta debitada"}.`
+                            : "Repor esta ocorrência como pendente?"}
                         pendingLabel="A repor…"
                         className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:shadow-sm disabled:opacity-60 dark:text-rose-300 dark:hover:bg-rose-950/40"
                       >
-                        {wasPaid ? "Anular pagamento" : "Repor ocorrência"}
+                        {acknowledged ? "Reabrir mês" : wasPaid ? "Anular pagamento" : "Repor ocorrência"}
                       </ConfirmSubmitButton>
                     </form>
                   </div>

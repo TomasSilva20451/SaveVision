@@ -15,6 +15,7 @@ import {
 } from "@/lib/finance/recurring-schedule";
 import { decimal } from "@/lib/finance/money";
 import { monthlyEquivalentAmount } from "@/lib/finance/recurring-monthly";
+import { isCivilDateBefore } from "@/lib/finance/recurring-prior-settlement";
 import { db } from "@/lib/db";
 import { assertSingleActiveLinkPerLiability } from "@/lib/finance/liability-recurring-link";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
@@ -85,23 +86,6 @@ function plannedOccurrenceDates(
     dueDayOfMonth: series.dueDayOfMonth ?? start.day,
     maxOccurrences: MAX_OCCURRENCES,
     after: notBefore ?? start,
-  });
-}
-
-function occurrenceRowsForDates(
-  workspaceId: string,
-  expectedAmount: string,
-  dates: ReturnType<typeof generateRecurringDueDates>,
-) {
-  return dates.map((d) => {
-    const dueDate = civilDateToDueInstant(d);
-    return {
-      workspaceId,
-      anchorDate: dueDate,
-      dueDate,
-      expectedAmount,
-      status: "EXPECTED" as const,
-    };
   });
 }
 
@@ -201,6 +185,7 @@ export async function createRecurringExpense(
     dueDayOfMonth?: number;
     accountId?: string;
     linkedLiabilityId?: string | null;
+    priorMonthsSettled?: boolean;
   },
 ) {
   const membership = await requireWorkspaceEditor(userId, workspaceId);
@@ -247,30 +232,28 @@ export async function createRecurringExpense(
   const dueDay = input.dueDayOfMonth ?? startCivil.day;
 
   const todayCivil = civilDateFromInstant(new Date());
-  const scheduleNotBefore =
-    startCivil.year < todayCivil.year ||
-    (startCivil.year === todayCivil.year &&
-      (startCivil.month < todayCivil.month ||
-        (startCivil.month === todayCivil.month && startCivil.day < todayCivil.day)))
-      ? todayCivil
-      : startCivil;
-
-  const occurrenceCreates =
-    supportedFrequency(input.frequency)
-      ? occurrenceRowsForDates(
-          workspaceId,
-          expectedAmount,
-          plannedOccurrenceDates(
-            {
-              frequency: input.frequency,
-              startDate: civilDateToDueInstant(startCivil),
-              endDate: input.endDate ?? null,
-              dueDayOfMonth: dueDay,
-            },
-            scheduleNotBefore,
-          ),
-        )
-      : [];
+  const scheduleNotBefore = isCivilDateBefore(startCivil, todayCivil) ? todayCivil : startCivil;
+  const schedule = {
+    frequency: input.frequency,
+    startDate: civilDateToDueInstant(startCivil),
+    endDate: input.endDate ?? null,
+    dueDayOfMonth: dueDay,
+  };
+  const planned = supportedFrequency(input.frequency)
+    ? plannedOccurrenceDates(schedule, input.priorMonthsSettled ? undefined : scheduleNotBefore)
+    : [];
+  const occurrenceCreates = planned.map((due) => {
+    const dueDate = civilDateToDueInstant(due);
+    const settled = Boolean(input.priorMonthsSettled) && isCivilDateBefore(due, todayCivil);
+    return {
+      workspaceId,
+      anchorDate: dueDate,
+      dueDate,
+      expectedAmount,
+      status: settled ? ("PAID" as const) : ("EXPECTED" as const),
+      ...(settled ? { actualAmount: expectedAmount, paidAt: dueDate } : {}),
+    };
+  });
 
   const series = await db.$transaction(async (tx) => {
     const created = await tx.recurringExpense.create({
@@ -316,6 +299,118 @@ export async function createRecurringExpense(
   }
 
   return series;
+}
+
+/** Marca vencimentos anteriores a hoje como pagos, sem criar movimento nem alterar saldo. */
+export async function settlePriorRecurringMonths(
+  userId: string,
+  workspaceId: string,
+  seriesId: string,
+  accountId?: string,
+): Promise<{ ok: true; settled: number } | { ok: false; error: string }> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return { ok: false, error: "Sem permissão." };
+
+  const series = await db.recurringExpense.findFirst({
+    where: { id: seriesId, workspaceId },
+  });
+  if (!series) return { ok: false, error: "Recorrência inexistente." };
+  if (!supportedFrequency(series.frequency)) {
+    return { ok: false, error: "Periodicidade não suportada." };
+  }
+
+  if (accountId) {
+    const account = await findAccountInWorkspace(workspaceId, accountId);
+    if (!account) return { ok: false, error: "Conta inválida para este espaço." };
+  }
+
+  const todayCivil = civilDateFromInstant(new Date());
+  const pastDates = plannedOccurrenceDates(series).filter((due) => isCivilDateBefore(due, todayCivil));
+  const pastInstants = pastDates.map((due) => civilDateToDueInstant(due));
+  const expectedAmount = series.expectedAmount.toString();
+
+  const existing = pastInstants.length
+    ? await db.recurringExpenseOccurrence.findMany({
+        where: { recurringExpenseId: series.id, anchorDate: { in: pastInstants } },
+      })
+    : [];
+  const byAnchor = new Map(existing.map((row) => [row.anchorDate.getTime(), row]));
+
+  let settled = 0;
+  await db.$transaction(async (tx) => {
+    if (accountId && accountId !== series.accountId) {
+      await tx.recurringExpense.update({
+        where: { id: series.id },
+        data: { accountId },
+      });
+    }
+
+    for (const dueDate of pastInstants) {
+      const current = byAnchor.get(dueDate.getTime());
+      if (!current) {
+        await tx.recurringExpenseOccurrence.create({
+          data: {
+            workspaceId,
+            recurringExpenseId: series.id,
+            anchorDate: dueDate,
+            dueDate,
+            expectedAmount,
+            actualAmount: expectedAmount,
+            status: "PAID",
+            paidAt: dueDate,
+          },
+        });
+        settled += 1;
+        continue;
+      }
+      if (current.status !== "EXPECTED" && current.status !== "POSTPONED") continue;
+      await tx.recurringExpenseOccurrence.update({
+        where: { id: current.id },
+        data: {
+          status: "PAID",
+          actualAmount: current.expectedAmount,
+          paidAt: current.dueDate,
+        },
+      });
+      settled += 1;
+    }
+
+    const stillOpen = await tx.recurringExpenseOccurrence.findMany({
+      where: {
+        recurringExpenseId: series.id,
+        status: { in: ["EXPECTED", "POSTPONED"] },
+      },
+    });
+    for (const row of stillOpen) {
+      if (!isCivilDateBefore(civilDateFromInstant(row.dueDate), todayCivil)) continue;
+      await tx.recurringExpenseOccurrence.update({
+        where: { id: row.id },
+        data: {
+          status: "PAID",
+          actualAmount: row.expectedAmount,
+          paidAt: row.dueDate,
+        },
+      });
+      settled += 1;
+    }
+  }, RECURRING_SYNC_TX);
+
+  if (settled > 0) {
+    try {
+      await writeFinancialAuditLog({
+        workspaceId,
+        actorUserId: userId,
+        action: "RECURRENT_EXPENSE_UPDATED",
+        entityType: "RecurringExpense",
+        entityId: series.id,
+        metadata: { priorMonthsSettled: settled },
+      });
+    } catch (error) {
+      console.error("[recurring-expenses] audit log after prior settlement failed", error);
+    }
+  }
+
+  return { ok: true, settled };
 }
 
 export async function getRecurringExpensesOverview(
@@ -897,8 +992,8 @@ export async function restoreRecurringExpenseOccurrence(
   if (!occurrence || (occurrence.status !== "PAID" && occurrence.status !== "SKIPPED")) {
     return { ok: false, error: "Esta ocorrência já não pode ser reposta." };
   }
-  if (occurrence.status === "PAID" && !occurrence.transactionId) {
-    return { ok: false, error: "O pagamento não tem um movimento associado para anular." };
+  if (occurrence.status === "PAID" && occurrence.transaction?.deletedAt) {
+    return { ok: false, error: "O movimento associado já foi anulado." };
   }
 
   const restoredFrom = occurrence.status;

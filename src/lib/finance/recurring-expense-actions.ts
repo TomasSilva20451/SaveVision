@@ -13,6 +13,7 @@ import {
   postponeExpenseOccurrence,
   restoreRecurringExpenseOccurrence,
   setRecurringExpenseStatus,
+  settlePriorRecurringMonths,
   skipExpenseOccurrence,
   setRecurringLiabilityLink,
   updateRecurringExpenseFutureAmount,
@@ -64,6 +65,7 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
         : undefined,
       accountId: accountRaw || undefined,
       linkedLiabilityId: String(formData.get("linkedLiabilityId") ?? "") || null,
+      priorMonthsSettled: formData.get("priorMonthsSettled") === "1",
     });
   } catch (error) {
     if (isRedirectError(error)) throw error;
@@ -84,6 +86,33 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
   revalidatePath("/dashboard");
   revalidatePath("/previsoes");
   redirect(target);
+}
+
+export async function settlePriorRecurringMonthsAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const accountRaw = String(formData.get("accountId") ?? "");
+  const result = await settlePriorRecurringMonths(
+    user.id,
+    selected.id,
+    String(formData.get("seriesId")),
+    accountRaw || undefined,
+  );
+  if (!result.ok) {
+    await recurringError(result.error);
+    return;
+  }
+  await recurringSuccess(
+    result.settled > 0
+      ? `${result.settled} mês(es) anterior(es) ficaram como já debitados. O saldo da conta não mudou; o próximo vencimento continua por pagar.`
+      : "Não havia meses anteriores em aberto. O próximo vencimento mantém-se por pagar.",
+  );
+  revalidatePath("/despesas-recorrentes");
+  revalidatePath("/dashboard");
+  revalidatePath("/previsoes");
 }
 
 export async function updateRecurringLiabilityLinkAction(formData: FormData): Promise<void> {

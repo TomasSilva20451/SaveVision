@@ -17,6 +17,7 @@ import {
   pauseRecurringExpenseAction,
   postponeRecurringExpenseAction,
   skipRecurringExpenseAction,
+  settlePriorRecurringMonthsAction,
   updateRecurringAmountAction,
   updateRecurringLiabilityLinkAction,
 } from "@/lib/finance/recurring-expense-actions";
@@ -196,6 +197,27 @@ export function RecurringSeriesActionsMenu({
           </form>
         ) : null}
       </div>
+      <form action={settlePriorRecurringMonthsAction} className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={() => closeMenu()}>
+        <input type="hidden" name="seriesId" value={series.id} />
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Meses anteriores</p>
+        <p className="text-xs text-slate-500">
+          Se o débito direto já saiu do cartão, marca esses meses como pagos sem novo movimento. O vencimento ainda por vir continua em aberto.
+        </p>
+        <label className="block text-xs font-medium text-slate-600">
+          Cartão ou conta do débito
+          <select name="accountId" defaultValue={preferredAccountId} className={`${inputClassName} mt-1`}>
+            <option value="">— Manter a atual —</option>
+            {paymentAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {paymentAccountLabel(account)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className={secondaryButtonClassName}>
+          Meses anteriores já pagos
+        </button>
+      </form>
       <form action={updateRecurringAmountAction} className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={() => closeMenu()}>
         <input type="hidden" name="seriesId" value={series.id} />
         <label className="block text-xs font-medium text-slate-600">
