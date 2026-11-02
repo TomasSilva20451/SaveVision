@@ -96,29 +96,38 @@ export function RecurringSeriesActionsMenu({
   now: Date;
 }) {
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [placement, setPlacement] = useState<MenuPlacement | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
   const paymentAccounts = sortPaymentAccounts(accounts);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const closeMenu = () => {
+    setOpen(false);
+    setPlacement(null);
+  };
 
-  useLayoutEffect(() => {
-    if (!open || !anchorRef.current) {
-      setPlacement(null);
+  const toggleMenu = () => {
+    if (open) {
+      closeMenu();
       return;
     }
+    const anchor = anchorRef.current;
+    if (anchor) {
+      setPlacement(computeMenuPlacement(anchor, null));
+    }
+    setOpen(true);
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
 
     const update = () => {
-      if (!anchorRef.current) return;
-      setPlacement(computeMenuPlacement(anchorRef.current, menuRef.current));
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      setPlacement(computeMenuPlacement(anchor, menuRef.current));
     };
 
-    update();
     const frame = requestAnimationFrame(update);
     const menu = menuRef.current;
     const resizeObserver = menu ? new ResizeObserver(update) : null;
@@ -138,10 +147,10 @@ export function RecurringSeriesActionsMenu({
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (anchorRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
+      closeMenu();
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closeMenu();
     };
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -151,24 +160,18 @@ export function RecurringSeriesActionsMenu({
     };
   }, [open]);
 
-  const resolvedPlacement =
-    placement ??
-    (anchorRef.current
-      ? computeMenuPlacement(anchorRef.current, menuRef.current)
-      : { top: VIEWPORT_PAD, left: VIEWPORT_PAD, maxHeight: 512 });
-
-  const menuPanel = open ? (
+  const menuPanel = open && placement ? (
     <div
       ref={menuRef}
       id={menuId}
       role="menu"
       style={{
         position: "fixed",
-        top: resolvedPlacement.top,
-        left: resolvedPlacement.left,
+        top: placement.top,
+        left: placement.left,
         width: MENU_WIDTH_PX,
         maxWidth: "80vw",
-        maxHeight: resolvedPlacement.maxHeight,
+        maxHeight: placement.maxHeight,
         zIndex: 60,
       }}
       className="space-y-3 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 shadow-xl"
@@ -176,7 +179,7 @@ export function RecurringSeriesActionsMenu({
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Gerir recorrência</p>
       <div className="flex flex-wrap gap-2">
         {series.status !== "ENDED" ? (
-          <form action={pauseRecurringExpenseAction} onSubmit={() => setOpen(false)}>
+          <form action={pauseRecurringExpenseAction} onSubmit={() => closeMenu()}>
             <input type="hidden" name="seriesId" value={series.id} />
             {series.status === "PAUSED" ? <input type="hidden" name="resume" value="1" /> : null}
             <button type="submit" className={secondaryButtonClassName}>
@@ -185,7 +188,7 @@ export function RecurringSeriesActionsMenu({
           </form>
         ) : null}
         {series.status !== "ENDED" ? (
-          <form action={endRecurringExpenseAction} onSubmit={() => setOpen(false)}>
+          <form action={endRecurringExpenseAction} onSubmit={() => closeMenu()}>
             <input type="hidden" name="seriesId" value={series.id} />
             <button type="submit" className={secondaryButtonClassName}>
               Terminar
@@ -193,7 +196,7 @@ export function RecurringSeriesActionsMenu({
           </form>
         ) : null}
       </div>
-      <form action={updateRecurringAmountAction} className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={() => setOpen(false)}>
+      <form action={updateRecurringAmountAction} className="space-y-2 border-t border-[var(--border)] pt-3" onSubmit={() => closeMenu()}>
         <input type="hidden" name="seriesId" value={series.id} />
         <label className="block text-xs font-medium text-slate-600">
           Valor futuro
@@ -212,7 +215,7 @@ export function RecurringSeriesActionsMenu({
         action={updateRecurringLiabilityLinkAction}
         className="space-y-2 border-t border-[var(--border)] pt-3"
         data-testid="recurring-liability-link-form"
-        onSubmit={() => setOpen(false)}
+        onSubmit={() => closeMenu()}
       >
         <input type="hidden" name="seriesId" value={series.id} />
         <label className="block text-xs font-medium text-slate-600">
@@ -237,7 +240,7 @@ export function RecurringSeriesActionsMenu({
       {nextOccurrence && accounts.length > 0 ? (
         <div className="space-y-3 border-t border-[var(--border)] pt-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próxima ocorrência</p>
-          <form action={confirmRecurringExpenseAction} className="space-y-2" onSubmit={() => setOpen(false)}>
+          <form action={confirmRecurringExpenseAction} className="space-y-2" onSubmit={() => closeMenu()}>
             <input type="hidden" name="occurrenceId" value={nextOccurrence.id} />
             <input type="hidden" name="idempotencyKey" value={`pay-${nextOccurrence.id}`} />
             <input type="hidden" name="paidAt" value={now.toISOString()} />
@@ -271,7 +274,7 @@ export function RecurringSeriesActionsMenu({
               Confirmar pagamento
             </button>
           </form>
-          <form action={postponeRecurringExpenseAction} className="flex items-end gap-2" onSubmit={() => setOpen(false)}>
+          <form action={postponeRecurringExpenseAction} className="flex items-end gap-2" onSubmit={() => closeMenu()}>
             <input type="hidden" name="occurrenceId" value={nextOccurrence.id} />
             <input
               name="newDueDate"
@@ -285,7 +288,7 @@ export function RecurringSeriesActionsMenu({
               Adiar
             </button>
           </form>
-          <form action={skipRecurringExpenseAction} onSubmit={() => setOpen(false)}>
+          <form action={skipRecurringExpenseAction} onSubmit={() => closeMenu()}>
             <input type="hidden" name="occurrenceId" value={nextOccurrence.id} />
             <button type="submit" className="text-sm font-medium text-rose-700 hover:underline">
               Ignorar ocorrência
@@ -305,11 +308,11 @@ export function RecurringSeriesActionsMenu({
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
         aria-label={`Ações de ${series.name}`}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleMenu}
       >
         ⋮
       </button>
-      {mounted && menuPanel ? createPortal(menuPanel, document.body) : null}
+      {menuPanel ? createPortal(menuPanel, document.body) : null}
     </div>
   );
 }
