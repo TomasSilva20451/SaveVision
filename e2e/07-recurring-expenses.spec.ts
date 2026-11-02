@@ -6,10 +6,12 @@ async function createForm(page: import("@playwright/test").Page) {
   return page.getByRole("dialog").locator("form");
 }
 
-async function upcomingItem(page: import("@playwright/test").Page, name: string) {
+async function openSeriesActions(page: import("@playwright/test").Page, name: string) {
   const row = page.getByRole("row").filter({ hasText: name }).first();
   await row.getByRole("button", { name: `Ações de ${name}` }).click();
-  return row;
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  return { row, menu };
 }
 
 function recorrenciasSection(page: import("@playwright/test").Page) {
@@ -79,9 +81,8 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     await expectRecurringRow(page, name);
     await page.reload();
 
-    const row = await upcomingItem(page, name);
-    await expect(row).toBeVisible({ timeout: 15_000 });
-    const accountSelect = row.locator('select[name="accountId"]');
+    const { menu } = await openSeriesActions(page, name);
+    const accountSelect = menu.locator('select[name="accountId"]');
     const accountId = await accountSelect.inputValue();
 
     await page.goto("/contas");
@@ -94,9 +95,9 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     );
 
     await page.goto("/despesas-recorrentes");
-    const payRow = await upcomingItem(page, name);
-    await payRow.locator('input[name="actualAmount"]').fill("47");
-    await payRow.getByRole("button", { name: "Confirmar pagamento" }).click();
+    const { menu: payMenu } = await openSeriesActions(page, name);
+    await payMenu.locator('input[name="actualAmount"]').fill("47");
+    await payMenu.getByRole("button", { name: "Confirmar pagamento" }).click();
     await page.waitForTimeout(1500);
 
     await page.goto(`/contas/${accountId}`);
@@ -123,8 +124,7 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     await expectRecurringRow(page, name);
     await page.reload();
 
-    const row = await upcomingItem(page, name);
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    const { row, menu } = await openSeriesActions(page, name);
 
     const civil = new Date();
     // Mantém a ocorrência adiada antes da mensalidade seguinte; caso contrário,
@@ -132,12 +132,14 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     civil.setDate(civil.getDate() + 5);
     const iso = `${civil.getFullYear()}-${String(civil.getMonth() + 1).padStart(2, "0")}-${String(civil.getDate()).padStart(2, "0")}`;
 
-    await row.locator('input[name="newDueDate"]').fill(iso);
-    await row.getByRole("button", { name: "Adiar" }).click();
+    await menu.locator('input[name="newDueDate"]').fill(iso);
+    await menu.getByRole("button", { name: "Adiar" }).click();
     await expect(row).toContainText("adiada", { timeout: 20_000 });
 
     await page.reload();
-    await expect(await upcomingItem(page, name)).toContainText("adiada", { timeout: 15_000 });
+    await expect(page.getByRole("row").filter({ hasText: name }).first()).toContainText("adiada", {
+      timeout: 15_000,
+    });
   });
 
   test("E10 Maria não vê recorrência pessoal de João", async ({ browser }) => {
