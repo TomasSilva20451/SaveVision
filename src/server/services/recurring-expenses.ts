@@ -119,26 +119,35 @@ async function syncOccurrencesForSeries(
   }
 
   const dates = plannedOccurrenceDates(series);
+  const plannedInstants = dates.map((d) => civilDateToDueInstant(d));
+  const expectedAmount = series.expectedAmount.toString();
 
-  for (const d of dates) {
-    const dueDate = civilDateToDueInstant(d);
-    await tx.recurringExpenseOccurrence.upsert({
+  if (plannedInstants.length > 0) {
+    const existing = await tx.recurringExpenseOccurrence.findMany({
       where: {
-        recurringExpenseId_anchorDate: {
-          recurringExpenseId: series.id,
-          anchorDate: dueDate,
-        },
+        recurringExpenseId: series.id,
+        anchorDate: { in: plannedInstants },
       },
-      create: {
+      select: { anchorDate: true },
+    });
+    const existingKeys = new Set(existing.map((row) => row.anchorDate.getTime()));
+    const toCreate = plannedInstants
+      .filter((dueDate) => !existingKeys.has(dueDate.getTime()))
+      .map((dueDate) => ({
         workspaceId: series.workspaceId,
         recurringExpenseId: series.id,
         anchorDate: dueDate,
         dueDate,
-        expectedAmount: series.expectedAmount.toString(),
-        status: "EXPECTED",
-      },
-      update: {},
-    });
+        expectedAmount,
+        status: "EXPECTED" as const,
+      }));
+
+    if (toCreate.length > 0) {
+      await tx.recurringExpenseOccurrence.createMany({
+        data: toCreate,
+        skipDuplicates: true,
+      });
+    }
   }
 
   await tx.recurringExpenseOccurrence.updateMany({
@@ -147,8 +156,31 @@ async function syncOccurrencesForSeries(
       status: "EXPECTED",
       expectedAmountCustomized: false,
     },
-    data: { expectedAmount: series.expectedAmount.toString() },
+    data: { expectedAmount },
   });
+}
+
+const RECURRING_SYNC_TX = { maxWait: 10_000, timeout: 30_000 } as const;
+
+/** Sincroniza o horizonte de ocorrências após alterações à série (não em cada leitura da página). */
+export async function syncRecurringExpenseOccurrences(
+  userId: string,
+  workspaceId: string,
+  seriesId: string,
+) {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return false;
+
+  const series = await db.recurringExpense.findFirst({
+    where: { id: seriesId, workspaceId },
+  });
+  if (!series) return false;
+
+  await db.$transaction(async (tx) => {
+    await syncOccurrencesForSeries(tx, series);
+  }, RECURRING_SYNC_TX);
+
+  return true;
 }
 
 export async function createRecurringExpense(
@@ -279,25 +311,6 @@ export async function getRecurringExpensesOverview(
 
   const now = new Date();
   const civil = civilDateFromInstant(now);
-
-  const seriesList = await db.recurringExpense.findMany({
-    where: { workspaceId },
-    include: {
-      category: true,
-      account: true,
-      occurrences: {
-        orderBy: { dueDate: "asc" },
-        take: 200,
-      },
-    },
-    orderBy: { name: "asc" },
-  });
-
-  for (const s of seriesList.filter((x) => x.status === "ACTIVE")) {
-    await db.$transaction(async (tx) => {
-      await syncOccurrencesForSeries(tx, s);
-    });
-  }
 
   const refreshed = await db.recurringExpense.findMany({
     where: { workspaceId },
