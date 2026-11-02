@@ -15,6 +15,7 @@ import {
 } from "@/lib/finance/aggregates";
 import { decimal } from "@/lib/finance/money";
 import type { LedgerMovement } from "@/lib/finance/types";
+import { getOrSet, workspaceCacheKey } from "@/lib/cache/redis-cache";
 import { db } from "@/lib/db";
 import { listWorkspaceMovements } from "@/server/repositories/ledger";
 import { summarizeBudgetMonth } from "@/lib/finance/budget";
@@ -140,6 +141,12 @@ export async function getDashboardMetrics(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
+  return getOrSet(workspaceCacheKey(workspaceId, "dashboard-metrics"), 90, () =>
+    computeDashboardMetrics(userId, workspaceId),
+  );
+}
+
+async function computeDashboardMetrics(userId: string, workspaceId: string) {
   const civil = civilDateFromInstant(new Date());
   const year = civil.year;
   const month = civil.month;

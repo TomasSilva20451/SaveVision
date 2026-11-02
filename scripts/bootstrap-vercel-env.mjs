@@ -18,6 +18,7 @@ const lines = [
   "DATABASE_URL=postgresql://USER:PASS@HOST/DB?sslmode=require",
   `FINTWIN_PUBLIC_URL=https://SUBSTITUIR.vercel.app`,
   `AUTH_SECRET=${randBase64(48)}`,
+  `CRON_SECRET=${randBase64(32)}`,
   `FINTWIN_DOCUMENT_ENCRYPTION_KEY=${randBase64(32)}`,
   `FINTWIN_DOCUMENT_ENCRYPTION_KEY_ID=${env}-documents-v1`,
   `FINTWIN_AUDIT_SIGNING_KEY=${randBase64(48)}`,

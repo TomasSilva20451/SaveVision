@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { askFinancialAssistantAction } from "@/lib/finance/financial-assistant-actions";
+import {
+  askFinancialAssistantAction,
+  type FinancialAssistantActionResult,
+} from "@/lib/finance/financial-assistant-actions";
 import {
   inputClassName,
   primaryButtonClassName,
@@ -17,22 +20,103 @@ const examples = [
   "Consigo poupar 300 € por mês?",
 ];
 
+const META_MARKER = "[[FINTWIN_META:";
+
+type StreamMeta = {
+  evidence: string[];
+  links: { label: string; href: string }[];
+  intent: string;
+  confidence: number;
+  dataIncomplete?: boolean;
+};
+
+function parseStreamPayload(raw: string): { answer: string; meta: StreamMeta | null } {
+  const index = raw.indexOf(META_MARKER);
+  if (index === -1) return { answer: raw.trim(), meta: null };
+  const answer = raw.slice(0, index).trim();
+  const metaChunk = raw.slice(index + META_MARKER.length);
+  const closing = metaChunk.lastIndexOf("]]");
+  if (closing === -1) return { answer, meta: null };
+  try {
+    return { answer, meta: JSON.parse(metaChunk.slice(0, closing)) as StreamMeta };
+  } catch {
+    return { answer, meta: null };
+  }
+}
+
+async function askWithStream(
+  question: string,
+  onDelta: (text: string) => void,
+): Promise<FinancialAssistantActionResult | null> {
+  const response = await fetch("/api/assistant/stream", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ question }),
+  });
+
+  if (!response.ok) {
+    try {
+      return (await response.json()) as FinancialAssistantActionResult;
+    } catch {
+      return null;
+    }
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) return null;
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    buffer += chunk;
+    const preview = buffer.includes(META_MARKER) ? buffer.slice(0, buffer.indexOf(META_MARKER)) : buffer;
+    onDelta(preview.trim());
+  }
+
+  const parsed = parseStreamPayload(buffer);
+  if (!parsed.meta) return null;
+
+  return {
+    ok: true,
+    answer: parsed.answer,
+    evidence: parsed.meta.evidence,
+    links: parsed.meta.links,
+    intent: parsed.meta.intent,
+    confidence: parsed.meta.confidence,
+    dataIncomplete: parsed.meta.dataIncomplete,
+    clarification: null,
+  };
+}
+
 export function FinancialAssistantPanel() {
   const [question, setQuestion] = useState("");
   const [pending, startTransition] = useTransition();
-  const [result, setResult] = useState<Awaited<ReturnType<typeof askFinancialAssistantAction>> | null>(
-    null,
-  );
+  const [streamingAnswer, setStreamingAnswer] = useState("");
+  const [result, setResult] = useState<FinancialAssistantActionResult | null>(null);
 
   function submit(nextQuestion?: string) {
     const q = (nextQuestion ?? question).trim();
     if (!q) return;
     setQuestion(q);
+    setResult(null);
+    setStreamingAnswer("");
     startTransition(async () => {
+      const streamed = await askWithStream(q, (partial) => setStreamingAnswer(partial));
+      if (streamed) {
+        setResult(streamed);
+        setStreamingAnswer(streamed.ok ? streamed.answer : "");
+        return;
+      }
       const response = await askFinancialAssistantAction(q);
       setResult(response);
+      setStreamingAnswer(response.ok ? response.answer : "");
     });
   }
+
+  const displayAnswer = streamingAnswer || (result?.ok ? result.answer : "");
 
   return (
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
@@ -88,27 +172,29 @@ export function FinancialAssistantPanel() {
         ))}
       </div>
 
-      {result ? (
+      {result || displayAnswer ? (
         <div
           className="mt-5 rounded-xl border border-[var(--border)] bg-slate-50/80 p-4 dark:bg-slate-900/40"
           aria-live="polite"
         >
-          {result.ok ? (
+          {result?.ok || displayAnswer ? (
             <>
-              <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-100">{result.answer}</p>
-              {result.dataIncomplete ? (
+              <p className="text-sm leading-relaxed text-slate-800 dark:text-slate-100 whitespace-pre-wrap">
+                {displayAnswer || (pending ? "A preparar resposta…" : "")}
+              </p>
+              {result?.ok && result.dataIncomplete ? (
                 <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   Nota: a amostra de movimentos foi limitada; o valor pode estar incompleto.
                 </p>
               ) : null}
-              {result.evidence.length > 0 ? (
+              {result?.ok && result.evidence.length > 0 ? (
                 <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
                   {result.evidence.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
                 </ul>
               ) : null}
-              {result.links.length > 0 ? (
+              {result?.ok && result.links.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                   {result.links.map((link) => (
                     <Link key={link.href + link.label} href={link.href} className={secondaryButtonClassName}>
@@ -117,12 +203,14 @@ export function FinancialAssistantPanel() {
                   ))}
                 </div>
               ) : null}
-              <p className="mt-3 text-xs text-slate-400">
-                Intenção: {result.intent} · confiança {Math.round(result.confidence * 100)}%
-              </p>
+              {result?.ok ? (
+                <p className="mt-3 text-xs text-slate-400">
+                  Intenção: {result.intent} · confiança {Math.round(result.confidence * 100)}%
+                </p>
+              ) : null}
             </>
           ) : (
-            <p className="text-sm text-rose-700 dark:text-rose-300">{result.error}</p>
+            <p className="text-sm text-rose-700 dark:text-rose-300">{result?.error ?? "Erro desconhecido."}</p>
           )}
         </div>
       ) : null}

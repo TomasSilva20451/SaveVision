@@ -1,4 +1,5 @@
 import { requireWorkspaceAccess, requireWorkspaceEditor } from "@/lib/auth/workspace-access";
+import { getOrSet, workspaceCacheKey } from "@/lib/cache/redis-cache";
 import { db } from "@/lib/db";
 import {
   findAccountInWorkspace,
@@ -32,6 +33,17 @@ export async function ensureDefaultCategories(workspaceId: string) {
       create: { workspaceId, ...category },
     });
   }
+}
+
+export async function listWorkspaceDefaultCategories(workspaceId: string) {
+  return getOrSet(workspaceCacheKey(workspaceId, "default-categories"), 120, async () => {
+    await ensureDefaultCategories(workspaceId);
+    return db.category.findMany({
+      where: { workspaceId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, nature: true, behavior: true },
+    });
+  });
 }
 
 export async function createExpense(

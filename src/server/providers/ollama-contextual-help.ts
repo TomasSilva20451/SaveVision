@@ -3,6 +3,7 @@ import "server-only";
 import { CONTEXTUAL_HELP_PROMPT_VERSION } from "@/lib/help/contextual-help-format";
 import type { HelpChunk } from "@/lib/help/help-corpus";
 import type { PageHelpContext } from "@/lib/help/page-context";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { resolveOllamaBaseUrl } from "@/server/providers/ollama-config";
 
 const DEFAULT_MODEL = "qwen2.5-coder:7b";
@@ -55,35 +56,28 @@ export async function generateContextualHelpAnswer(
     process.env.OLLAMA_TRANSACTION_MODEL?.trim() ||
     DEFAULT_MODEL;
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-  try {
-    const response = await fetch(`${baseUrl}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model,
-        stream: false,
-        messages: [{ role: "user", content: buildPrompt(input) }],
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OLLAMA_HTTP_${response.status}`);
-    }
-
-    const payload = (await response.json()) as { message?: { content?: string } };
-    const content = payload.message?.content?.trim();
-    if (!content) throw new Error("OLLAMA_INVALID_RESPONSE");
-
-    return {
-      answer: content.slice(0, 2000),
+  const response = await fetchWithTimeout(`${baseUrl}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    timeoutMs: TIMEOUT_MS,
+    body: JSON.stringify({
       model,
-      promptVersion: CONTEXTUAL_HELP_PROMPT_VERSION,
-    };
-  } finally {
-    clearTimeout(timer);
+      stream: false,
+      messages: [{ role: "user", content: buildPrompt(input) }],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OLLAMA_HTTP_${response.status}`);
   }
+
+  const payload = (await response.json()) as { message?: { content?: string } };
+  const content = payload.message?.content?.trim();
+  if (!content) throw new Error("OLLAMA_INVALID_RESPONSE");
+
+  return {
+    answer: content.slice(0, 2000),
+    model,
+    promptVersion: CONTEXTUAL_HELP_PROMPT_VERSION,
+  };
 }

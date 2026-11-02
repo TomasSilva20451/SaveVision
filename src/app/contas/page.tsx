@@ -25,6 +25,7 @@ import { getAccountsPageData } from "@/server/services/accounts";
 import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
 function amountClass(type: string, amount: string) {
   if (type === "TRANSFER") return "text-slate-700";
@@ -218,7 +219,7 @@ async function ContasContent() {
 
 export default function ContasPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm">A carregar contas…</p>}>
+    <Suspense fallback={<PageSkeleton variant="accounts" />}>
       <ContasContent />
     </Suspense>
   );

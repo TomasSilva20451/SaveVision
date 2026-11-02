@@ -8,6 +8,7 @@ import {
   startOfNextCivilMonth,
 } from "@/lib/datetime/civil-date";
 import type { LedgerMovement } from "@/lib/finance/types";
+import { getOrSet, workspaceCacheKey } from "@/lib/cache/redis-cache";
 import { db } from "@/lib/db";
 import { listWorkspaceMovements } from "@/server/repositories/ledger";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
@@ -25,6 +26,12 @@ export async function listAccountsWithBalances(
     return null;
   }
 
+  return getOrSet(workspaceCacheKey(workspaceId, "accounts-balances"), 60, () =>
+    loadAccountsWithBalances(workspaceId),
+  );
+}
+
+async function loadAccountsWithBalances(workspaceId: string) {
   const [accounts, movements] = await Promise.all([
     db.financialAccount.findMany({
       where: { workspaceId, isArchived: false },

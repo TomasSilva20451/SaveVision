@@ -11,8 +11,7 @@ import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
 async function AssistenteContent() {
   await ensureRequestDynamic();
-  const flash = await readPageFlash("/assistente");
-  const user = await requireAuthenticatedUser();
+  const [flash, user] = await Promise.all([readPageFlash("/assistente"), requireAuthenticatedUser()]);
   if (!user) redirect("/login");
 
   const { workspaces, selected } = await resolveWorkspaceContext(user.id);

@@ -22,6 +22,12 @@ Testes de integração que contam transações **saltam** se `DATABASE_URL` apon
 - Automatizado: `e2e/16-security-totp.spec.ts` (utilizador Maria, BD `fintwin_e2e`).
 - Integração Vitest: `src/server/services/auth-totp-login.test.ts` (requer PostgreSQL com seed).
 
+## Performance e RUM
+
+- **Produção:** Speed Insights e Web Analytics em `src/app/layout.tsx` (só `NODE_ENV=production`). Métricas LCP/INP/CLS no projeto Vercel.
+- **Cache Redis (opcional):** com `FINTWIN_REDIS_URL`, leituras cacheadas de contas, categorias e KPIs do dashboard (TTL 60–120 s). Em dev, logs `cache.hit` confirmam acertos. Invalidação via mutações financeiras (`revalidateFinancialPages`).
+- **Budgets orientativos (mobile):** LCP &lt; 2,5 s, INP &lt; 200 ms, TTFB Vercel &lt; 800 ms em rotas autenticadas — advisory, não bloqueiam CI por omissão.
+
 ## E2E (Playwright)
 
 ```bash

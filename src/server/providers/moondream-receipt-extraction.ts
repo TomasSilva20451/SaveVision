@@ -1,6 +1,7 @@
 import "server-only";
 
 import { receiptExtractionRawSchema } from "@/lib/finance/receipt-extraction";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import type { ReceiptExtractionProvider } from "@/server/providers/contracts";
 import { ollamaBaseUrlForReceipt } from "@/server/providers/ollama-receipt-shared";
 import {
@@ -13,10 +14,10 @@ const DEFAULT_MODEL = "moondream:latest";
 export const moondreamReceiptExtractionProvider: ReceiptExtractionProvider = {
   name: process.env.OLLAMA_RECEIPT_MODEL?.trim() || DEFAULT_MODEL,
   async extractFromImage(input) {
-    const response = await fetch(`${ollamaBaseUrlForReceipt()}/api/chat`, {
+    const response = await fetchWithTimeout(`${ollamaBaseUrlForReceipt()}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(120_000),
+      timeoutProfile: "ollamaVision",
       body: JSON.stringify({
         model: this.name,
         stream: false,

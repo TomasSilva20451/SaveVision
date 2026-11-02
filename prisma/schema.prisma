@@ -698,6 +698,7 @@ model Transaction {
   bankReconciliationMatch    BankReconciliationMatch?
 
   @@index([workspaceId, occurredAt])
+  @@index([workspaceId, occurredAt, categoryId])
   @@index([accountId, occurredAt])
   @@index([workspaceId, type, status])
 }

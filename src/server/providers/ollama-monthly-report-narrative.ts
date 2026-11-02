@@ -4,6 +4,7 @@ import {
   parseMonthlyReportNarrativeModel,
   type MonthlyReportFacts,
 } from "@/lib/finance/monthly-report-summary";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { ollamaBaseUrlForReceipt } from "@/server/providers/ollama-receipt-shared";
 
 const DEFAULT_MODEL = "gemma3:4b";
@@ -29,10 +30,10 @@ export async function narrateMonthlyReportWithOllama(facts: MonthlyReportFacts):
   model: string;
   narrative: string;
 }> {
-  const response = await fetch(`${ollamaBaseUrlForReceipt()}/api/chat`, {
+  const response = await fetchWithTimeout(`${ollamaBaseUrlForReceipt()}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(90_000),
+    timeoutProfile: "ollamaNarrative",
     body: JSON.stringify({
       model: modelName(),
       stream: false,

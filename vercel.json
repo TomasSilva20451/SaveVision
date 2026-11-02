@@ -10,5 +10,11 @@
     "FINTWIN_AUDIT_ARCHIVE_REQUIRED": "0",
     "FINTWIN_DOCUMENT_STORAGE_DIR": "/tmp/fintwin-documents",
     "FINTWIN_ENFORCE_TLS": "1"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/internal/jobs/work",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

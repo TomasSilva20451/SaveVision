@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateFinancialPages } from "@/lib/cache/revalidate-financial";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
@@ -69,8 +69,7 @@ export async function createAccountAction(formData: FormData): Promise<void> {
   }
   await flashSuccess("Conta criada.", target);
 
-  revalidatePath("/contas");
-  revalidatePath("/transacoes");
+  await revalidateFinancialPages(selected.id, ["/contas", "/transacoes"]);
   finishFormNavigation(formData);
 }
 
@@ -107,8 +106,7 @@ export async function createTransferAction(formData: FormData): Promise<void> {
   }
   await flashSuccess("Transferência registada.", target);
 
-  revalidatePath("/contas");
-  revalidatePath("/transacoes");
+  await revalidateFinancialPages(selected.id, ["/contas", "/transacoes"]);
   finishFormNavigation(formData);
 }
 
@@ -133,9 +131,11 @@ export async function archiveAccountAction(formData: FormData): Promise<void> {
     `A conta «${result.name}» foi eliminada da vista. O histórico financeiro foi preservado.`,
     "/contas",
   );
-  revalidatePath("/contas");
-  revalidatePath("/dashboard");
-  revalidatePath("/transacoes");
-  revalidatePath("/patrimonio");
-  revalidatePath("/previsoes");
+  await revalidateFinancialPages(selected.id, [
+    "/contas",
+    "/dashboard",
+    "/transacoes",
+    "/patrimonio",
+    "/previsoes",
+  ]);
 }

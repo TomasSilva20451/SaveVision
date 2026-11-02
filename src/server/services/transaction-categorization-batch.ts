@@ -43,19 +43,25 @@ function reviewWindowStart(): Date {
   return new Date(Date.UTC(year, month - 1, 1));
 }
 
-async function isDriftCandidate(
-  workspaceId: string,
+type DriftRule = {
+  pattern: string;
+  categoryId: string | null;
+  transactionType: string;
+};
+
+function isDriftCandidateWithRules(
   tx: { description: string | null; categoryId: string | null; type: string },
-): Promise<boolean> {
+  rules: DriftRule[],
+): boolean {
   if (!tx.description || (tx.type !== "INCOME" && tx.type !== "EXPENSE")) return false;
-  const rules = await db.transactionCategorizationRule.findMany({
-    where: { workspaceId, transactionType: tx.type as "INCOME" | "EXPENSE", categoryId: { not: null } },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  });
   const normalized = normalizeCategorizationPattern(tx.description);
   const match = rules
-    .filter((rule) => normalized.includes(rule.pattern))
+    .filter(
+      (rule) =>
+        rule.transactionType === tx.type &&
+        rule.categoryId != null &&
+        normalized.includes(rule.pattern),
+    )
     .sort((a, b) => b.pattern.length - a.pattern.length)[0];
   if (!match?.categoryId) return false;
   return match.categoryId !== tx.categoryId;
@@ -109,24 +115,32 @@ export async function listPendingCategorizationReviews(
 
 async function findCandidateTransactionIds(workspaceId: string): Promise<string[]> {
   const since = reviewWindowStart();
-  const transactions = await db.transaction.findMany({
-    where: {
-      workspaceId,
-      deletedAt: null,
-      status: "COMPLETED",
-      type: { in: ["INCOME", "EXPENSE"] },
-      occurredAt: { gte: since },
-    },
-    select: {
-      id: true,
-      description: true,
-      categoryId: true,
-      type: true,
-      categorizationSuggestion: { select: { status: true, rejectedUntil: true } },
-    },
-    orderBy: { occurredAt: "desc" },
-    take: CANDIDATE_CAP,
-  });
+  const [transactions, rules] = await Promise.all([
+    db.transaction.findMany({
+      where: {
+        workspaceId,
+        deletedAt: null,
+        status: "COMPLETED",
+        type: { in: ["INCOME", "EXPENSE"] },
+        occurredAt: { gte: since },
+      },
+      select: {
+        id: true,
+        description: true,
+        categoryId: true,
+        type: true,
+        categorizationSuggestion: { select: { status: true, rejectedUntil: true } },
+      },
+      orderBy: { occurredAt: "desc" },
+      take: CANDIDATE_CAP,
+    }),
+    db.transactionCategorizationRule.findMany({
+      where: { workspaceId, categoryId: { not: null } },
+      orderBy: { updatedAt: "desc" },
+      take: 200,
+      select: { pattern: true, categoryId: true, transactionType: true },
+    }),
+  ]);
 
   const ids: string[] = [];
   for (const tx of transactions) {
@@ -135,7 +149,7 @@ async function findCandidateTransactionIds(workspaceId: string): Promise<string[
     if (suggestion?.status === "REJECTED" && suggestion.rejectedUntil && suggestion.rejectedUntil > new Date()) {
       continue;
     }
-    if (!tx.categoryId || (await isDriftCandidate(workspaceId, tx))) {
+    if (!tx.categoryId || isDriftCandidateWithRules(tx, rules)) {
       ids.push(tx.id);
     }
   }

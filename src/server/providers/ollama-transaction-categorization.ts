@@ -1,6 +1,7 @@
 import "server-only";
 
 import { transactionCategorizationOutputSchema } from "@/lib/finance/transaction-categorization";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import type {
   TransactionCategorizationInput,
   TransactionCategorizationProvider,
@@ -88,10 +89,10 @@ export function createOllamaTransactionCategorizationProvider(options?: {
         input.availableCategories.map((c) => c.name),
         Boolean(input.forceCategory),
       );
-      const response = await fetch(`${baseUrl}/api/chat`, {
+      const response = await fetchWithTimeout(`${baseUrl}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        signal: AbortSignal.timeout(45_000),
+        timeoutProfile: "ollama",
         body: JSON.stringify({
           model,
           stream: false,

@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SessionResume } from "@/components/auth/session-resume";
 import { ThemeBootstrap } from "@/components/shell/theme-bootstrap";
 import "./globals.css";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 const geistSans = localFont({
   src: "./fonts/geist-sans.woff2",
@@ -40,6 +44,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <ThemeBootstrap />
         <SessionResume />
         {children}
+        {isProduction ? (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        ) : null}
       </body>
     </html>
   );

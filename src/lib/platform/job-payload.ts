@@ -25,10 +25,17 @@ const schemas = {
   }).strict(),
 } satisfies Record<PlatformJobKind, z.ZodType>;
 
-export function parsePlatformJobPayload(kind: PlatformJobKind, payload: unknown) {
+type PayloadByKind = {
+  [K in PlatformJobKind]: z.infer<(typeof schemas)[K]>;
+};
+
+export function parsePlatformJobPayload<K extends PlatformJobKind>(
+  kind: K,
+  payload: unknown,
+): PayloadByKind[K] {
   const parsed = schemas[kind].safeParse(payload);
   if (!parsed.success) throw new Error("PAYLOAD_INVALID");
-  return parsed.data;
+  return parsed.data as PayloadByKind[K];
 }
 
 export type WebhookDeliveryJobPayload = z.infer<(typeof schemas)["WEBHOOK_DELIVERY"]>;

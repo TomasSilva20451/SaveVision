@@ -4,6 +4,7 @@ import {
   isInstantInCivilMonth,
 } from "@/lib/datetime/civil-date";
 import { calculateExpenses } from "@/lib/finance/aggregates";
+import { summarizeBudgetMonth } from "@/lib/finance/budget";
 import { decimal } from "@/lib/finance/money";
 import { safePercentChange } from "@/lib/finance/kpi";
 import type { LedgerMovement } from "@/lib/finance/types";
@@ -34,10 +35,16 @@ export async function getExpenseAnalysis(
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
-  const transactions = await db.transaction.findMany({
-    where: { workspaceId, deletedAt: null, type: "EXPENSE", status: "COMPLETED" },
-    include: { category: true },
-  });
+  const [transactions, budget] = await Promise.all([
+    db.transaction.findMany({
+      where: { workspaceId, deletedAt: null, type: "EXPENSE", status: "COMPLETED" },
+      include: { category: true },
+    }),
+    db.monthlyBudget.findUnique({
+      where: { workspaceId_year_month: { workspaceId, year, month } },
+      include: { lines: { include: { category: true } } },
+    }),
+  ]);
 
   const monthTx = transactions.filter((tx) =>
     isInstantInCivilMonth(tx.occurredAt, year, month),
@@ -83,6 +90,23 @@ export async function getExpenseAnalysis(
     });
   }
 
+  const spentMap = new Map<string, string>();
+  for (const tx of monthTx) {
+    const categoryId = tx.categoryId ?? "uncategorized";
+    const add = decimal(tx.amount.toString()).abs().toFixed(2);
+    const prev = spentMap.get(categoryId);
+    spentMap.set(categoryId, prev ? decimal(prev).plus(add).toFixed(2) : add);
+  }
+  const budgetLines = budget
+    ? budget.lines.map((line) => ({
+        categoryId: line.categoryId,
+        categoryName: line.category.name,
+        limitAmount: line.limitAmount.toString(),
+        spentAmount: spentMap.get(line.categoryId) ?? "0",
+      }))
+    : [];
+  const budgetSummary = summarizeBudgetMonth(budgetLines);
+
   const monthsWithData = monthlyTotals.filter((row) => decimal(row.total).gt(0));
   const averageMonthly =
     monthsWithData.length > 0
@@ -106,5 +130,7 @@ export async function getExpenseAnalysis(
     monthlyTotals,
     hasEnoughHistory: monthsWithData.length >= 2,
     civilLabel: civilDateFromInstant(new Date()),
+    budgetLimitMonth: budgetSummary.totalLimit,
+    budgetSpentMonth: budgetSummary.totalSpent,
   };
 }

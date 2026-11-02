@@ -1,5 +1,6 @@
+import { cache } from "react";
 import { getFlash } from "@/lib/ui/flash";
 
-export async function readPageFlash(currentPath?: string) {
+export const readPageFlash = cache(async function readPageFlash(currentPath?: string) {
   return getFlash(currentPath);
-}
+});

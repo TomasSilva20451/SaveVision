@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 type FinanceTableProps = {
   caption?: string;
@@ -31,9 +31,9 @@ export function FinanceTableBody({ children }: { children: ReactNode }) {
   return <tbody className="divide-y divide-[var(--border)]">{children}</tbody>;
 }
 
-export function FinanceTableRow({ children }: { children: ReactNode }) {
+export const FinanceTableRow = memo(function FinanceTableRow({ children }: { children: ReactNode }) {
   return <tr className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40">{children}</tr>;
-}
+});
 
 export function FinanceTableCell({
   children,

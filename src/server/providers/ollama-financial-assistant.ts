@@ -4,6 +4,7 @@ import {
   FINANCIAL_ASSISTANT_INTENTS,
   financialAssistantRawOutputSchema,
 } from "@/lib/finance/financial-assistant-intents";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import type {
   FinancialAssistantProvider,
   FinancialAssistantParseInput,
@@ -63,10 +64,10 @@ function promptFor(input: FinancialAssistantParseInput): string {
 export const ollamaFinancialAssistantProvider: FinancialAssistantProvider = {
   name: process.env.OLLAMA_TRANSACTION_MODEL?.trim() || DEFAULT_MODEL,
   async parseIntent(input) {
-    const response = await fetch(`${ollamaBaseUrl()}/api/chat`, {
+    const response = await fetchWithTimeout(`${ollamaBaseUrl()}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(45_000),
+      timeoutProfile: "ollama",
       body: JSON.stringify({
         model: this.name,
         stream: false,

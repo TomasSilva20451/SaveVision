@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import {
   WORKSPACE_COOKIE,
@@ -10,7 +11,7 @@ import {
   listMemberships,
 } from "@/server/repositories/workspaces";
 
-export async function resolveWorkspaceContext(userId: string) {
+export const resolveWorkspaceContext = cache(async function resolveWorkspaceContext(userId: string) {
   const workspaces = await listActiveWorkspaces(userId);
   const cookieStore = await cookies();
   const requested = cookieStore.get(WORKSPACE_COOKIE)?.value;
@@ -25,7 +26,7 @@ export async function resolveWorkspaceContext(userId: string) {
       : null;
 
   return { workspaces, selected };
-}
+});
 
 export async function setActiveWorkspace(userId: string, workspaceId: string) {
   const memberships = await listMemberships(userId);

@@ -1,8 +1,8 @@
 import type { PlatformJobKind, PlatformJobStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { kindsWithCapacity } from "@/lib/platform/job-policy";
-import { parsePlatformJobPayload, parseWebhookDeliveryPayload } from "@/lib/platform/job-payload";
-import { executeWebhookDeliveryJob } from "@/server/services/webhook-delivery";
+import { parsePlatformJobPayload } from "@/lib/platform/job-payload";
+import { executeClaimedJob as runClaimedJob } from "@/server/services/platform-job-handlers";
 
 const LEASE_MS = 5 * 60 * 1000;
 
@@ -81,16 +81,13 @@ export async function failPlatformJob(id: string, error: unknown) {
   });
 }
 
-export async function executeClaimedJob(job: { kind: PlatformJobKind; payload: unknown }) {
-  if (job.kind === "WEBHOOK_DELIVERY") {
-    return executeWebhookDeliveryJob(parseWebhookDeliveryPayload(job.payload));
-  }
-  const payload = parsePlatformJobPayload(job.kind, job.payload);
-  return {
-    handler: job.kind,
-    accepted: "true",
-    workspaceId: payload.workspaceId,
-  };
+export async function executeClaimedJob(job: {
+  kind: PlatformJobKind;
+  payload: unknown;
+  requestedById?: string | null;
+  jobId?: string;
+}) {
+  return runClaimedJob(job);
 }
 
 export async function retryFailedPlatformJob(id: string) {

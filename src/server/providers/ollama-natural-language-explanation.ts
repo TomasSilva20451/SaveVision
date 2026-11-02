@@ -4,6 +4,7 @@ import {
   naturalLanguageExplanationSchema,
   type StructuredExplanationPayload,
 } from "@/lib/finance/natural-language-explanation";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MODEL = "qwen3.5:4b-mlx";
@@ -46,10 +47,10 @@ function modelName(): string {
 }
 
 export async function explainWithOllama(payload: StructuredExplanationPayload) {
-  const response = await fetch(`${ollamaBaseUrl()}/api/chat`, {
+  const response = await fetchWithTimeout(`${ollamaBaseUrl()}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(45_000),
+    timeoutProfile: "ollama",
     body: JSON.stringify({
       model: modelName(),
       stream: false,

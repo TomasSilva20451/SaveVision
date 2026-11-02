@@ -4,6 +4,7 @@ import {
   recurringPatternEnrichmentSchema,
   type RecurringPatternEnrichmentInput,
 } from "@/lib/finance/recurring-pattern-enrichment";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_MODEL = "qwen3.5:4b-mlx";
@@ -47,10 +48,10 @@ function promptFor(input: RecurringPatternEnrichmentInput): string {
 
 export async function enrichRecurringPatternWithOllama(input: RecurringPatternEnrichmentInput) {
   const model = process.env.OLLAMA_TRANSACTION_MODEL?.trim() || DEFAULT_MODEL;
-  const response = await fetch(`${ollamaBaseUrl()}/api/chat`, {
+  const response = await fetchWithTimeout(`${ollamaBaseUrl()}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(45_000),
+    timeoutProfile: "ollama",
     body: JSON.stringify({
       model,
       stream: false,

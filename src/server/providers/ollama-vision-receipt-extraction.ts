@@ -1,6 +1,7 @@
 import "server-only";
 
 import { receiptExtractionRawSchema } from "@/lib/finance/receipt-extraction";
+import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import type { ReceiptExtractionProvider } from "@/server/providers/contracts";
 import {
   RECEIPT_JSON_RESPONSE_FORMAT,
@@ -13,10 +14,10 @@ const DEFAULT_MODEL = "qwen3.5:4b-mlx";
 export const ollamaVisionReceiptExtractionProvider: ReceiptExtractionProvider = {
   name: process.env.OLLAMA_RECEIPT_FALLBACK_MODEL?.trim() || DEFAULT_MODEL,
   async extractFromImage(input) {
-    const response = await fetch(`${ollamaBaseUrlForReceipt()}/api/chat`, {
+    const response = await fetchWithTimeout(`${ollamaBaseUrlForReceipt()}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(180_000),
+      timeoutMs: 180_000,
       body: JSON.stringify({
         model: this.name,
         stream: false,

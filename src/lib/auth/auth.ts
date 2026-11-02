@@ -1,3 +1,4 @@
+import { cache } from "react";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { INVALID_CREDENTIALS_MESSAGE } from "@/lib/auth/login-policy";
@@ -170,7 +171,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-export async function requireAuthenticatedUser() {
+async function requireAuthenticatedUserUncached() {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -185,5 +186,7 @@ export async function requireAuthenticatedUser() {
     select: { id: true, email: true, name: true, avatarUrl: true },
   });
 }
+
+export const requireAuthenticatedUser = cache(requireAuthenticatedUserUncached);
 
 export { INVALID_CREDENTIALS_MESSAGE };

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateFinancialPages } from "@/lib/cache/revalidate-financial";
 import { redirect } from "next/navigation";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { civilDateIsoToInstant } from "@/lib/datetime/civil-date";
@@ -149,11 +149,13 @@ export async function createExpenseFromReceiptAction(formData: FormData): Promis
     target,
   );
 
-  revalidatePath("/despesas");
-  revalidatePath("/transacoes");
-  revalidatePath("/contas");
-  revalidatePath("/orcamentos");
-  revalidatePath("/dashboard");
-  revalidatePath("/relatorios");
+  await revalidateFinancialPages(selected.id, [
+    "/despesas",
+    "/transacoes",
+    "/contas",
+    "/orcamentos",
+    "/dashboard",
+    "/relatorios",
+  ]);
   finishReceiptNavigation(formData);
 }

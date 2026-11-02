@@ -16,6 +16,7 @@ Gestão financeira privada para dois utilizadores, com espaços pessoais separad
 - Open banking só de leitura e reconciliação bancária
 - Categorização opcional de transações com Ollama local
 - Testes unitários (Vitest) e E2E (Playwright)
+- **Performance (produção):** skeletons nas rotas principais, cache Redis opcional (`FINTWIN_REDIS_URL`), Vercel Speed Insights e Web Analytics (Core Web Vitals no dashboard Vercel)
 
 ## Stack
 
