@@ -1,10 +1,13 @@
 import type { NextConfig } from "next";
 import { staticDevSecurityHeaders } from "./src/lib/security/security-headers";
 
-const securityHeaders = Object.entries(staticDevSecurityHeaders()).map(([key, value]) => ({
-  key,
-  value,
-}));
+/** CSP com nonce vive só no proxy (`src/proxy.ts`); duplicar aqui quebra chunks em navegação cliente. */
+const securityHeaders = Object.entries(staticDevSecurityHeaders())
+  .filter(([key]) => key !== "Content-Security-Policy")
+  .map(([key, value]) => ({
+    key,
+    value,
+  }));
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",

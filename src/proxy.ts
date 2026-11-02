@@ -46,8 +46,7 @@ export function proxy(request: NextRequest) {
     process.env.FINTWIN_ENV === "e2e"
       ? staticDevSecurityHeaders()
       : securityHeadersForRequest(nonce);
-  // O Next.js lê o nonce a partir da CSP do *pedido* e carimba os <script>.
-  // Sem isto, 'strict-dynamic' ignora 'self' e o browser bloqueia os chunks.
+  // O Next.js lê o nonce a partir da CSP do *pedido* e carimba os <script> inline/bootstrap.
   const csp = securityHeaders["Content-Security-Policy"];
   if (csp) requestHeaders.set("Content-Security-Policy", csp);
 

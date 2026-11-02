@@ -3,8 +3,10 @@
 export const CSP_NONCE_HEADER = "x-nonce";
 
 export function contentSecurityPolicy(nonce?: string): string {
+  // Sem 'strict-dynamic': com nonce + strict-dynamic o browser ignora 'self' e bloqueia
+  // `<script src="/_next/static/chunks/...">` injectados na navegação App Router (sem nonce).
   const scriptSrc = nonce
-    ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
+    ? `script-src 'self' 'nonce-${nonce}'`
     : "script-src 'self' 'unsafe-inline'";
   const parts = [
     "default-src 'self'",

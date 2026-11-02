@@ -7,12 +7,13 @@ import {
 } from "@/lib/security/security-headers";
 
 describe("contentSecurityPolicy", () => {
-  it("usa nonce e strict-dynamic quando fornecido", () => {
+  it("usa nonce e self para chunks Next.js quando fornecido", () => {
     const csp = contentSecurityPolicy("abc123");
-    expect(csp).toContain("script-src 'self' 'nonce-abc123' 'strict-dynamic'");
+    expect(csp).toContain("script-src 'self' 'nonce-abc123'");
     const scriptSrc = csp.split(";").find((part) => part.trim().startsWith("script-src"));
     expect(scriptSrc).toBeDefined();
     expect(scriptSrc).not.toContain("unsafe-inline");
+    expect(scriptSrc).not.toContain("strict-dynamic");
   });
 
   it("fallback dev inclui unsafe-inline sem nonce", () => {
