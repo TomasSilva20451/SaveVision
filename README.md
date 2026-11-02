@@ -58,7 +58,7 @@ A aplicação fica em [http://localhost:3000](http://localhost:3000). Health: [h
 
 ## Produção local sem dados fictícios
 
-Cria primeiro `.env.production.local` a partir das variáveis de produção documentadas em `.env.example`. Depois prepara a base isolada e cria apenas os utilizadores Tomás e Telmo, cada um com o respetivo workspace pessoal vazio:
+Cria primeiro `.env.production.local` a partir das variáveis de produção documentadas em `.env.example`. Depois prepara a base isolada e cria apenas os utilizadores User1 e User2, cada um com o respetivo workspace pessoal vazio:
 
 ```bash
 pnpm db:production:setup
