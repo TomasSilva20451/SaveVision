@@ -12,7 +12,7 @@ export function contentSecurityPolicy(nonce?: string): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self' https://vitals.vercel-insights.com https://va.vercel-scripts.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

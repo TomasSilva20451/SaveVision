@@ -42,14 +42,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(target, 308);
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
-  response.headers.set("x-request-id", requestId);
-  response.headers.set("traceparent", requestHeaders.get("traceparent")!);
-  response.headers.set("x-trace-id", traceId);
   const securityHeaders =
     process.env.FINTWIN_ENV === "e2e"
       ? staticDevSecurityHeaders()
       : securityHeadersForRequest(nonce);
+  // O Next.js lê o nonce a partir da CSP do *pedido* e carimba os <script>.
+  // Sem isto, 'strict-dynamic' ignora 'self' e o browser bloqueia os chunks.
+  const csp = securityHeaders["Content-Security-Policy"];
+  if (csp) requestHeaders.set("Content-Security-Policy", csp);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("x-request-id", requestId);
+  response.headers.set("traceparent", requestHeaders.get("traceparent")!);
+  response.headers.set("x-trace-id", traceId);
   for (const [key, value] of Object.entries(securityHeaders)) {
     response.headers.set(key, value);
   }
