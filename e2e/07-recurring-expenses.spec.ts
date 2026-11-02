@@ -82,7 +82,7 @@ test.describe("Fase 17a — despesas recorrentes (João)", () => {
     await page.reload();
 
     const { menu } = await openSeriesActions(page, name);
-    const accountSelect = menu.locator('select[name="accountId"]');
+    const accountSelect = menu.getByLabel("Conta do pagamento");
     const accountId = await accountSelect.inputValue();
 
     await page.goto("/contas");
