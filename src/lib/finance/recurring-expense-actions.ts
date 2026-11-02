@@ -46,23 +46,33 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
 
   const accountRaw = String(formData.get("accountId") ?? "");
   const endRaw = String(formData.get("endDate") ?? "");
-
-  const created = await createRecurringExpense(user.id, selected.id, {
-    name: String(formData.get("name")),
-    description: String(formData.get("description") ?? "") || undefined,
-    categoryId: String(formData.get("categoryId")),
-    expectedAmount: String(formData.get("expectedAmount")),
-    frequency: String(formData.get("frequency")) as RecurrenceFrequency,
-    startDate: civilDateIsoToInstant(String(formData.get("startDate"))),
-    endDate: endRaw ? civilDateIsoToInstant(endRaw) : undefined,
-    dueDayOfMonth: formData.get("dueDayOfMonth")
-      ? Number(formData.get("dueDayOfMonth"))
-      : undefined,
-    accountId: accountRaw || undefined,
-    linkedLiabilityId: String(formData.get("linkedLiabilityId") ?? "") || null,
-  });
-
   const target = readReturnTo(formData) ?? RECURRING_PATH;
+
+  let created;
+  try {
+    created = await createRecurringExpense(user.id, selected.id, {
+      name: String(formData.get("name")),
+      description: String(formData.get("description") ?? "") || undefined,
+      categoryId: String(formData.get("categoryId")),
+      expectedAmount: String(formData.get("expectedAmount")),
+      frequency: String(formData.get("frequency")) as RecurrenceFrequency,
+      startDate: civilDateIsoToInstant(String(formData.get("startDate"))),
+      endDate: endRaw ? civilDateIsoToInstant(endRaw) : undefined,
+      dueDayOfMonth: formData.get("dueDayOfMonth")
+        ? Number(formData.get("dueDayOfMonth"))
+        : undefined,
+      accountId: accountRaw || undefined,
+      linkedLiabilityId: String(formData.get("linkedLiabilityId") ?? "") || null,
+    });
+  } catch {
+    await flashError(
+      "Não foi possível guardar a recorrência. Tenta outra vez; se persistir, atualiza a página.",
+      target,
+    );
+    if (readReturnTo(formData)) redirect(target);
+    return;
+  }
+
   if (!created) {
     await flashError("Não foi possível criar a recorrência. Verifica categoria e montante.", target);
     if (readReturnTo(formData)) redirect(target);

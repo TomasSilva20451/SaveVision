@@ -64,6 +64,43 @@ function horizonEnd(from: Date): { year: number; month: number; day: number } {
   return { year, month, day: civil.day };
 }
 
+function plannedOccurrenceDates(series: {
+  frequency: string;
+  startDate: Date;
+  endDate: Date | null;
+  dueDayOfMonth: number | null;
+}) {
+  const start = civilDateFromInstant(series.startDate);
+  const endCivil = series.endDate
+    ? civilDateFromInstant(series.endDate)
+    : horizonEnd(new Date());
+
+  return generateRecurringDueDates({
+    frequency: series.frequency as RecurrenceFrequency,
+    start,
+    end: endCivil,
+    dueDayOfMonth: series.dueDayOfMonth ?? start.day,
+    maxOccurrences: MAX_OCCURRENCES,
+  });
+}
+
+function occurrenceRowsForDates(
+  workspaceId: string,
+  expectedAmount: string,
+  dates: ReturnType<typeof generateRecurringDueDates>,
+) {
+  return dates.map((d) => {
+    const dueDate = civilDateToDueInstant(d);
+    return {
+      workspaceId,
+      anchorDate: dueDate,
+      dueDate,
+      expectedAmount,
+      status: "EXPECTED" as const,
+    };
+  });
+}
+
 async function syncOccurrencesForSeries(
   tx: Parameters<Parameters<typeof db.$transaction>[0]>[0],
   series: {
@@ -81,18 +118,7 @@ async function syncOccurrencesForSeries(
     return;
   }
 
-  const start = civilDateFromInstant(series.startDate);
-  const endCivil = series.endDate
-    ? civilDateFromInstant(series.endDate)
-    : horizonEnd(new Date());
-
-  const dates = generateRecurringDueDates({
-    frequency: series.frequency,
-    start,
-    end: endCivil,
-    dueDayOfMonth: series.dueDayOfMonth ?? start.day,
-    maxOccurrences: MAX_OCCURRENCES,
-  });
+  const dates = plannedOccurrenceDates(series);
 
   for (const d of dates) {
     const dueDate = civilDateToDueInstant(d);
@@ -184,6 +210,20 @@ export async function createRecurringExpense(
   const startCivil = civilDateFromInstant(input.startDate);
   const dueDay = input.dueDayOfMonth ?? startCivil.day;
 
+  const occurrenceCreates =
+    supportedFrequency(input.frequency)
+      ? occurrenceRowsForDates(
+          workspaceId,
+          expectedAmount,
+          plannedOccurrenceDates({
+            frequency: input.frequency,
+            startDate: civilDateToDueInstant(startCivil),
+            endDate: input.endDate ?? null,
+            dueDayOfMonth: dueDay,
+          }),
+        )
+      : [];
+
   return db.$transaction(async (tx) => {
     const series = await tx.recurringExpense.create({
       data: {
@@ -200,10 +240,12 @@ export async function createRecurringExpense(
         accountId: input.accountId,
         linkedLiabilityId,
         status: "ACTIVE",
+        ...(occurrenceCreates.length > 0
+          ? { occurrences: { create: occurrenceCreates } }
+          : {}),
       },
     });
 
-    await syncOccurrencesForSeries(tx, series);
     return series;
   }).then(async (series) => {
     if (!series) return null;
