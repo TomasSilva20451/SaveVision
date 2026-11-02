@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { flashError, flashSuccess } from "@/lib/ui/action-feedback";
 import { readReturnTo } from "@/lib/ui/form-return";
@@ -64,25 +65,25 @@ export async function createRecurringExpenseAction(formData: FormData): Promise<
       accountId: accountRaw || undefined,
       linkedLiabilityId: String(formData.get("linkedLiabilityId") ?? "") || null,
     });
-  } catch {
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    console.error("[createRecurringExpenseAction]", error);
     await flashError(
       "Não foi possível guardar a recorrência. Tenta outra vez; se persistir, atualiza a página.",
       target,
     );
-    if (readReturnTo(formData)) redirect(target);
-    return;
+    redirect(target);
   }
 
   if (!created) {
     await flashError("Não foi possível criar a recorrência. Verifica categoria e montante.", target);
-    if (readReturnTo(formData)) redirect(target);
-    return;
+    redirect(target);
   }
   await flashSuccess("Despesa recorrente criada.", target);
   revalidatePath("/despesas-recorrentes");
   revalidatePath("/dashboard");
   revalidatePath("/previsoes");
-  if (readReturnTo(formData)) redirect(target);
+  redirect(target);
 }
 
 export async function updateRecurringLiabilityLinkAction(formData: FormData): Promise<void> {

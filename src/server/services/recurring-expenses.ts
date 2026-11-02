@@ -224,8 +224,8 @@ export async function createRecurringExpense(
         )
       : [];
 
-  return db.$transaction(async (tx) => {
-    const series = await tx.recurringExpense.create({
+  const series = await db.$transaction(async (tx) => {
+    const created = await tx.recurringExpense.create({
       data: {
         workspaceId,
         userId,
@@ -240,15 +240,22 @@ export async function createRecurringExpense(
         accountId: input.accountId,
         linkedLiabilityId,
         status: "ACTIVE",
-        ...(occurrenceCreates.length > 0
-          ? { occurrences: { create: occurrenceCreates } }
-          : {}),
       },
     });
 
-    return series;
-  }).then(async (series) => {
-    if (!series) return null;
+    if (occurrenceCreates.length > 0) {
+      await tx.recurringExpenseOccurrence.createMany({
+        data: occurrenceCreates.map((row) => ({
+          ...row,
+          recurringExpenseId: created.id,
+        })),
+      });
+    }
+
+    return created;
+  });
+
+  try {
     await writeFinancialAuditLog({
       workspaceId,
       actorUserId: userId,
@@ -256,8 +263,11 @@ export async function createRecurringExpense(
       entityType: "RecurringExpense",
       entityId: series.id,
     });
-    return series;
-  });
+  } catch (error) {
+    console.error("[recurring-expenses] audit log after create failed", error);
+  }
+
+  return series;
 }
 
 export async function getRecurringExpensesOverview(
