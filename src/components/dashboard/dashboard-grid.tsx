@@ -126,7 +126,44 @@ function formatAxisEur(value: number) {
   if (Math.abs(value) >= 1000) {
     return `${(value / 1000).toFixed(0)}k €`;
   }
-  return `${value} €`;
+  return `${Math.round(value)} €`;
+}
+
+function treasuryChartYDomain(bars: TreasuryBar[]): [number, number] {
+  if (bars.length === 0) return [0, 1];
+  const values = bars.map((row) => row.projectedBalance);
+  const min = Math.min(0, ...values);
+  const max = Math.max(0, ...values);
+  const span = Math.max(max - min, 1);
+  return [min - span * 0.22, max + span * 0.28];
+}
+
+function TreasuryBarValueLabel(props: {
+  x?: number | string;
+  y?: number | string;
+  width?: number | string;
+  height?: number | string;
+  value?: number | string;
+}) {
+  const x = Number(props.x);
+  const y = Number(props.y);
+  const width = Number(props.width);
+  const height = Number(props.height);
+  const num = Number(props.value);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(num)) {
+    return null;
+  }
+
+  const text = formatAxisEur(num);
+  const isNegative = num < 0;
+  const barHeight = Number.isFinite(height) ? height : 0;
+  const labelY = isNegative ? y + barHeight + 11 : y - 4;
+
+  return (
+    <text x={x + width / 2} y={labelY} textAnchor="middle" fill="#64748b" fontSize={9}>
+      {text}
+    </text>
+  );
 }
 
 function FluxColumn({
@@ -334,12 +371,24 @@ export function DashboardGrid(props: DashboardGridProps) {
           <p className="mb-2 text-xs text-slate-500">
             Saldo real: <span className="font-medium text-slate-800">{formatEUR(props.realBalance)}</span>
           </p>
-          <div className="h-40 w-full min-w-0">
+          <div className="h-44 w-full min-w-0 sm:h-40">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={props.treasuryBars} margin={{ top: 18, right: 4, left: 0, bottom: 0 }}>
+              <BarChart
+                data={props.treasuryBars}
+                margin={{ top: 8, right: 4, left: 0, bottom: 4 }}
+                barCategoryGap="18%"
+              >
                 <CartesianGrid stroke="#eef2f7" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  axisLine={false}
+                  tickLine={false}
+                  interval={0}
+                  height={28}
+                />
                 <YAxis
+                  domain={treasuryChartYDomain(props.treasuryBars)}
                   tickFormatter={formatAxisEur}
                   tick={{ fontSize: 10, fill: "#94a3b8" }}
                   width={44}
@@ -351,12 +400,7 @@ export function DashboardGrid(props: DashboardGridProps) {
                   {props.treasuryBars.map((_, index) => (
                     <Cell key={props.treasuryBars[index]?.label ?? index} fill={["#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8"][index % 6]} />
                   ))}
-                  <LabelList
-                    dataKey="projectedBalance"
-                    position="top"
-                    formatter={(value) => formatAxisEur(Number(value))}
-                    style={{ fontSize: 9, fill: "#64748b" }}
-                  />
+                  <LabelList dataKey="projectedBalance" content={TreasuryBarValueLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
