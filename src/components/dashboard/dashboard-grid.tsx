@@ -1,8 +1,6 @@
 "use client";
 
-import type { ReactElement, ReactNode } from "react";
-import type { CartesianLabelListEntry } from "recharts/types/component/LabelList";
-import type { LabelContentType } from "recharts/types/component/Label";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   Area,
@@ -11,7 +9,6 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
-  LabelList,
   Legend,
   Line,
   Pie,
@@ -131,49 +128,16 @@ function formatAxisEur(value: number) {
   return `${Math.round(value)} €`;
 }
 
+const TREASURY_AXIS_WIDTH = 58;
+
 function treasuryChartYDomain(bars: TreasuryBar[]): [number, number] {
   if (bars.length === 0) return [0, 1];
   const values = bars.map((row) => row.projectedBalance);
   const min = Math.min(0, ...values);
   const max = Math.max(0, ...values);
   const span = Math.max(max - min, 1);
-  return [min - span * 0.32, max + span * 0.32];
+  return [min - span * 0.08, max + span * 0.08];
 }
-
-function renderTreasuryBarValueLabel(props: CartesianLabelListEntry): ReactElement {
-  const box = props.viewBox ?? props;
-  const x = box.x;
-  const y = box.y;
-  const width = box.width;
-  const num = Number(props.value);
-  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(num)) {
-    return <g />;
-  }
-
-  const text = formatAxisEur(num);
-  const isNegative = num < 0;
-  const barHeight = Math.abs(box.height ?? 0);
-  // Sempre fora da barra: acima (positivo) ou abaixo (negativo), nunca sobre o fill.
-  const labelY = isNegative ? y + barHeight + 14 : y - 8;
-
-  return (
-    <text
-      x={x + width / 2}
-      y={labelY}
-      textAnchor="middle"
-      fill="#0f172a"
-      fontSize={10}
-      fontWeight={600}
-      stroke="#ffffff"
-      strokeWidth={3}
-      paintOrder="stroke"
-    >
-      {text}
-    </text>
-  );
-}
-
-const treasuryBarValueLabelContent = renderTreasuryBarValueLabel as LabelContentType;
 
 function FluxColumn({
   title,
@@ -380,45 +344,57 @@ export function DashboardGrid(props: DashboardGridProps) {
           <p className="mb-2 text-xs text-slate-500">
             Saldo real: <span className="font-medium text-slate-800">{formatEUR(props.realBalance)}</span>
           </p>
-          <div className="h-44 w-full min-w-0 sm:h-40">
+          <div className="h-36 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={props.treasuryBars}
-                margin={{ top: 14, right: 4, left: 0, bottom: 8 }}
-                barCategoryGap="18%"
+                margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                barCategoryGap="22%"
               >
-                <CartesianGrid stroke="#eef2f7" vertical={false} />
+                <CartesianGrid stroke="#e2e8f0" vertical={false} />
                 <XAxis
                   dataKey="label"
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 11, fill: "#334155" }}
                   axisLine={false}
                   tickLine={false}
                   interval={0}
-                  height={28}
+                  height={22}
                 />
                 <YAxis
                   domain={treasuryChartYDomain(props.treasuryBars)}
                   tickFormatter={formatAxisEur}
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
-                  width={44}
+                  tick={{ fontSize: 11, fill: "#334155" }}
+                  width={TREASURY_AXIS_WIDTH}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip content={<MoneyTooltip />} />
-                <Bar
-                  dataKey="projectedBalance"
-                  name="Saldo projetado"
-                  radius={[6, 6, 0, 0]}
-                  minPointSize={2}
-                >
+                <Bar dataKey="projectedBalance" name="Saldo projetado" radius={[6, 6, 0, 0]} minPointSize={2}>
                   {props.treasuryBars.map((_, index) => (
                     <Cell key={props.treasuryBars[index]?.label ?? index} fill={["#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8"][index % 6]} />
                   ))}
-                  <LabelList dataKey="projectedBalance" content={treasuryBarValueLabelContent} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <ul
+            className="mt-1 grid gap-x-1 text-center text-[11px] font-semibold leading-none"
+            style={{
+              gridTemplateColumns: `${TREASURY_AXIS_WIDTH}px repeat(${Math.max(props.treasuryBars.length, 1)}, minmax(0, 1fr))`,
+              paddingRight: 8,
+            }}
+            aria-label="Saldos projetados"
+          >
+            <li aria-hidden />
+            {props.treasuryBars.map((bar) => (
+              <li
+                key={bar.label}
+                className={`whitespace-nowrap tabular-nums ${bar.projectedBalance < 0 ? "text-rose-700" : "text-slate-900"}`}
+              >
+                {formatAxisEur(bar.projectedBalance)}
+              </li>
+            ))}
+          </ul>
         </WidgetShell>
 
         <WidgetShell title="Alertas ativos" href="/alertas" testId="dashboard-alerts-section">
