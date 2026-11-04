@@ -1,6 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
+import type { CartesianLabelListEntry } from "recharts/types/component/LabelList";
+import type { LabelContentType } from "recharts/types/component/Label";
 import Link from "next/link";
 import {
   Area,
@@ -138,20 +140,11 @@ function treasuryChartYDomain(bars: TreasuryBar[]): [number, number] {
   return [min - span * 0.22, max + span * 0.28];
 }
 
-function TreasuryBarValueLabel(props: {
-  x?: number | string;
-  y?: number | string;
-  width?: number | string;
-  height?: number | string;
-  value?: number | string;
-}) {
-  const x = Number(props.x);
-  const y = Number(props.y);
-  const width = Number(props.width);
-  const height = Number(props.height);
+function renderTreasuryBarValueLabel(props: CartesianLabelListEntry): ReactElement {
+  const { x, y, width, height } = props;
   const num = Number(props.value);
   if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(num)) {
-    return null;
+    return <g />;
   }
 
   const text = formatAxisEur(num);
@@ -165,6 +158,8 @@ function TreasuryBarValueLabel(props: {
     </text>
   );
 }
+
+const treasuryBarValueLabelContent = renderTreasuryBarValueLabel as LabelContentType;
 
 function FluxColumn({
   title,
@@ -400,7 +395,7 @@ export function DashboardGrid(props: DashboardGridProps) {
                   {props.treasuryBars.map((_, index) => (
                     <Cell key={props.treasuryBars[index]?.label ?? index} fill={["#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8"][index % 6]} />
                   ))}
-                  <LabelList dataKey="projectedBalance" content={TreasuryBarValueLabel} />
+                  <LabelList dataKey="projectedBalance" content={treasuryBarValueLabelContent} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
