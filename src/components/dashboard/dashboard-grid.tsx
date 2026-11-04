@@ -137,11 +137,14 @@ function treasuryChartYDomain(bars: TreasuryBar[]): [number, number] {
   const min = Math.min(0, ...values);
   const max = Math.max(0, ...values);
   const span = Math.max(max - min, 1);
-  return [min - span * 0.22, max + span * 0.28];
+  return [min - span * 0.32, max + span * 0.32];
 }
 
 function renderTreasuryBarValueLabel(props: CartesianLabelListEntry): ReactElement {
-  const { x, y, width, height } = props;
+  const box = props.viewBox ?? props;
+  const x = box.x;
+  const y = box.y;
+  const width = box.width;
   const num = Number(props.value);
   if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(num)) {
     return <g />;
@@ -149,11 +152,22 @@ function renderTreasuryBarValueLabel(props: CartesianLabelListEntry): ReactEleme
 
   const text = formatAxisEur(num);
   const isNegative = num < 0;
-  const barHeight = Number.isFinite(height) ? height : 0;
-  const labelY = isNegative ? y + barHeight + 11 : y - 4;
+  const barHeight = Math.abs(box.height ?? 0);
+  // Sempre fora da barra: acima (positivo) ou abaixo (negativo), nunca sobre o fill.
+  const labelY = isNegative ? y + barHeight + 14 : y - 8;
 
   return (
-    <text x={x + width / 2} y={labelY} textAnchor="middle" fill="#64748b" fontSize={9}>
+    <text
+      x={x + width / 2}
+      y={labelY}
+      textAnchor="middle"
+      fill="#0f172a"
+      fontSize={10}
+      fontWeight={600}
+      stroke="#ffffff"
+      strokeWidth={3}
+      paintOrder="stroke"
+    >
       {text}
     </text>
   );
@@ -370,7 +384,7 @@ export function DashboardGrid(props: DashboardGridProps) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={props.treasuryBars}
-                margin={{ top: 8, right: 4, left: 0, bottom: 4 }}
+                margin={{ top: 14, right: 4, left: 0, bottom: 8 }}
                 barCategoryGap="18%"
               >
                 <CartesianGrid stroke="#eef2f7" vertical={false} />
@@ -391,7 +405,12 @@ export function DashboardGrid(props: DashboardGridProps) {
                   tickLine={false}
                 />
                 <Tooltip content={<MoneyTooltip />} />
-                <Bar dataKey="projectedBalance" name="Saldo projetado" radius={[6, 6, 0, 0]}>
+                <Bar
+                  dataKey="projectedBalance"
+                  name="Saldo projetado"
+                  radius={[6, 6, 0, 0]}
+                  minPointSize={2}
+                >
                   {props.treasuryBars.map((_, index) => (
                     <Cell key={props.treasuryBars[index]?.label ?? index} fill={["#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#2563eb", "#1d4ed8"][index % 6]} />
                   ))}
