@@ -240,6 +240,69 @@ export async function confirmIncomeOccurrence(
   }
 }
 
+export async function confirmOneOffExpectedIncome(
+  userId: string,
+  workspaceId: string,
+  transactionId: string,
+  receivedAt: Date,
+) {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return { ok: false as const, reason: "forbidden" as const };
+
+  const transaction = await db.transaction.findFirst({
+    where: { id: transactionId, workspaceId, type: "INCOME" },
+  });
+
+  if (!transaction) {
+    return { ok: false as const, reason: "not_found" as const };
+  }
+
+  if (transaction.status === "COMPLETED") {
+    return { ok: true as const, alreadyConfirmed: true as const };
+  }
+
+  if (transaction.status !== "EXPECTED") {
+    return { ok: false as const, reason: "invalid_status" as const };
+  }
+
+  const updated = await db.transaction.updateMany({
+    where: {
+      id: transactionId,
+      workspaceId,
+      type: "INCOME",
+      status: "EXPECTED",
+    },
+    data: {
+      status: "COMPLETED",
+      occurredAt: receivedAt,
+    },
+  });
+
+  if (updated.count !== 1) {
+    const current = await db.transaction.findFirst({
+      where: { id: transactionId, workspaceId },
+      select: { status: true },
+    });
+    if (current?.status === "COMPLETED") {
+      return { ok: true as const, alreadyConfirmed: true as const };
+    }
+    return { ok: false as const, reason: "conflict" as const };
+  }
+
+  observeTransactionPersisted("income");
+
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "INCOME_CONFIRMED",
+    entityType: "Transaction",
+    entityId: transactionId,
+    metadata: { oneOff: true },
+  });
+
+  return { ok: true as const, alreadyConfirmed: false as const };
+}
+
 export async function createEcommerceSaleRecord(
   userId: string,
   workspaceId: string,
@@ -592,6 +655,7 @@ export async function listIncomeOverview(
       nextDate: occurrence?.scheduledFor ?? incomeSeries.nextDueAt,
       status: occurrence?.status ?? (incomeSeries.active ? "EXPECTED" : "CANCELLED"),
       occurrenceId: occurrence?.status === "EXPECTED" ? occurrence.id : null,
+      transactionId: null,
     };
   });
   const transactionRows = transactions
@@ -608,6 +672,7 @@ export async function listIncomeOverview(
         nextDate: transaction.occurredAt,
         status: transaction.status === "COMPLETED" ? "RECEIVED" : transaction.status,
         occurrenceId: null,
+        transactionId: transaction.status === "EXPECTED" ? transaction.id : null,
       };
     });
 

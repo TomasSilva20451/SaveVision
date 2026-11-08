@@ -6,6 +6,7 @@ import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import {
   confirmIncomeOccurrence,
+  confirmOneOffExpectedIncome,
   createEcommerceSaleRecord,
   createFamilyIncomeSeries,
   createOneOffIncome,
@@ -106,12 +107,15 @@ export async function confirmOccurrenceAction(formData: FormData): Promise<void>
   const { selected } = await workspaceOrAbort(user.id);
   if (!selected) return;
 
-  const result = await confirmIncomeOccurrence(
-    user.id,
-    selected.id,
-    String(formData.get("occurrenceId")),
-    new Date(),
-  );
+  const occurrenceId = String(formData.get("occurrenceId") || "").trim();
+  const transactionId = String(formData.get("transactionId") || "").trim();
+  const receivedAt = new Date();
+
+  const result = transactionId
+    ? await confirmOneOffExpectedIncome(user.id, selected.id, transactionId, receivedAt)
+    : occurrenceId
+      ? await confirmIncomeOccurrence(user.id, selected.id, occurrenceId, receivedAt)
+      : { ok: false as const };
 
   if (!result.ok) {
     await flashError("Não foi possível confirmar a receção.", INCOME_PATH);

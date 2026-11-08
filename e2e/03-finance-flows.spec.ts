@@ -32,6 +32,26 @@ test("G. receitas carregam formulários", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Registar receita" })).toBeVisible();
 });
 
+test("G1b. confirmar receita pontual prevista", async ({ page }) => {
+  const description = `E2E receita prevista ${Date.now()}`;
+
+  await page.goto("/receitas");
+  await page.getByRole("button", { name: "+ Nova receita" }).click();
+  const dialog = page.getByRole("dialog", { name: "Nova receita" });
+  const form = dialog.locator("form").filter({ has: page.getByPlaceholder("Ex.: salário, reembolso ou juros") });
+  await form.locator('select[name="accountId"]').selectOption({ index: 0 });
+  await form.getByPlaceholder("Ex.: salário, reembolso ou juros").fill(description);
+  await form.locator('input[name="amount"]').fill("150");
+  await form.getByRole("checkbox", { name: /Marcar como prevista/i }).check();
+  await form.getByRole("button", { name: "Registar receita" }).click();
+
+  const row = page.getByRole("row").filter({ hasText: description }).first();
+  await expect(row).toBeVisible({ timeout: 15_000 });
+  await expect(row).toContainText("Prevista");
+  await row.getByRole("button", { name: "Confirmar" }).click();
+  await expect(row).toContainText("Confirmada", { timeout: 15_000 });
+});
+
 test("G2. confirmar receita familiar esperada (determinístico + idempotente)", async ({
   page,
 }) => {
