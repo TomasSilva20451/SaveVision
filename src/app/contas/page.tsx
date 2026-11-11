@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { AccountBalanceAmount } from "@/components/accounts/account-balance-amount";
 import { AccountMark, accountTypeLabel } from "@/components/accounts/account-mark";
 import { AccountsCharts } from "@/components/accounts/accounts-charts";
 import { AddAccountDrawer } from "@/components/accounts/add-account-drawer";
@@ -152,8 +153,8 @@ async function ContasContent() {
                     <FinanceTableCell>{accountTypeLabel[account.type] ?? account.type}</FinanceTableCell>
                     <FinanceTableCell>{account.institution ?? "—"}</FinanceTableCell>
                     <FinanceTableCell align="right">
-                      <span className="text-lg font-semibold" data-testid="account-balance">
-                        {formatEUR(account.currentBalance)}
+                      <span data-testid="account-balance">
+                        <AccountBalanceAmount amount={account.currentBalance} />
                       </span>
                     </FinanceTableCell>
                     <FinanceTableCell>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { AnimatedMoney } from "@/components/ui/animated-money";
 import { formatEUR } from "@/lib/finance/money";
 
 export type MetricTone = "neutral" | "income" | "expense" | "warning" | "analytic" | "accent";
@@ -35,7 +36,8 @@ export function FinanceMetricCard({
   rawValue = false,
   labelHeadingLevel,
 }: FinanceMetricCardProps) {
-  const display = rawValue || value.includes("€") ? value : formatEUR(value);
+  const isMoney = !rawValue || value.includes("€");
+  const displayStatic = rawValue && !value.includes("€") ? value : formatEUR(value);
 
   const labelNode =
     labelHeadingLevel === 2 ? (
@@ -47,7 +49,7 @@ export function FinanceMetricCard({
     );
 
   const body = (
-    <div data-tone={tone} className="finance-metric-card flex h-full gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]">
+    <div data-tone={tone} className="finance-metric-card flex h-full gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)] transition-[box-shadow,opacity] duration-200 ease-out">
       <div
         className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg ${toneIcon[tone]}`}
         aria-hidden
@@ -57,7 +59,11 @@ export function FinanceMetricCard({
       <div className="min-w-0 flex-1">
         {labelNode}
         <p className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-50">
-          {display}
+          {isMoney ? (
+            <AnimatedMoney value={value} rawValue={rawValue} className="inline-block" />
+          ) : (
+            displayStatic
+          )}
         </p>
         {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
       </div>

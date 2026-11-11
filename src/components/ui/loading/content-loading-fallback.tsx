@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/skeleton";
 
 import { DelayedSkeleton } from "./delayed-skeleton";
+import { PageOutlineLoader } from "./page-outline-loader";
 
 export type ContentLoadingShape =
   | "dashboard"
@@ -20,7 +21,7 @@ type ContentLoadingFallbackProps = {
   shape: ContentLoadingShape;
 };
 
-function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
+export function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
   switch (shape) {
     case "dashboard":
       return (
@@ -85,17 +86,22 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
   }
 }
 
+type ContentLoadingFallbackPropsWithLabel = ContentLoadingFallbackProps & {
+  routeLabel?: string;
+};
+
 /** Skeleton de conteúdo com forma conhecida, só após atraso — usar em Suspense dentro da página. */
-export function ContentLoadingFallback({ shape }: ContentLoadingFallbackProps) {
+export function ContentLoadingFallback({
+  shape,
+  routeLabel = "A carregar conteúdo",
+}: ContentLoadingFallbackPropsWithLabel) {
   return (
-    <DelayedSkeleton>
-      <div
-        className="min-w-0 space-y-4 p-4 sm:space-y-6 sm:p-6 lg:p-8"
-        aria-busy="true"
-        aria-label="A carregar conteúdo"
-      >
-        <ShapeBody shape={shape} />
-      </div>
-    </DelayedSkeleton>
+    <PageOutlineLoader label={routeLabel}>
+      <DelayedSkeleton>
+        <div className="min-w-0 space-y-4 sm:space-y-6" aria-label="A carregar conteúdo">
+          <ShapeBody shape={shape} />
+        </div>
+      </DelayedSkeleton>
+    </PageOutlineLoader>
   );
 }
