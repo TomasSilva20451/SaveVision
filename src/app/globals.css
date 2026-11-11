@@ -19,6 +19,8 @@
   --analytic: #7c3aed;
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
   --radius-card: 1rem;
+  --motion-duration: 200ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -45,17 +47,204 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
-@keyframes route-load-indeterminate {
-  0% {
-    transform: translateX(-120%);
+@keyframes app-route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  100% {
-    transform: translateX(420%);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.route-load-bar {
-  animation: route-load-indeterminate 1.15s ease-in-out infinite;
+@keyframes app-route-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+::view-transition-old(.app-route) {
+  animation: app-route-exit 120ms ease-out both;
+}
+
+::view-transition-new(.app-route) {
+  animation: app-route-enter var(--motion-duration) var(--motion-ease) both;
+}
+
+@keyframes loading-outline-pulse {
+  0%, 100% {
+    border-color: rgb(59 130 246 / 0.2);
+    box-shadow: 0 0 0 1px rgb(59 130 246 / 0.05), 0 0 24px rgb(59 130 246 / 0.05);
+  }
+  50% {
+    border-color: rgb(99 102 241 / 0.55);
+    box-shadow: 0 0 0 2px rgb(99 102 241 / 0.1), 0 0 38px rgb(59 130 246 / 0.16);
+  }
+}
+
+@keyframes loading-shape-breathe {
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 0.88; }
+}
+
+@keyframes value-settle {
+  from {
+    opacity: 0.72;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tab-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.route-loading-frame {
+  position: relative;
+  min-height: min(43rem, calc(100dvh - 2rem));
+  padding: clamp(1rem, 3vw, 2rem);
+  overflow: hidden;
+}
+
+.route-loading-outline {
+  position: absolute;
+  inset: 0.5rem;
+  pointer-events: none;
+  border: 1px solid rgb(59 130 246 / 0.25);
+  border-radius: 1.5rem;
+  animation: loading-outline-pulse 1.4s ease-in-out infinite;
+}
+
+.route-loading-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.route-loading-heading {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.route-loading-kpis {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.route-loading-panels {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.route-loading-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  padding: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+.route-loading-kpi {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-height: 6rem;
+}
+
+.route-loading-shape {
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  animation: loading-shape-breathe 1.35s ease-in-out infinite;
+}
+
+.route-loading-kpis > :nth-child(2) .route-loading-shape,
+.route-loading-panels > :nth-child(2) .route-loading-shape {
+  animation-delay: 120ms;
+}
+
+.route-loading-kpis > :nth-child(3) .route-loading-shape { animation-delay: 240ms; }
+.route-loading-kpis > :nth-child(4) .route-loading-shape { animation-delay: 360ms; }
+
+.animated-financial-value {
+  display: inline-block;
+  min-width: 1ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.animated-financial-value[data-changing="true"] {
+  animation: value-settle var(--motion-duration) var(--motion-ease) both;
+}
+
+.motion-surface {
+  transition:
+    transform var(--motion-duration) var(--motion-ease),
+    opacity var(--motion-duration) var(--motion-ease),
+    border-color var(--motion-duration) var(--motion-ease),
+    background-color var(--motion-duration) var(--motion-ease),
+    box-shadow var(--motion-duration) var(--motion-ease);
+}
+
+.motion-progress {
+  transition: width var(--motion-duration) var(--motion-ease);
+}
+
+.tab-panel-motion {
+  animation: tab-panel-enter var(--motion-duration) var(--motion-ease) both;
+}
+
+.aurora-shell :where(a, button, summary, input, select, textarea, [role="tab"]) {
+  transition-duration: var(--motion-duration);
+  transition-timing-function: var(--motion-ease);
+}
+
+.aurora-shell tbody tr {
+  transition: background-color var(--motion-duration) var(--motion-ease), opacity var(--motion-duration) var(--motion-ease);
+}
+
+@media (max-width: 767px) {
+  .route-loading-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .route-loading-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 479px) {
+  .route-loading-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(.app-route),
+  ::view-transition-new(.app-route),
+  .route-loading-outline,
+  .route-loading-shape,
+  .animated-financial-value[data-changing="true"],
+  .tab-panel-motion {
+    animation: none !important;
+  }
+
+  .motion-surface,
+  .motion-progress,
+  .aurora-shell :where(a, button, summary, input, select, textarea, [role="tab"]),
+  .aurora-shell tbody tr {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .brand-mark {
@@ -130,7 +319,7 @@ body {
 }
 
 .user-account-link {
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition: background-color var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease);
 }
 
 .user-account-link:hover {
@@ -145,7 +334,7 @@ body {
 .logout-button {
   color: #475569;
   background: rgb(255 255 255 / 0.58);
-  transition: color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  transition: color var(--motion-duration) var(--motion-ease), background-color var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease), box-shadow var(--motion-duration) var(--motion-ease);
 }
 
 .logout-button:hover {
@@ -345,7 +534,7 @@ body {
 .aurora-shell input,
 .aurora-shell select,
 .aurora-shell textarea {
-  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+  transition: border-color var(--motion-duration) var(--motion-ease), box-shadow var(--motion-duration) var(--motion-ease), background-color var(--motion-duration) var(--motion-ease);
 }
 
 .aurora-shell input:focus,
@@ -398,7 +587,7 @@ body {
 }
 
 .aurora-shell .app-content [role="row"] {
-  transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition: background-color var(--motion-duration) var(--motion-ease), box-shadow var(--motion-duration) var(--motion-ease), transform var(--motion-duration) var(--motion-ease);
 }
 
 .aurora-shell .app-content [role="row"]:hover {
@@ -408,7 +597,7 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   .aurora-shell .finance-metric-card,
   .aurora-shell .simulation-tab {
-    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    transition: transform var(--motion-duration) var(--motion-ease), box-shadow var(--motion-duration) var(--motion-ease), border-color var(--motion-duration) var(--motion-ease);
   }
 
   .aurora-shell .finance-metric-card:hover,

@@ -302,3 +302,11 @@ Pós-redesign (shell + KPIs nas 11 rotas): `pnpm build` + **69** E2E strict ×3 
 Screenshots pós-redesign: `docs/visual-audit/` (`pnpm audit:screenshots` com `pnpm dev:demo`).
 
 **Paridade mockup:** shell e cartões métricos alinhados às referências em `docs/design-references/`; interiores (tabelas densas, calendários, simuladores ilustrativos) em evolução — ver `docs/PHASE19_VISUAL_AUDIT.md`.
+
+## Sistema de movimento financeiro
+
+- Transições de navegação, superfícies, controlos, tabelas e barras de progresso usam um ritmo comum de 200 ms.
+- KPIs financeiros partilhados animam numericamente do valor anterior para o novo sem alterar os cálculos `Decimal` do servidor.
+- Os gráficos circulares animados usam 200 ms e sem atraso inicial.
+- Os `loading.tsx` preservam uma estrutura reconhecível de página; o contorno pulsante é reservado ao carregamento e respeita `prefers-reduced-motion`.
+- Portão validado: lint, typecheck, build, **320 testes unitários/integração** e **100 E2E**.

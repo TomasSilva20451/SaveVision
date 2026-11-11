@@ -7,7 +7,7 @@ export const SKELETON_DELAY_MS = 300;
 export const SPINNER_TYPICAL_MAX_MS = 3_000;
 
 /**
- * - `RouteSegmentLoading`: navegação / refresh de rota (`loading.tsx`). Barra discreta; sem skeleton nem spinner de página inteira.
+ * - `RouteSegmentLoading`: navegação / refresh de rota (`loading.tsx`). Preserva a estrutura esperada e usa o contorno pulsante como maior momento de movimento.
  * - Skeleton (com atraso): blocos com forma conhecida (KPIs, tabelas, gráficos, artigos) dentro da página.
  * - `InlineSpinner`: acções pontuais (submit, stream, painel); nunca ecrã completo.
  */

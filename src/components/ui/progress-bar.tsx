@@ -38,7 +38,7 @@ export function ProgressBar({
         aria-valuemax={100}
         aria-label={label}
       >
-        <div className={`h-full rounded-full ${fill[tone]}`} style={{ width: `${pct}%` }} />
+        <div className={`motion-progress h-full rounded-full ${fill[tone]}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

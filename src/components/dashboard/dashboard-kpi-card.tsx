@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatEUR } from "@/lib/finance/money";
+import { AnimatedValue } from "@/components/ui/animated-value";
 
 export type KpiTone = "accent" | "income" | "expense" | "analytic";
 
@@ -45,7 +46,7 @@ export function DashboardKpiCard({
       <div className="min-w-0">
         <p className="text-sm text-slate-500">{label}</p>
         <p className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
-          {display}
+          <AnimatedValue animationKey={`dashboard-kpi:${label}`}>{display}</AnimatedValue>
         </p>
         {trendLabel ? (
           <p

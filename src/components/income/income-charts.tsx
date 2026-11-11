@@ -76,8 +76,8 @@ export function IncomeCharts({ evolution, distribution, total, periodLabel }: In
                     outerRadius={76}
                     paddingAngle={1}
                     isAnimationActive
-                    animationBegin={80}
-                    animationDuration={900}
+                    animationBegin={0}
+                    animationDuration={200}
                     animationEasing="ease-out"
                   >
                     {pie.map((slice, index) => (

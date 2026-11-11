@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { formatEUR } from "@/lib/finance/money";
+import { AnimatedValue } from "@/components/ui/animated-value";
 
 export type MetricTone = "neutral" | "income" | "expense" | "warning" | "analytic" | "accent";
 
@@ -57,7 +58,7 @@ export function FinanceMetricCard({
       <div className="min-w-0 flex-1">
         {labelNode}
         <p className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-50">
-          {display}
+          <AnimatedValue animationKey={`finance-metric:${label}`}>{display}</AnimatedValue>
         </p>
         {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
       </div>

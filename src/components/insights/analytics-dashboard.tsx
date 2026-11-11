@@ -23,6 +23,7 @@ import { InsightExplainButton } from "@/components/insights/insight-explain-butt
 import type { FinancialInsightsOverview } from "@/server/services/financial-insights";
 import { formatEUR } from "@/lib/finance/money";
 import type { MetricTone } from "@/components/ui/finance-metric-card";
+import { AnimatedValue } from "@/components/ui/animated-value";
 
 type Analytics = FinancialInsightsOverview["analytics"];
 type Insight = FinancialInsightsOverview["insights"][number];
@@ -74,7 +75,7 @@ const kpiIconTone: Record<MetricTone, string> = {
 };
 
 function KpiCard({ label, value, hint, icon, tone, chart }: { label: string; value: string; hint: string; icon: IconKind; tone: MetricTone; chart?: ReactNode }) {
-  return <section data-tone={tone} className="finance-metric-card min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]"><div className="flex min-h-20 items-center gap-3"><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${kpiIconTone[tone]}`}><Icon kind={icon}/></span><div className="min-w-0 flex-1"><p className="text-sm text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-50">{value}</p><p className="mt-1 text-xs text-slate-500">{hint}</p></div>{chart ? <div className="hidden h-12 w-20 shrink-0 2xl:block">{chart}</div> : null}</div></section>;
+  return <section data-tone={tone} className="finance-metric-card min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]"><div className="flex min-h-20 items-center gap-3"><span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${kpiIconTone[tone]}`}><Icon kind={icon}/></span><div className="min-w-0 flex-1"><p className="text-sm text-slate-500">{label}</p><p className="mt-0.5 text-2xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-slate-50"><AnimatedValue animationKey={`analytics-kpi:${label}`}>{value}</AnimatedValue></p><p className="mt-1 text-xs text-slate-500">{hint}</p></div>{chart ? <div className="hidden h-12 w-20 shrink-0 2xl:block">{chart}</div> : null}</div></section>;
 }
 
 export function AnalyticsDashboard({ analytics, insights }: { analytics: Analytics; insights: Insight[] }) {
@@ -95,6 +96,8 @@ export function AnalyticsDashboard({ analytics, insights }: { analytics: Analyti
       <div className="flex min-w-max">{TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} onClick={() => setTab(item.id)} className={`border-b-2 px-4 py-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ${tab === item.id ? "aurora-tab-active border-blue-600 text-blue-700" : "border-transparent text-slate-600 hover:text-slate-900"}`}>{item.label}</button>)}</div>
       <span className="hidden shrink-0 pr-3 text-xs text-slate-500 lg:block">{analytics.periodLabel}</span>
     </div>
+
+    <div key={tab} className="tab-panel-motion space-y-4">
 
     {(["overview", "expenses", "income", "comparisons"] as TabId[]).includes(tab) ? <div className="grid min-w-0 gap-4 xl:grid-cols-3">
       <Card testId="analytics-income-expense-chart"><SectionTitle title="Evolução de receitas e despesas" subtitle="Movimentos económicos realizados por mês."/><MonthlyBars data={monthlyChart}/></Card>
@@ -129,6 +132,7 @@ export function AnalyticsDashboard({ analytics, insights }: { analytics: Analyti
       <Card testId="analytics-insights"><SectionTitle title="Insights e recomendações" subtitle="Regras determinísticas com evidência."/><InsightList insights={insights.slice(0, 3)}/></Card>
       <Card testId="analytics-homologous"><SectionTitle title="Comparação com período homólogo" subtitle="Mesmo intervalo do ano anterior."/><Homologous analytics={analytics}/></Card>
     </div> : null}
+    </div>
   </div>;
 }
 
@@ -149,7 +153,7 @@ function MonthlyBars({ data }: { data: Array<{ label: string; incomeNumber: numb
 
 function ExpenseDonut({ data, total }: { data: Array<{ id: string; name: string; amountNumber: number; amount: string }>; total: string }) {
   if (!data.length) return <Empty text="Sem despesas económicas para distribuir."/>;
-  return <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row xl:flex-col 2xl:flex-row"><div className="relative h-44 w-44 shrink-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="amountNumber" innerRadius={52} outerRadius={76} isAnimationActive animationBegin={80} animationDuration={900} animationEasing="ease-out">{data.map((row, index) => <Cell key={row.id} fill={COLORS[index % COLORS.length]}/>)}</Pie><Tooltip formatter={(value) => formatEUR(String(value ?? 0))}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 grid place-items-center text-center"><strong>{formatEUR(total)}<span className="block text-[10px] font-normal text-slate-500">total de despesas</span></strong></div></div><ul className="w-full space-y-2 text-xs">{data.slice(0, 6).map((row, index) => <li key={row.id} className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[index % COLORS.length] }}/><span className="min-w-0 flex-1 truncate">{row.name}</span><strong>{formatEUR(row.amount)}</strong></li>)}</ul></div>;
+  return <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row xl:flex-col 2xl:flex-row"><div className="relative h-44 w-44 shrink-0"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="amountNumber" innerRadius={52} outerRadius={76} isAnimationActive animationBegin={0} animationDuration={200} animationEasing="ease-out">{data.map((row, index) => <Cell key={row.id} fill={COLORS[index % COLORS.length]}/>)}</Pie><Tooltip formatter={(value) => formatEUR(String(value ?? 0))}/></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 grid place-items-center text-center"><strong>{formatEUR(total)}<span className="block text-[10px] font-normal text-slate-500">total de despesas</span></strong></div></div><ul className="w-full space-y-2 text-xs">{data.slice(0, 6).map((row, index) => <li key={row.id} className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[index % COLORS.length] }}/><span className="min-w-0 flex-1 truncate">{row.name}</span><strong>{formatEUR(row.amount)}</strong></li>)}</ul></div>;
 }
 
 function SavingsTrend({ data, latest }: { data: Analytics["monthly"]; latest: number | null }) {
