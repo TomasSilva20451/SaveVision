@@ -1,5 +1,5 @@
 function skeletonClass(extra = "") {
-  return `skeleton-breathe rounded-md bg-slate-200/85 dark:bg-slate-700/55 ${extra}`;
+  return `animate-pulse rounded-md bg-slate-200/80 dark:bg-slate-700/60 ${extra}`;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {

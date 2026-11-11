@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AnimatedMoney } from "@/components/ui/animated-money";
 import { formatEUR } from "@/lib/finance/money";
 
 export type KpiTone = "accent" | "income" | "expense" | "analytic";
@@ -33,8 +32,7 @@ export function DashboardKpiCard({
   trendPositive,
   rawValue = false,
 }: DashboardKpiCardProps) {
-  const isMoney = !rawValue || value.includes("€");
-  const displayStatic = rawValue && !value.includes("€") ? value : formatEUR(value);
+  const display = rawValue || value.includes("€") ? value : formatEUR(value);
 
   const card = (
     <div data-tone={tone} className="finance-metric-card flex h-full min-h-[5.75rem] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]">
@@ -47,16 +45,7 @@ export function DashboardKpiCard({
       <div className="min-w-0">
         <p className="text-sm text-slate-500">{label}</p>
         <p className="mt-0.5 text-xl font-semibold tabular-nums tracking-tight text-slate-900 sm:text-2xl dark:text-slate-50">
-          {isMoney ? (
-            <AnimatedMoney
-              value={value}
-              rawValue={rawValue}
-              emphasis={label === "Saldo total"}
-              className="inline-block"
-            />
-          ) : (
-            displayStatic
-          )}
+          {display}
         </p>
         {trendLabel ? (
           <p
@@ -79,7 +68,7 @@ export function DashboardKpiCard({
     return (
       <Link
         href={href}
-        className="block h-full rounded-2xl transition-[box-shadow,transform] duration-200 ease-out hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        className="block h-full rounded-2xl transition hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
       >
         {card}
       </Link>

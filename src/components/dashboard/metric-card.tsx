@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AnimatedMoney } from "@/components/ui/animated-money";
+import { formatEUR } from "@/lib/finance/money";
 import { safePercentChange } from "@/lib/finance/kpi";
 
 export function MetricCard({
@@ -26,7 +26,7 @@ export function MetricCard({
     >
       <p className="text-sm text-slate-500">{label}</p>
       <p className={`mt-1 text-xl font-semibold tabular-nums ${highlight ? "text-blue-700" : "text-slate-900 dark:text-slate-50"}`}>
-        <AnimatedMoney value={value} emphasis={highlight} className="inline-block" />
+        {formatEUR(value)}
       </p>
       {change != null ? (
         <p className="mt-1 text-xs text-slate-500">
