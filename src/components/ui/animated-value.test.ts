@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseAnimatedValue } from "./animated-value";
+import { initialAnimatedValue, parseAnimatedValue } from "./animated-value";
 
 describe("parseAnimatedValue", () => {
   it("lê montantes formatados em pt-PT", () => {
@@ -27,5 +27,12 @@ describe("parseAnimatedValue", () => {
   it("não tenta animar estados textuais", () => {
     expect(parseAnimatedValue("Dados insuficientes")).toBeNull();
     expect(parseAnimatedValue("N/D")).toBeNull();
+  });
+
+  it("começa valores numéricos em zero antes da transição", () => {
+    expect(initialAnimatedValue("1 234,56 €").replaceAll(/\s/g, " ")).toBe("0,00 €");
+    expect(initialAnimatedValue("85,4%")).toBe("0,0%");
+    expect(initialAnimatedValue("12")).toBe("0");
+    expect(initialAnimatedValue("N/D")).toBe("N/D");
   });
 });

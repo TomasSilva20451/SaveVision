@@ -307,6 +307,6 @@ Screenshots pós-redesign: `docs/visual-audit/` (`pnpm audit:screenshots` com `p
 
 - Transições de navegação, superfícies, controlos, tabelas e barras de progresso usam um ritmo comum de 200 ms.
 - KPIs financeiros partilhados animam numericamente do valor anterior para o novo sem alterar os cálculos `Decimal` do servidor.
-- Os gráficos circulares animados usam 200 ms e sem atraso inicial.
+- Os gráficos preservam a animação visual suave de 900 ms; o ritmo de 200 ms aplica-se apenas à interface e aos valores numéricos.
 - Os `loading.tsx` preservam uma estrutura reconhecível de página; o contorno pulsante é reservado ao carregamento e respeita `prefers-reduced-motion`.
-- Portão validado: lint, typecheck, build, **320 testes unitários/integração** e **100 E2E**.
+- Portão validado: lint, typecheck, build, **322 testes unitários/integração** e **100 E2E**.

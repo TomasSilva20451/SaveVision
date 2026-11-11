@@ -55,6 +55,11 @@ function formatFrame(value: number, parsed: ParsedValue) {
   return parsed.kind === "percent" ? `${formatted}%` : formatted;
 }
 
+export function initialAnimatedValue(value: string) {
+  const parsed = parseAnimatedValue(value);
+  return parsed ? formatFrame(0, parsed) : value;
+}
+
 type AnimatedValueProps = {
   children: string;
   animationKey: string;
@@ -79,10 +84,10 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
     if (!element || !parsed) return;
 
     const target = parsed.numeric;
-    const previous = currentValueRef.current ?? previousValues.get(scopedKey);
+    const previous = currentValueRef.current ?? previousValues.get(scopedKey) ?? 0;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    if (previous == null || previous === target || reducedMotion) {
+    if (previous === target || reducedMotion) {
       element.textContent = children;
       currentValueRef.current = target;
       previousValues.set(scopedKey, target);
@@ -115,7 +120,9 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
 
     return () => {
       if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current);
-      previousValues.set(scopedKey, target);
+      frameRef.current = null;
+      const lastRendered = currentValueRef.current;
+      if (lastRendered != null) previousValues.set(scopedKey, lastRendered);
     };
   }, [children, scopedKey]);
 
@@ -125,7 +132,7 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
       className={`animated-financial-value ${className}`}
       aria-label={children}
     >
-      {children}
+      {initialAnimatedValue(children)}
     </span>
   );
 }

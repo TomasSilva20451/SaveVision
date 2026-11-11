@@ -80,8 +80,8 @@ export function RecurringCharts({
                     outerRadius={66}
                     paddingAngle={2}
                     isAnimationActive
-                    animationBegin={0}
-                    animationDuration={200}
+                    animationBegin={80}
+                    animationDuration={900}
                     animationEasing="ease-out"
                   >
                     {pie.map((slice, index) => (
