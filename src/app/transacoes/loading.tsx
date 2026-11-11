@@ -1,5 +1,5 @@
-import { RouteSegmentLoading } from "@/components/ui/loading";
+import { PageSuspenseFallback } from "@/components/ui/loading";
 
 export default function Loading() {
-  return <RouteSegmentLoading />;
+  return <PageSuspenseFallback shape="transactions" />;
 }

@@ -7,7 +7,7 @@ type PageSuspenseFallbackProps = {
   routeLabel?: string;
 };
 
-/** Suspense dentro de `page.tsx`: skeleton atrasado se houver forma; senão barra de rota (sem spinner). */
+/** Suspense dentro de `page.tsx`: shell estrutural se houver forma; senão fallback genérico. */
 export function PageSuspenseFallback({ shape, routeLabel }: PageSuspenseFallbackProps) {
   if (shape) return <ContentLoadingFallback shape={shape} />;
   return <RouteSegmentLoading label={routeLabel} />;

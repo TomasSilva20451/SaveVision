@@ -20,6 +20,7 @@
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
   --radius-card: 1rem;
   --motion-duration: 200ms;
+  --value-motion-duration: 900ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -110,17 +111,6 @@ html.privacy-hidden input[data-privacy-sensitive]:focus {
   animation: app-route-enter var(--motion-duration) var(--motion-ease) both;
 }
 
-@keyframes loading-outline-pulse {
-  0%, 100% {
-    border-color: rgb(59 130 246 / 0.2);
-    box-shadow: 0 0 0 1px rgb(59 130 246 / 0.05), 0 0 24px rgb(59 130 246 / 0.05);
-  }
-  50% {
-    border-color: rgb(99 102 241 / 0.55);
-    box-shadow: 0 0 0 2px rgb(99 102 241 / 0.1), 0 0 38px rgb(59 130 246 / 0.16);
-  }
-}
-
 @keyframes loading-shape-breathe {
   0%, 100% { opacity: 0.48; }
   50% { opacity: 0.88; }
@@ -148,73 +138,27 @@ html.privacy-hidden input[data-privacy-sensitive]:focus {
   }
 }
 
-.route-loading-frame {
-  position: relative;
-  min-height: min(43rem, calc(100dvh - 2rem));
-  padding: clamp(1rem, 3vw, 2rem);
-  overflow: hidden;
-}
-
-.route-loading-outline {
-  position: absolute;
-  inset: 0.5rem;
-  pointer-events: none;
-  border: 1px solid rgb(59 130 246 / 0.25);
-  border-radius: 1.5rem;
-  animation: loading-outline-pulse 1.4s ease-in-out infinite;
-}
-
-.route-loading-layout {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 1.25rem;
-}
-
-.route-loading-heading {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.route-loading-kpis {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.route-loading-panels {
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.route-loading-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  padding: 1rem;
-  box-shadow: var(--shadow-card);
-}
-
-.route-loading-kpi {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  min-height: 6rem;
-}
-
-.route-loading-shape {
+.loading-skeleton-shape {
+  display: block;
   background: color-mix(in srgb, var(--muted) 16%, transparent);
-  animation: loading-shape-breathe 1.35s ease-in-out infinite;
+  animation: loading-shape-breathe 1.8s ease-in-out infinite;
 }
 
-.route-loading-kpis > :nth-child(2) .route-loading-shape,
-.route-loading-panels > :nth-child(2) .route-loading-shape {
-  animation-delay: 120ms;
+.loading-skeleton-ring {
+  border: 1.15rem solid color-mix(in srgb, var(--accent) 17%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 75%, transparent);
+  animation: loading-shape-breathe 1.8s ease-in-out infinite;
 }
 
-.route-loading-kpis > :nth-child(3) .route-loading-shape { animation-delay: 240ms; }
-.route-loading-kpis > :nth-child(4) .route-loading-shape { animation-delay: 360ms; }
+.loading-skeleton-chart {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(33.333% - 1px),
+    color-mix(in srgb, var(--border) 65%, transparent) 33.333%
+  );
+}
 
 .animated-financial-value {
   display: inline-block;
@@ -223,7 +167,7 @@ html.privacy-hidden input[data-privacy-sensitive]:focus {
 }
 
 .animated-financial-value[data-changing="true"] {
-  animation: value-settle var(--motion-duration) var(--motion-ease) both;
+  animation: value-settle var(--value-motion-duration) var(--motion-ease) both;
 }
 
 .motion-surface {
@@ -252,27 +196,11 @@ html.privacy-hidden input[data-privacy-sensitive]:focus {
   transition: background-color var(--motion-duration) var(--motion-ease), opacity var(--motion-duration) var(--motion-ease);
 }
 
-@media (max-width: 767px) {
-  .route-loading-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .route-loading-panels {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 479px) {
-  .route-loading-kpis {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(.app-route),
   ::view-transition-new(.app-route),
-  .route-loading-outline,
-  .route-loading-shape,
+  .loading-skeleton-shape,
+  .loading-skeleton-ring,
   .animated-financial-value[data-changing="true"],
   .tab-panel-motion {
     animation: none !important;

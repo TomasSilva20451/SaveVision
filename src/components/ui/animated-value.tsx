@@ -3,7 +3,8 @@
 import { useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
-const VALUE_TRANSITION_MS = 200;
+export const VALUE_TRANSITION_MS = 900;
+export const VALUE_TRANSITION_DELAY_MS = 140;
 const previousValues = new Map<string, number>();
 
 type ParsedValue = {
@@ -75,6 +76,7 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
   const elementRef = useRef<HTMLSpanElement>(null);
   const currentValueRef = useRef<number | null>(null);
   const frameRef = useRef<number | null>(null);
+  const delayRef = useRef<number | null>(null);
   const scopedKey = `${pathname}:${animationKey}`;
 
   useLayoutEffect(() => {
@@ -94,32 +96,40 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
       return;
     }
 
+    if (delayRef.current != null) window.clearTimeout(delayRef.current);
     if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current);
-    const startedAt = performance.now();
     element.dataset.changing = "true";
     element.textContent = formatFrame(previous, parsed);
+    currentValueRef.current = previous;
 
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / VALUE_TRANSITION_MS);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const value = previous + (target - previous) * eased;
-      element.textContent = progress === 1 ? children : formatFrame(value, parsed);
-      currentValueRef.current = value;
+    delayRef.current = window.setTimeout(() => {
+      delayRef.current = null;
+      const startedAt = performance.now();
 
-      if (progress < 1) {
-        frameRef.current = window.requestAnimationFrame(tick);
-      } else {
-        delete element.dataset.changing;
-        currentValueRef.current = target;
-        previousValues.set(scopedKey, target);
-        frameRef.current = null;
-      }
-    };
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / VALUE_TRANSITION_MS);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = previous + (target - previous) * eased;
+        element.textContent = progress === 1 ? children : formatFrame(value, parsed);
+        currentValueRef.current = value;
 
-    frameRef.current = window.requestAnimationFrame(tick);
+        if (progress < 1) {
+          frameRef.current = window.requestAnimationFrame(tick);
+        } else {
+          delete element.dataset.changing;
+          currentValueRef.current = target;
+          previousValues.set(scopedKey, target);
+          frameRef.current = null;
+        }
+      };
+
+      frameRef.current = window.requestAnimationFrame(tick);
+    }, VALUE_TRANSITION_DELAY_MS);
 
     return () => {
+      if (delayRef.current != null) window.clearTimeout(delayRef.current);
       if (frameRef.current != null) window.cancelAnimationFrame(frameRef.current);
+      delayRef.current = null;
       frameRef.current = null;
       const lastRendered = currentValueRef.current;
       if (lastRendered != null) previousValues.set(scopedKey, lastRendered);

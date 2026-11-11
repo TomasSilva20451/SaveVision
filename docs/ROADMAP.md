@@ -17,7 +17,7 @@ Cada fase fecha com `pnpm lint`, `pnpm typecheck`, `pnpm test` e `pnpm build`.
 12. Seed, testes de ponta a ponta e verificação no browser — concluída: `pnpm test:e2e`, seed alargado.
 13. Auditoria, segurança e estabilização — concluída: isolamento João/Maria, relatórios completos, E2E alargado, `docs/SECURITY_AUDIT.md`.
 14. Experiência de utilização e design — concluída: primitivos UI, mobile, flash, dashboard/despesas (`docs/PROGRESS.md`).
-14.1. Movimento financeiro — **concluída**: transições de rota e estado em 200 ms, KPIs com rolagem numérica desde zero, gráficos com animação contextual suave, progresso interpolado e carregamento estrutural com contorno pulsante; fallback sem movimento para `prefers-reduced-motion`.
+14.1. Movimento financeiro — **concluída**: transições de rota e estado em 200 ms, KPIs com rolagem legível desde zero (900 ms após estabilização do conteúdo), gráficos com animação contextual suave, progresso interpolado e carregamento estrutural alinhado ao `AppShell`; fallback sem movimento para `prefers-reduced-motion`.
 15. Orçamentos, património e planeamento avançado — concluída: `/orcamentos`, `/patrimonio`, análise de despesas, passivos manuais, KPIs no dashboard, testes financeiros e E2E alargados.
 16. Integridade patrimonial e fiabilidade — concluída: E2E com `storageState`, pagamentos de passivo atómicos, idempotência, snapshots, constraints SQL, audit parcial, backup/restore.
 16.1. Consolidação integridade e segurança — concluída: testes WITH_BANK, idempotência transacional e concorrência, isolamento ampliado, restore guard.

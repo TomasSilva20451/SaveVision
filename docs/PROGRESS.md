@@ -306,7 +306,7 @@ Screenshots pós-redesign: `docs/visual-audit/` (`pnpm audit:screenshots` com `p
 ## Sistema de movimento financeiro
 
 - Transições de navegação, superfícies, controlos, tabelas e barras de progresso usam um ritmo comum de 200 ms.
-- KPIs financeiros partilhados animam numericamente do valor anterior para o novo sem alterar os cálculos `Decimal` do servidor.
-- Os gráficos preservam a animação visual suave de 900 ms; o ritmo de 200 ms aplica-se apenas à interface e aos valores numéricos.
-- Os `loading.tsx` preservam uma estrutura reconhecível de página; o contorno pulsante é reservado ao carregamento e respeita `prefers-reduced-motion`.
-- Portão validado: lint, typecheck, build, **322 testes unitários/integração** e **100 E2E**.
+- KPIs financeiros partilhados animam numericamente do valor anterior para o novo em 900 ms, após uma pausa de 140 ms que separa a troca do skeleton da contagem, sem alterar os cálculos `Decimal` do servidor.
+- Os gráficos preservam a animação visual suave de 900 ms; o ritmo de 200 ms aplica-se apenas às transições da interface.
+- Os `loading.tsx` preservam o mesmo shell, grelha de quatro KPI, painéis de gráfico/donut e superfícies da página final; o skeleton usa movimento discreto e respeita `prefers-reduced-motion`.
+- Portão validado: lint, typecheck, build, **323 testes unitários/integração** e **100 E2E**.

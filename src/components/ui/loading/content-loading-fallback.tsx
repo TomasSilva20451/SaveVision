@@ -5,7 +5,7 @@ import {
   TableSkeleton,
 } from "@/components/ui/skeleton";
 
-import { DelayedSkeleton } from "./delayed-skeleton";
+import { AppShellSkeleton } from "./app-shell-skeleton";
 
 export type ContentLoadingShape =
   | "dashboard"
@@ -26,9 +26,9 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
       return (
         <>
           <KpiSkeletonGrid />
-          <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-            <ChartSkeleton className="h-72" />
-            <ChartSkeleton className="h-72" />
+          <div className="grid min-w-0 gap-5 lg:grid-cols-5">
+            <ChartSkeleton className="h-80 lg:col-span-3" />
+            <ChartSkeleton className="h-80 lg:col-span-2" variant="donut" />
           </div>
           <TableSkeleton rows={5} cols={3} />
         </>
@@ -44,12 +44,12 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
     case "transactions":
       return (
         <>
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-10 w-28" />
-            <Skeleton className="h-10 w-36" />
-            <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-3 w-[34rem] max-w-[90%]" />
+          <KpiSkeletonGrid />
+          <div className="grid min-w-0 gap-5 lg:grid-cols-5">
+            <ChartSkeleton className="h-[22rem] lg:col-span-3" />
+            <ChartSkeleton className="h-[22rem] lg:col-span-2" variant="donut" />
           </div>
-          <ChartSkeleton className="h-56" />
           <TableSkeleton rows={8} cols={5} />
         </>
       );
@@ -85,17 +85,13 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
   }
 }
 
-/** Skeleton de conteúdo com forma conhecida, só após atraso — usar em Suspense dentro da página. */
+/** Skeleton estrutural imediato para manter o shell estável durante streaming. */
 export function ContentLoadingFallback({ shape }: ContentLoadingFallbackProps) {
   return (
-    <DelayedSkeleton>
-      <div
-        className="min-w-0 space-y-4 p-4 sm:space-y-6 sm:p-6 lg:p-8"
-        aria-busy="true"
-        aria-label="A carregar conteúdo"
-      >
+    <AppShellSkeleton label="A carregar conteúdo">
+      <div className="min-w-0 space-y-4 sm:space-y-5">
         <ShapeBody shape={shape} />
       </div>
-    </DelayedSkeleton>
+    </AppShellSkeleton>
   );
 }
