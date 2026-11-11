@@ -47,6 +47,45 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
+html.privacy-hidden [data-privacy-sensitive] {
+  color: transparent;
+  text-shadow: none;
+  position: relative;
+  user-select: none;
+  caret-color: transparent;
+}
+
+html.privacy-hidden [data-privacy-sensitive]::after {
+  content: "••••";
+  color: var(--foreground);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  font-size: 0.9em;
+  letter-spacing: 0.14em;
+  pointer-events: none;
+}
+
+html.privacy-hidden td[data-privacy-sensitive]::after,
+html.privacy-hidden .text-right[data-privacy-sensitive]::after {
+  justify-content: flex-end;
+}
+
+html.privacy-hidden input[data-privacy-sensitive] {
+  -webkit-text-security: disc;
+  color: inherit;
+  caret-color: auto;
+}
+
+html.privacy-hidden input[data-privacy-sensitive]::after {
+  content: none;
+}
+
+html.privacy-hidden input[data-privacy-sensitive]:focus {
+  -webkit-text-security: none;
+}
+
 @keyframes app-route-enter {
   from {
     opacity: 0;

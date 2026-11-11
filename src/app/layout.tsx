@@ -41,6 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <script src="/privacy-bootstrap.js?v=3" defer />
         <ThemeBootstrap />
         <SessionResume />
         <ViewTransition default="app-route">{children}</ViewTransition>

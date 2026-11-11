@@ -3,6 +3,7 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/shell/logout-button";
 import { MainNav } from "@/components/shell/main-nav";
 import { MobileNav } from "@/components/shell/mobile-nav";
+import { PrivacyLock } from "@/components/shell/privacy-lock";
 import { ThemeToggleSlot } from "@/components/shell/theme-toggle-slot";
 import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
 import { FlashBanner } from "@/components/ui/flash-banner";
@@ -85,6 +86,7 @@ export async function AppShell({
             </div>
           ) : null}
           <div className="app-user-controls ml-auto flex shrink-0 items-center gap-2">
+            <PrivacyLock />
             <ThemeToggleSlot />
             <div className="user-session-card flex min-w-0 items-center gap-1 rounded-2xl border px-1.5 py-1.5 sm:px-2">
               <Link href="/perfil" className="user-account-link flex min-w-0 items-center gap-2 rounded-xl px-0.5 pr-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500" aria-label={`Abrir conta e perfil de ${userName}`}>
