@@ -21,9 +21,7 @@ async function submitReconciliationAction(page: Page, button: Locator) {
     { timeout: 15_000 },
   );
   await button.click();
-  const response = await actionCompleted;
-  await response.finished();
-  await page.reload();
+  await actionCompleted;
 }
 
 test.describe("Fase 28 — reconciliação bancária", () => {
