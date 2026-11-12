@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
+import { assertLoginMfaChallengeForEmail } from "@/lib/auth/login-mfa-challenge";
 import { hashPassword } from "@/lib/auth/password";
 import { grantStepUp, hasStepUp, STEP_UP_REQUIRED_MESSAGE } from "@/lib/auth/step-up";
 import { db } from "@/lib/db";
@@ -385,6 +386,16 @@ export async function startLoginPasskeyAction(email: string, password: string) {
   if (!user) return { ok: false as const, error: "Passkey indisponível." };
   const { host } = await requestOrigin();
   const options = await beginPasskeyAuthentication({ userId: user.id, host });
+  return { ok: true as const, options };
+}
+
+export async function startLoginPasskeyMfaAction(email: string, mfaChallengeToken: string) {
+  const challenge = await assertLoginMfaChallengeForEmail(mfaChallengeToken, email);
+  if (!challenge || (challenge.mfaGate !== "mfa-passkey" && challenge.mfaGate !== "mfa-either")) {
+    return { ok: false as const, error: "Passkey indisponível." };
+  }
+  const { host } = await requestOrigin();
+  const options = await beginPasskeyAuthentication({ userId: challenge.userId, host });
   return { ok: true as const, options };
 }
 

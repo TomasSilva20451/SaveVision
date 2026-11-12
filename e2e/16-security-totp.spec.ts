@@ -1,4 +1,6 @@
 import { execSync } from "node:child_process";
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
 import { test, expect } from "@playwright/test";
 import { MARIA, loginAs, logoutFromShell } from "./helpers/auth";
 import { generateTotpCode } from "./helpers/totp";
@@ -56,10 +58,27 @@ test.describe("MFA TOTP", () => {
     await page.goto("/login", { waitUntil: "domcontentloaded" });
     await page.locator("#email").fill(MARIA.email);
     await page.locator("#password").fill(MARIA.password);
-    await page.locator("#totp").fill(generateTotpCode(secret!));
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await expect(page.getByTestId("login-mfa-step")).toBeVisible({ timeout: 15_000 });
+    const shotDir = path.resolve("output/login-screenshots");
+    await mkdir(shotDir, { recursive: true });
+    await page.screenshot({ path: path.join(shotDir, "totp-desktop.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(shotDir, "totp-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const otpInput = page.locator(".login-totp-accessible-input");
+    await otpInput.fill("000000");
+    await page.getByRole("button", { name: "Verificar identidade" }).click();
+    await expect(page.getByTestId("login-mfa-error")).toBeVisible({ timeout: 8_000 });
+    await page.screenshot({ path: path.join(shotDir, "totp-error-desktop.png"), fullPage: true });
+    await page.getByRole("button", { name: "Utilizar código de recuperação" }).click();
+    await expect(page.getByTestId("login-recovery-field")).toBeVisible();
+    await page.screenshot({ path: path.join(shotDir, "recovery-desktop.png"), fullPage: true });
+    await page.getByRole("button", { name: "Voltar ao código TOTP" }).click();
+    await otpInput.fill(generateTotpCode(secret!));
     await Promise.all([
       page.waitForURL(/\/inicio/, { timeout: 60_000 }),
-      page.locator('form button[type="submit"]').click(),
+      page.getByRole("button", { name: "Verificar identidade" }).click(),
     ]);
   });
 });

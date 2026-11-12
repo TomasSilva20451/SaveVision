@@ -1,16 +1,20 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { startAuthentication } from "@simplewebauthn/browser";
-import { loginAction, type LoginState } from "@/lib/auth/actions";
-import { startLoginPasskeyAction } from "@/lib/auth/security-actions";
+import { useActionState, useEffect, useRef } from "react";
+import { loginFlowAction, type LoginFlowState } from "@/lib/auth/actions";
+import { LoginBrand } from "@/components/auth/login-brand";
+import { TotpOtpInput } from "@/components/auth/totp-otp-input";
+import { LoginPasskeyMfaButton } from "@/components/auth/login-passkey-mfa-button";
 
-const initialState: LoginState = { error: null, mfaRequired: null, fieldErrors: {} };
+const initialState: LoginFlowState = {
+  step: "credentials",
+  error: null,
+  fieldErrors: {},
+};
 
 export function LoginForm() {
-  const [state, action, pending] = useActionState(loginAction, initialState);
+  const [state, action, pending] = useActionState(loginFlowAction, initialState);
   const deviceIdRef = useRef<HTMLInputElement>(null);
-  const totpRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const key = "fintwin_device_id";
@@ -21,113 +25,145 @@ export function LoginForm() {
   }, []);
 
   useEffect(() => {
-    if (state.mfaRequired && totpRef.current) {
-      totpRef.current.focus();
+    if (deviceIdRef.current && state.step === "mfa") {
+      deviceIdRef.current.disabled = false;
     }
-  }, [state.mfaRequired]);
+  }, [state]);
 
-  const mfaHighlight = Boolean(state.mfaRequired);
-
-  return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
-      <input ref={deviceIdRef} type="hidden" name="deviceId" defaultValue="" />
-      <input type="hidden" name="passkey" id="passkey-assertion" />
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm font-medium">Email</label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          required
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus-visible:outline-zinc-100"
-        />
-        {state.fieldErrors.email ? <p className="text-sm text-red-700 dark:text-red-400">{state.fieldErrors.email}</p> : null}
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-sm font-medium">Palavra-passe</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-2 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:focus-visible:outline-zinc-100"
-        />
-        {state.fieldErrors.password ? <p className="text-sm text-red-700 dark:text-red-400">{state.fieldErrors.password}</p> : null}
-      </div>
-
-      <div
-        className={`flex flex-col gap-3 rounded-lg border p-3 ${mfaHighlight ? "border-amber-300 bg-amber-50/80 dark:border-amber-800 dark:bg-amber-950/30" : "border-zinc-200 dark:border-zinc-800"}`}
-      >
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          {mfaHighlight
-            ? "Falta o segundo factor. Mantém email e palavra-passe e preenche o código abaixo — um só «Entrar»."
-            : "Conta com MFA? Preenche o código TOTP (ou recuperação) aqui e entra de uma vez."}
+  if (state.step === "mfa") {
+    return (
+      <div className="login-card login-card-mfa" data-testid="login-mfa-step">
+        <div className="login-shield-icon" aria-hidden>
+          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor">
+            <path d="M12 2 4 5v6c0 5.25 3.4 10.15 8 11.35C16.6 21.15 20 16.25 20 11V5l-8-3Zm0 2.2 6 2.25V11c0 4.1-2.65 7.95-6 9.05-3.35-1.1-6-4.95-6-9.05V6.45l6-2.25ZM11 8v5.5l3.2 1.9-.8 1.3L10 14.5V8h1Z" />
+          </svg>
+        </div>
+        <h1 className="login-title">Verificação de segurança</h1>
+        <p className="login-subtitle">
+          {state.recoveryMode
+            ? "Introduz um código de recuperação de utilização única."
+            : "Abre a tua aplicação de autenticação e introduz o código de 6 dígitos."}
         </p>
-        <label className="flex flex-col gap-1 text-sm" htmlFor="totp">
-          Código TOTP (opcional se não tiveres MFA)
-          <input
-            ref={totpRef}
-            id="totp"
-            name="totp"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="000000"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm" htmlFor="recoveryCode">
-          Ou código de recuperação
-          <input
-            id="recoveryCode"
-            name="recoveryCode"
-            autoComplete="off"
-            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-950"
-          />
-        </label>
-        {(state.mfaRequired === "passkey" || state.mfaRequired === "either") ? <PasskeyLoginButton /> : null}
+
+        <form action={action} className="login-form" noValidate>
+          <input ref={deviceIdRef} type="hidden" name="deviceId" defaultValue="" />
+          <input type="hidden" name="intent" value="mfa" />
+          <input type="hidden" name="email" value={state.email} />
+          <input type="hidden" name="mfaChallengeToken" value={state.challengeToken} />
+          <input type="hidden" name="recoveryMode" value={state.recoveryMode ? "1" : "0"} />
+          <input type="hidden" name="passkey" id="passkey-assertion" />
+
+          {state.recoveryMode ? (
+            <div className="login-field" data-testid="login-recovery-field">
+              <label htmlFor="recoveryCode" className="login-label">
+                Código de recuperação
+              </label>
+              <input
+                id="recoveryCode"
+                name="recoveryCode"
+                autoComplete="off"
+                required
+                className="login-input font-mono"
+              />
+            </div>
+          ) : (
+            <TotpOtpInput invalid={Boolean(state.mfaError)} />
+          )}
+
+          {(state.mfaKind === "passkey" || state.mfaKind === "either") && !state.recoveryMode ? (
+            <LoginPasskeyMfaButton email={state.email} challengeToken={state.challengeToken} />
+          ) : null}
+
+          {state.error ? (
+            <p role="alert" className="login-alert login-alert-error">
+              {state.error}
+            </p>
+          ) : null}
+          {state.mfaError ? (
+            <p role="alert" className="login-alert login-alert-error" data-testid="login-mfa-error">
+              {state.mfaError}
+            </p>
+          ) : null}
+
+          <button type="submit" disabled={pending} className="login-primary-button">
+            {pending ? "A verificar identidade…" : "Verificar identidade"}
+          </button>
+        </form>
+
+        <div className="login-mfa-links">
+          {!state.recoveryMode ? (
+            <form action={action}>
+              <input type="hidden" name="intent" value="toggle-recovery" />
+              <input type="hidden" name="recoveryMode" value="1" />
+              <input type="hidden" name="email" value={state.email} />
+              <input type="hidden" name="mfaChallengeToken" value={state.challengeToken} />
+              <button type="submit" className="login-text-link">
+                Utilizar código de recuperação
+              </button>
+            </form>
+          ) : (
+            <form action={action}>
+              <input type="hidden" name="intent" value="toggle-recovery" />
+              <input type="hidden" name="recoveryMode" value="0" />
+              <input type="hidden" name="email" value={state.email} />
+              <input type="hidden" name="mfaChallengeToken" value={state.challengeToken} />
+              <button type="submit" className="login-text-link">
+                Voltar ao código TOTP
+              </button>
+            </form>
+          )}
+          <form action={action}>
+            <input type="hidden" name="intent" value="cancel-mfa" />
+            <input type="hidden" name="mfaChallengeToken" value={state.challengeToken} />
+            <button type="submit" className="login-text-link" data-testid="login-back">
+              Voltar ao login
+            </button>
+          </form>
+        </div>
       </div>
-
-      {state.error ? <p role="alert" className="text-sm text-red-700 dark:text-red-400">{state.error}</p> : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-60 dark:bg-zinc-100 dark:text-zinc-900"
-      >
-        {pending ? "A entrar…" : "Entrar"}
-      </button>
-      <a href="/recuperar-conta" className="text-sm text-zinc-600 underline dark:text-zinc-400">
-        Recuperar conta
-      </a>
-    </form>
-  );
-}
-
-function PasskeyLoginButton() {
-  const [error, setError] = useState<string | null>(null);
-
-  async function handlePasskeyLogin() {
-    const form = document.querySelector("form");
-    const email = (form?.querySelector("#email") as HTMLInputElement | null)?.value ?? "";
-    const password = (form?.querySelector("#password") as HTMLInputElement | null)?.value ?? "";
-    const started = await startLoginPasskeyAction(email, password);
-    if (!started.ok) {
-      setError(started.error);
-      return;
-    }
-    const assertion = await startAuthentication({ optionsJSON: started.options });
-    const hidden = document.querySelector("#passkey-assertion") as HTMLInputElement | null;
-    if (hidden) hidden.value = JSON.stringify(assertion);
-    form?.requestSubmit();
+    );
   }
 
   return (
-    <div>
-      <button type="button" onClick={() => void handlePasskeyLogin()} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700">
-        Entrar com passkey (em vez de TOTP)
-      </button>
-      {error ? <p className="mt-2 text-sm text-red-700">{error}</p> : null}
+    <div className="login-card" data-testid="login-credentials-step">
+      <LoginBrand />
+      <h1 className="login-title">Bem-vindo de volta</h1>
+      <form action={action} className="login-form" noValidate>
+        <input ref={deviceIdRef} type="hidden" name="deviceId" defaultValue="" />
+        <input type="hidden" name="intent" value="credentials" />
+        <div className="login-field">
+          <label htmlFor="email" className="login-label">
+            Email
+          </label>
+          <input id="email" name="email" type="email" autoComplete="username" required className="login-input" />
+          {state.fieldErrors.email ? <p className="login-field-error">{state.fieldErrors.email}</p> : null}
+        </div>
+        <div className="login-field">
+          <label htmlFor="password" className="login-label">
+            Palavra-passe
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            className="login-input"
+          />
+          {state.fieldErrors.password ? <p className="login-field-error">{state.fieldErrors.password}</p> : null}
+        </div>
+        {state.error ? (
+          <p role="alert" className="login-alert login-alert-error" data-testid="login-credentials-error">
+            {state.error}
+          </p>
+        ) : null}
+        <button type="submit" disabled={pending} className="login-primary-button">
+          {pending ? "A verificar…" : "Continuar"}
+        </button>
+        <a href="/recuperar-conta" className="login-text-link">
+          Recuperar conta
+        </a>
+      </form>
     </div>
   );
 }

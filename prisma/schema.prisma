@@ -53,6 +53,7 @@ model User {
   totpCredential          UserTotpCredential?
   recoveryCodes           RecoveryCode[]
   emailChallenges         EmailChallenge[]
+  loginMfaChallenges      LoginMfaChallenge[]
   authSessions            AuthSession[]
   securityEvents          SecurityEvent[]
   passkeys                PasskeyCredential[]
@@ -271,6 +272,25 @@ model EmailChallenge {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, purpose])
+}
+
+/// Desafio pendente entre palavra-passe válida e conclusão MFA no login.
+model LoginMfaChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  mfaGate     String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  ipHash      String?
+  deviceHash  String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
 }
 
 model AuthSession {

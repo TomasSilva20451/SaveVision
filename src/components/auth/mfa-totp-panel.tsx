@@ -22,7 +22,7 @@ type MfaTotpPanelProps = {
 };
 
 export function MfaTotpPanel({ totpActive, recoveryLeft }: MfaTotpPanelProps) {
-  const { stepUpActive, requestStepUp } = useSecurityStepUp();
+  const { stepUpActive } = useSecurityStepUp();
   const [beginState, beginAction, beginPending] = useActionState(beginTotpFormAction, beginInitial);
   const [confirmState, confirmAction, confirmPending] = useActionState(confirmTotpFormAction, confirmInitial);
 
@@ -38,14 +38,11 @@ export function MfaTotpPanel({ totpActive, recoveryLeft }: MfaTotpPanelProps) {
       </ol>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={secondaryButtonClassName}
-          disabled={beginPending || totpActive}
-          onClick={() => requestStepUp(() => beginAction())}
-        >
-          {beginPending ? "A gerar…" : "Gerar segredo"}
-        </button>
+        <StepUpGatedForm action={beginAction}>
+          <button type="submit" className={secondaryButtonClassName} disabled={beginPending || totpActive}>
+            {beginPending ? "A gerar…" : "Gerar segredo"}
+          </button>
+        </StepUpGatedForm>
         <StepUpGatedForm action={disableTotpAction}>
           <button className={secondaryButtonClassName} type="submit" disabled={!totpActive}>
             Desactivar

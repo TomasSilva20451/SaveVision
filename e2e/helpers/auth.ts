@@ -24,12 +24,12 @@ export async function loginAs(page: Page, user: typeof JOAO) {
   expect(health.ok()).toBeTruthy();
 
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Entrar" })).toBeVisible();
+  await expect(page.getByTestId("login-credentials-step")).toBeVisible();
   await page.locator("#email").fill(user.email);
   await page.locator("#password").fill(user.password);
   await Promise.all([
     page.waitForURL(/\/inicio/, { timeout: 60_000 }),
-    page.locator('form button[type="submit"]').click(),
+    page.getByRole("button", { name: "Continuar" }).click(),
   ]);
 }
 

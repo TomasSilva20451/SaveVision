@@ -57,8 +57,7 @@ function formatFrame(value: number, parsed: ParsedValue) {
 }
 
 export function initialAnimatedValue(value: string) {
-  const parsed = parseAnimatedValue(value);
-  return parsed ? formatFrame(0, parsed) : value;
+  return value;
 }
 
 type AnimatedValueProps = {
@@ -86,10 +85,11 @@ export function AnimatedValue({ children, animationKey, className = "" }: Animat
     if (!element || !parsed) return;
 
     const target = parsed.numeric;
-    const previous = currentValueRef.current ?? previousValues.get(scopedKey) ?? 0;
+    const stored = previousValues.get(scopedKey);
+    const previous = currentValueRef.current ?? stored;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    if (previous === target || reducedMotion) {
+    if (previous == null || previous === target || reducedMotion) {
       element.textContent = children;
       currentValueRef.current = target;
       previousValues.set(scopedKey, target);

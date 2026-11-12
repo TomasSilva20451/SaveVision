@@ -10,6 +10,11 @@ import { db } from "@/lib/db";
 
 import { isLoginRateLimitBypassAllowed } from "@/lib/auth/rate-limit-policy";
 import {
+  assertLoginMfaChallengeForEmail,
+  consumeLoginMfaChallenge,
+  recordLoginMfaChallengeFailure,
+} from "@/lib/auth/login-mfa-challenge";
+import {
   assertSessionActive,
   clearLoginFailures,
   loginBlockReason,
@@ -44,6 +49,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         recoveryCode: { label: "Código de recuperação", type: "text" },
         deviceId: { label: "Dispositivo", type: "text" },
         passkey: { label: "Passkey", type: "text" },
+        mfaChallengeToken: { label: "Desafio MFA", type: "text" },
       },
       authorize: async (credentials, request) => {
         const started = performance.now();
@@ -80,25 +86,69 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         }
 
-        const user = await db.user.findUnique({
-          where: { email },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            passwordHash: true,
-            emailVerifiedAt: true,
-            disabledAt: true,
-          },
-        });
-        const passwordOk = await verifyPassword(user?.passwordHash ?? DUMMY_PASSWORD_HASH, parsed.data.password);
-        if (!user || !passwordOk || user.disabledAt || !user.emailVerifiedAt) {
-          if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
-          finish("failure");
-          return null;
+        const challengeToken =
+          typeof credentials?.mfaChallengeToken === "string" ? credentials.mfaChallengeToken.trim() : "";
+
+        let user: {
+          id: string;
+          email: string;
+          name: string;
+          passwordHash: string;
+          emailVerifiedAt: Date | null;
+          disabledAt: Date | null;
+        } | null = null;
+
+        let pendingChallenge: Awaited<ReturnType<typeof assertLoginMfaChallengeForEmail>> = null;
+
+        if (challengeToken) {
+          pendingChallenge = await assertLoginMfaChallengeForEmail(challengeToken, email);
+          if (!pendingChallenge) {
+            if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
+            finish("failure");
+            return null;
+          }
+          user = await db.user.findUnique({
+            where: { id: pendingChallenge.userId },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              passwordHash: true,
+              emailVerifiedAt: true,
+              disabledAt: true,
+            },
+          });
+          if (!user || user.disabledAt || !user.emailVerifiedAt) {
+            if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
+            finish("failure");
+            return null;
+          }
+        } else {
+          user = await db.user.findUnique({
+            where: { email },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              passwordHash: true,
+              emailVerifiedAt: true,
+              disabledAt: true,
+            },
+          });
+          const passwordOk = await verifyPassword(user?.passwordHash ?? DUMMY_PASSWORD_HASH, parsed.data.password);
+          if (!user || !passwordOk || user.disabledAt || !user.emailVerifiedAt) {
+            if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
+            finish("failure");
+            return null;
+          }
+          if (await userNeedsSecondFactor(user.id)) {
+            if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
+            finish("failure");
+            return null;
+          }
         }
 
-        if (await userNeedsSecondFactor(user.id)) {
+        if (pendingChallenge) {
           const totp = typeof credentials?.totp === "string" ? credentials.totp : "";
           const recoveryCode = typeof credentials?.recoveryCode === "string" ? credentials.recoveryCode : "";
           let factorOk = await verifySecondFactor(user.id, { totp, recoveryCode });
@@ -117,10 +167,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
           }
           if (!factorOk) {
+            await recordLoginMfaChallengeFailure(pendingChallenge.id);
             if (!bypass) await registerLoginFailure({ email, ip: headerIp, deviceId });
             finish("failure");
             return null;
           }
+          await consumeLoginMfaChallenge(pendingChallenge.id);
           await grantStepUp(user.id);
           await recordSecurityEvent({
             userId: user.id,

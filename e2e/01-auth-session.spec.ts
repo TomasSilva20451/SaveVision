@@ -31,6 +31,6 @@ test("login inválido permanece em /login", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(JOAO.email);
   await page.getByLabel("Palavra-passe").fill("errada");
-  await page.getByRole("button", { name: "Entrar" }).click();
+  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page).toHaveURL(/\/login/);
 });

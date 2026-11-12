@@ -290,6 +290,14 @@ Estado: **em curso** (UX / demo, sem Fase 20).
 - Relatório: `docs/PHASE19_VISUAL_AUDIT.md`; screenshots `docs/visual-audit/`.
 - Alertas: botão «Atualizar alertas» visível com lista vazia (demo + E16).
 
+## Login duas etapas e TOTP visual (2026-11-12)
+
+- Fluxo **Email + palavra-passe → desafio servidor `LoginMfaChallenge` → TOTP/recuperação/passkey → sessão Auth.js**.
+- UI: cartão «Bem-vindo de volta» + etapa «Verificação de segurança» com 6 posições (`TotpOtpInput`), passkey opcional, recuperação em modo separado.
+- Segurança: sem sessão antes do MFA; `authorize` rejeita password+MFA num único passo; desafio TTL 5 min, uso único, rate limit preservado.
+- Migração `20261112150000_login_mfa_challenge`; testes `login-mfa-challenge.test.ts`, E2E `17-login-two-step.spec.ts`, screenshots `output/login-screenshots/` (`e2e/17-login-screenshots.spec.ts`).
+- Portão local: `pnpm lint`, `pnpm typecheck`, `pnpm test` (**329** testes, 4 skipped DB), `pnpm build`, E2E produção **106** passed (1 skipped).
+
 ## Portão
 
 ```bash
