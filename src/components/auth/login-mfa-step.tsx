@@ -59,6 +59,7 @@ export function LoginMfaStep({ state, action, pending, deviceIdRef }: LoginMfaSt
           <LoginMfaTotpField
             key={`${state.challengeToken}-${state.totpResetNonce}`}
             formRef={formRef}
+            action={action}
             pending={pending}
             mfaError={state.mfaError}
             onDigitsChange={setTotpDigits}

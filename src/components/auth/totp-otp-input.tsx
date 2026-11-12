@@ -22,6 +22,8 @@ type TotpOtpInputProps = {
   invalid?: boolean;
   status?: TotpOtpVisualStatus;
   onValueChange?: (value: string) => void;
+  /** Chamado no mesmo evento em que o sexto dígito fica completo (sem depender de useEffect). */
+  onComplete?: (digits: string) => void;
 };
 
 export function TotpOtpInput({
@@ -31,6 +33,7 @@ export function TotpOtpInput({
   invalid,
   status = "idle",
   onValueChange,
+  onComplete,
 }: TotpOtpInputProps) {
   const reactId = useId();
   const inputId = id ?? `totp-${reactId}`;
@@ -45,8 +48,11 @@ export function TotpOtpInput({
       const digits = next.replace(/\D/g, "").slice(0, DIGITS);
       setValue(digits);
       onValueChange?.(digits);
+      if (digits.length === DIGITS) {
+        onComplete?.(digits);
+      }
     },
-    [onValueChange],
+    [onComplete, onValueChange],
   );
 
   useEffect(() => {

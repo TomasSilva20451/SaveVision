@@ -300,7 +300,8 @@ Estado: **em curso** (UX / demo, sem Fase 20).
 
 ### TOTP auto-verificação no login (2026-11-12)
 
-- Completar 6/6 dígitos (digitação, colar ou autofill) chama `form.requestSubmit()` uma vez; deduplicação em `totp-auto-submit.ts` + remount via `totpResetNonce` no `LoginFlowState`.
+- Completar 6/6 dígitos dispara `onComplete` → `action(buildLoginMfaFormData(form, código))` (não `requestSubmit`, que falhava com o botão ainda desativado e corrida no DOM).
+- Deduplicação em `totp-auto-submit.ts` + remount via `totpResetNonce` no `LoginFlowState`.
 - UI: spinner «A verificar código…», shake/bordas vermelhas em erro, mensagens `MFA_TOTP_INVALID_MESSAGE` / `MFA_TOTP_NETWORK_MESSAGE`; botão «Verificar identidade» mantém o mesmo POST.
 - Componentes: `LoginMfaTotpField`, `TotpOtpInput` (microanimações, `prefers-reduced-motion`), CSS em `login.css`.
 - Testes: `totp-auto-submit.test.ts`, `totp-visual-status.test.ts`, E2E `18-login-totp-auto-verify.spec.ts`; `16-security-totp` actualizado (auto-submit sem clicar).
