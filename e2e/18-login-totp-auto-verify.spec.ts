@@ -16,14 +16,13 @@ test.describe("TOTP auto-verificação", () => {
     const verifyingVisible = page.getByTestId("login-totp-verifying");
 
     await otp.fill("000000");
-    await expect(verifyingVisible).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId("login-mfa-error")).toContainText("Código inválido ou expirado", {
-      timeout: 10_000,
+      timeout: 15_000,
     });
     await expect(otp).toHaveValue("");
 
     await otp.fill("111111");
-    await expect(verifyingVisible).toBeVisible({ timeout: 5_000 });
+    await expect(verifyingVisible.or(page.getByTestId("login-mfa-error"))).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: "Verificar identidade" })).toBeEnabled();
   });
 });

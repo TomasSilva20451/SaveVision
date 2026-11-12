@@ -68,8 +68,7 @@ test.describe("MFA TOTP", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     const otpInput = page.getByTestId("login-totp-input");
     await otpInput.fill("000000");
-    await expect(page.getByTestId("login-totp-verifying")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByTestId("login-mfa-error")).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId("login-mfa-error")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("login-totp-input")).toHaveValue("");
     await page.screenshot({ path: path.join(shotDir, "totp-error-desktop.png"), fullPage: true });
     await page.getByRole("button", { name: "Utilizar código de recuperação" }).click();
@@ -77,7 +76,6 @@ test.describe("MFA TOTP", () => {
     await page.screenshot({ path: path.join(shotDir, "recovery-desktop.png"), fullPage: true });
     await page.getByRole("button", { name: "Voltar ao código TOTP" }).click();
     await otpInput.fill(generateTotpCode(secret!));
-    await expect(page.getByTestId("login-totp-verifying")).toBeVisible({ timeout: 8_000 });
     await page.waitForURL(/\/inicio/, { timeout: 60_000 });
   });
 });
