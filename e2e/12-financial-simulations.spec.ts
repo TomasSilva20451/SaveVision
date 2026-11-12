@@ -1,4 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+async function selectSimulator(page: Page, name: string) {
+  await page.waitForFunction(
+    () => document.documentElement.dataset.appHydrated === "true",
+    undefined,
+    { timeout: 15_000 },
+  );
+
+  const tab = page.getByRole("tab", { name });
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
 
 test.describe("Fase 19 — simulações financeiras", () => {
   test("E1 abrir página de simulações", async ({ page }) => {
@@ -10,21 +22,21 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E2 simular poupança mensal com formulário", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Poupança e objetivos" }).click();
+    await selectSimulator(page, "Poupança e objetivos");
     await page.getByTestId("sim-savings-monthly").fill("250");
     await expect(page.getByTestId("sim-savings-final")).toBeVisible();
   });
 
   test("E3 simular fundo de emergência", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Fundo de emergência" }).click();
+    await selectSimulator(page, "Fundo de emergência");
     await page.getByTestId("sim-emergency-contribution").fill("400");
     await expect(page.getByTestId("sim-emergency-result")).toBeVisible();
   });
 
   test("E4 simular compra de automóvel exige taxa", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Automóvel" }).click();
+    await selectSimulator(page, "Automóvel");
     await expect(page.getByTestId("sim-car-rate")).toBeVisible();
     await page.getByTestId("sim-car-rate").fill("4.5");
     await expect(page.getByTestId("sim-car-result")).toBeVisible();
@@ -32,7 +44,7 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E5 amortização — seletor passivo ou aviso", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Amortizar dívida" }).click();
+    await selectSimulator(page, "Amortizar dívida");
     const select = page.getByTestId("sim-loan-select");
     if ((await select.count()) > 0) {
       await page.getByTestId("sim-loan-rate").fill("3");
@@ -44,21 +56,21 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E6 simular aumento de rendimento", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Rendimentos e despesas" }).click();
+    await selectSimulator(page, "Rendimentos e despesas");
     await page.getByTestId("sim-income-delta").fill("300");
     await expect(page.getByTestId("sim-income-result")).toBeVisible();
   });
 
   test("E7 simular redução de despesas", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Rendimentos e despesas" }).click();
+    await selectSimulator(page, "Rendimentos e despesas");
     await page.getByTestId("sim-expense-reduction").fill("15");
     await expect(page.getByTestId("sim-expense-result")).toBeVisible();
   });
 
   test("E8 despesa extraordinária", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Cenário personalizado" }).click();
+    await selectSimulator(page, "Cenário personalizado");
     await page.getByTestId("sim-oneoff-amount").fill("1500");
     await page.getByTestId("sim-oneoff-treasury-run").click();
     await expect(page.getByTestId("sim-oneoff-treasury-result")).toBeVisible({
@@ -102,7 +114,7 @@ test.describe("Fase 19 — simulações financeiras", () => {
 
   test("E15 automóvel sem taxa mostra aviso", async ({ page }) => {
     await page.goto("/simulacoes");
-    await page.getByRole("tab", { name: "Automóvel" }).click();
+    await selectSimulator(page, "Automóvel");
     await page.getByTestId("sim-car-rate").fill("");
     await expect(page.getByText("Indique a taxa anual (%) como pressuposto.")).toBeVisible();
   });

@@ -28,7 +28,7 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
           <KpiSkeletonGrid />
           <div className="grid min-w-0 gap-5 lg:grid-cols-5">
             <ChartSkeleton className="h-80 lg:col-span-3" />
-            <ChartSkeleton className="h-80 lg:col-span-2" variant="donut" />
+            <ChartSkeleton className="h-80 lg:col-span-2" variant="donut" shimmerDelayMs={230} />
           </div>
           <TableSkeleton rows={5} cols={3} />
         </>
@@ -48,7 +48,7 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
           <KpiSkeletonGrid />
           <div className="grid min-w-0 gap-5 lg:grid-cols-5">
             <ChartSkeleton className="h-[22rem] lg:col-span-3" />
-            <ChartSkeleton className="h-[22rem] lg:col-span-2" variant="donut" />
+            <ChartSkeleton className="h-[22rem] lg:col-span-2" variant="donut" shimmerDelayMs={230} />
           </div>
           <TableSkeleton rows={8} cols={5} />
         </>
@@ -59,7 +59,7 @@ function ShapeBody({ shape }: { shape: ContentLoadingShape }) {
           <KpiSkeletonGrid />
           <div className="grid min-w-0 gap-4 lg:grid-cols-2">
             <ChartSkeleton className="h-64" />
-            <ChartSkeleton className="h-64" />
+            <ChartSkeleton className="h-64" shimmerDelayMs={230} />
           </div>
           <TableSkeleton rows={6} cols={4} />
         </>

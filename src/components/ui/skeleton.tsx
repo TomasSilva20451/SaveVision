@@ -1,5 +1,11 @@
+import type { CSSProperties } from "react";
+
 function skeletonClass(extra = "") {
   return `loading-skeleton-shape rounded-md ${extra}`;
+}
+
+function shimmerStyle(delayMs: number): CSSProperties {
+  return { "--skeleton-shimmer-delay": `${delayMs}ms` } as CSSProperties;
 }
 
 export function Skeleton({ className = "" }: { className?: string }) {
@@ -9,15 +15,18 @@ export function Skeleton({ className = "" }: { className?: string }) {
 export function ChartSkeleton({
   className = "h-64",
   variant = "bars",
+  shimmerDelayMs = 120,
 }: {
   className?: string;
   variant?: "bars" | "donut";
+  shimmerDelayMs?: number;
 }) {
   return (
     <div
       aria-hidden
-      className={`overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] ${className}`}
+      className={`loading-skeleton-surface overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)] ${className}`}
       role="presentation"
+      style={shimmerStyle(shimmerDelayMs)}
     >
       <Skeleton className="h-5 w-44 max-w-[70%]" />
       <Skeleton className="mt-2 h-3 w-64 max-w-[85%]" />
@@ -55,7 +64,8 @@ export function KpiSkeletonGrid({ count = 4 }: { count?: number }) {
         <div
           key={index}
           data-tone={tones[index % tones.length]}
-          className="finance-metric-card flex min-h-[5.75rem] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]"
+          className="loading-skeleton-surface finance-metric-card flex min-h-[5.75rem] items-center gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]"
+          style={shimmerStyle(index * 110)}
         >
           <Skeleton className="h-12 w-12 shrink-0 rounded-xl" />
           <span className="min-w-0 flex-1">
@@ -71,7 +81,10 @@ export function KpiSkeletonGrid({ count = 4 }: { count?: number }) {
 
 export function TableSkeleton({ rows = 6, cols = 4 }: { rows?: number; cols?: number }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]">
+    <div
+      className="loading-skeleton-surface overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]"
+      style={shimmerStyle(280)}
+    >
       <Skeleton className="h-5 w-48" />
       <div className="mt-4 space-y-3">
         {Array.from({ length: rows }, (_, row) => (

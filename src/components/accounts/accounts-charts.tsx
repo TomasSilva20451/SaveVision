@@ -14,7 +14,7 @@ const AccountsChartsContent = dynamic(
     loading: () => (
       <div className="grid min-w-0 gap-5 lg:grid-cols-5">
         <ChartSkeleton className="h-72 lg:col-span-3" />
-        <ChartSkeleton className="h-72 lg:col-span-2" />
+        <ChartSkeleton className="h-72 lg:col-span-2" shimmerDelayMs={230} />
       </div>
     ),
   },

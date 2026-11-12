@@ -15,7 +15,7 @@ export function RouteSegmentLoading({ label = "A carregar página" }: RouteSegme
         <KpiSkeletonGrid />
         <div className="grid min-w-0 gap-5 lg:grid-cols-5">
           <ChartSkeleton className="h-80 lg:col-span-3" />
-          <ChartSkeleton className="h-80 lg:col-span-2" variant="donut" />
+          <ChartSkeleton className="h-80 lg:col-span-2" variant="donut" shimmerDelayMs={230} />
         </div>
       </div>
     </AppShellSkeleton>
