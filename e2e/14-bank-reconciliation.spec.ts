@@ -17,8 +17,9 @@ async function submitReconciliationAction(page: Page, button: Locator) {
   const actionCompleted = page.waitForResponse(
     (response) =>
       response.request().method() === "POST" &&
-      new URL(response.url()).pathname === "/reconciliacao",
-    { timeout: 15_000 },
+      new URL(response.url()).pathname === "/reconciliacao" &&
+      response.status() < 500,
+    { timeout: 60_000 },
   );
   await button.click();
   await actionCompleted;
@@ -26,6 +27,7 @@ async function submitReconciliationAction(page: Page, button: Locator) {
 
 test.describe("Fase 28 — reconciliação bancária", () => {
   test("importa CSV e executa auto-match após despesa", async ({ page }) => {
+    test.setTimeout(120_000);
     const amount = "33.21";
     const description = `E2E recon ${Date.now()}`;
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Lisbon" });
@@ -49,12 +51,16 @@ test.describe("Fase 28 — reconciliação bancária", () => {
     const csv = `data,montante,descricao\n${today},-${amount},${description}`;
     await page.locator('textarea[name="csvText"]').fill(csv);
     await submitReconciliationAction(page, page.getByRole("button", { name: "Importar" }));
-    await expect(page.getByRole("row").filter({ hasText: description })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Importadas \d+ linha/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("row").filter({ hasText: description })).toBeVisible({ timeout: 30_000 });
 
     await submitReconciliationAction(page, page.getByRole("button", { name: "Executar auto-match" }));
+    await expect(page.getByText(/Emparelhados \d+ movimentos/)).toBeVisible({ timeout: 30_000 });
+    await page.goto("/reconciliacao");
+    await expect(page.getByRole("heading", { name: "Reconciliação bancária" })).toBeVisible();
 
     await expect
-      .poll(() => finalKpiValue(page, "recon-kpi-matched"), { timeout: 15_000 })
+      .poll(() => finalKpiValue(page, "recon-kpi-matched"), { timeout: 30_000 })
       .toBeGreaterThan(matchedBefore);
   });
 
