@@ -53,6 +53,21 @@ test.describe("Login em duas etapas", () => {
     expect(session).toBeFalsy();
   });
 
+  test("cinco dígitos não disparam verificação automática", async ({ page }) => {
+    await page.goto("/login");
+    await page.locator("#email").fill(MARIA.email);
+    await page.locator("#password").fill(MARIA.password);
+    await page.getByRole("button", { name: "Continuar" }).click();
+    const onMfa = await page.getByTestId("login-mfa-step").isVisible({ timeout: 5_000 }).catch(() => false);
+    test.skip(!onMfa, "Maria sem MFA activo neste ambiente.");
+    const otp = page.getByTestId("login-totp-input");
+    await otp.focus();
+    await page.keyboard.insertText("12345");
+    await expect(otp).toHaveValue("12345");
+    await expect(page.getByTestId("login-totp-verifying")).toHaveCount(0);
+    await expect(page.getByTestId("login-mfa-submit")).toBeDisabled();
+  });
+
   test("colar seis dígitos no TOTP", async ({ page }) => {
     await page.goto("/login");
     await page.locator("#email").fill(MARIA.email);
@@ -60,7 +75,7 @@ test.describe("Login em duas etapas", () => {
     await page.getByRole("button", { name: "Continuar" }).click();
     const onMfa = await page.getByTestId("login-mfa-step").isVisible({ timeout: 5_000 }).catch(() => false);
     test.skip(!onMfa, "Maria sem MFA activo neste ambiente.");
-    const otp = page.locator(".login-totp-accessible-input");
+    const otp = page.getByTestId("login-totp-input");
     await otp.focus();
     await page.keyboard.insertText("123456");
     await expect(otp).toHaveValue("123456");

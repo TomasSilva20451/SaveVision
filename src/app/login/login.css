@@ -191,18 +191,30 @@ a.login-text-link {
 .login-totp-accessible-input {
   position: absolute;
   inset: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
-  opacity: 0.01;
+  margin: 0;
+  padding: 0;
+  opacity: 0.04;
   border: none;
   background: transparent;
   caret-color: transparent;
+  color: transparent;
+  font-size: 16px;
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+  touch-action: manipulation;
 }
 
 .login-totp-cells {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.5rem;
+  pointer-events: none;
 }
 
 .login-totp-cell {
@@ -225,6 +237,128 @@ a.login-text-link {
   border-color: rgb(37 99 235);
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.2);
   background: #fff;
+}
+
+.login-totp-cell[data-filled="true"] {
+  animation: login-totp-digit-in 160ms ease;
+}
+
+.login-totp-root--verifying .login-totp-cell {
+  opacity: 0.92;
+}
+
+.login-totp-root--success .login-totp-cell {
+  border-color: rgb(22 163 74);
+  background: rgb(240 253 244);
+}
+
+.login-totp-root--error .login-totp-cell {
+  border-color: rgb(220 38 38);
+  background: rgb(254 242 242);
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 0.15);
+}
+
+.login-totp-root[data-shake] {
+  animation: login-totp-shake 420ms ease;
+}
+
+@keyframes login-totp-digit-in {
+  from {
+    transform: scale(0.92);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes login-totp-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-totp-cell[data-filled="true"],
+  .login-totp-root[data-shake] {
+    animation: none;
+  }
+}
+
+.login-totp-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 5.5rem;
+}
+
+.login-totp-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgb(71 85 105);
+}
+
+.login-totp-hint-success {
+  color: rgb(22 101 52);
+}
+
+.login-totp-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgb(203 213 225);
+  border-top-color: rgb(37 99 235);
+  border-radius: 9999px;
+  animation: login-totp-spin 700ms linear infinite;
+}
+
+.login-totp-success-icon {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: rgb(22 163 74);
+  position: relative;
+}
+
+.login-totp-success-icon::after {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 0.15rem;
+  width: 0.35rem;
+  height: 0.6rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+@keyframes login-totp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-totp-spinner {
+    animation: none;
+    border-top-color: rgb(37 99 235);
+  }
 }
 
 .login-passkey-row {

@@ -68,17 +68,15 @@ test.describe("MFA TOTP", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     const otpInput = page.locator(".login-totp-accessible-input");
     await otpInput.fill("000000");
-    await page.getByRole("button", { name: "Verificar identidade" }).click();
+    await expect(page.getByTestId("login-totp-verifying")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId("login-mfa-error")).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByTestId("login-totp-input")).toHaveValue("");
     await page.screenshot({ path: path.join(shotDir, "totp-error-desktop.png"), fullPage: true });
     await page.getByRole("button", { name: "Utilizar código de recuperação" }).click();
     await expect(page.getByTestId("login-recovery-field")).toBeVisible();
     await page.screenshot({ path: path.join(shotDir, "recovery-desktop.png"), fullPage: true });
     await page.getByRole("button", { name: "Voltar ao código TOTP" }).click();
     await otpInput.fill(generateTotpCode(secret!));
-    await Promise.all([
-      page.waitForURL(/\/inicio/, { timeout: 60_000 }),
-      page.getByRole("button", { name: "Verificar identidade" }).click(),
-    ]);
+    await page.waitForURL(/\/inicio/, { timeout: 60_000 });
   });
 });

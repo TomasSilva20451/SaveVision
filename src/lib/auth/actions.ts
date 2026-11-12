@@ -14,6 +14,7 @@ import {
   revokeLoginMfaChallenge,
   type LoginMfaGate,
 } from "@/lib/auth/login-mfa-challenge";
+import { MFA_TOTP_INVALID_MESSAGE, MFA_TOTP_NETWORK_MESSAGE } from "@/lib/auth/totp-messages";
 import {
   loginBlockReason,
   peekLoginState,
@@ -37,6 +38,7 @@ export type LoginFlowState =
       challengeToken: string;
       email: string;
       recoveryMode: boolean;
+      totpResetNonce: number;
       fieldErrors: Record<string, never>;
     };
 
@@ -136,6 +138,7 @@ export async function loginCredentialsAction(
       challengeToken,
       email,
       recoveryMode: false,
+      totpResetNonce: 0,
       fieldErrors: {},
     };
   }
@@ -232,6 +235,16 @@ export async function loginMfaAction(
     });
   } catch (error) {
     if (isRedirectError(error)) throw error;
+    if (!(error instanceof AuthError)) {
+    return {
+      ...previous,
+      email,
+      challengeToken: parsed.data.mfaChallengeToken,
+      recoveryMode,
+      mfaError: MFA_TOTP_NETWORK_MESSAGE,
+      totpResetNonce: previous.totpResetNonce,
+    };
+    }
     await recordLoginMfaChallengeFailure(challenge.id);
     if (!isLoginRateLimitBypassAllowed()) {
       await registerLoginFailure({ email, ip, deviceId });
@@ -249,7 +262,8 @@ export async function loginMfaAction(
       email,
       challengeToken: parsed.data.mfaChallengeToken,
       recoveryMode,
-      mfaError: "Código inválido. Verifica a app autenticadora e tenta outra vez.",
+      mfaError: MFA_TOTP_INVALID_MESSAGE,
+      totpResetNonce: previous.totpResetNonce + 1,
     };
   }
 
@@ -266,6 +280,7 @@ export async function loginMfaToggleRecoveryAction(
     ...previous,
     recoveryMode: enable,
     mfaError: null,
+    totpResetNonce: enable ? previous.totpResetNonce : previous.totpResetNonce + 1,
   };
 }
 

@@ -298,6 +298,14 @@ Estado: **em curso** (UX / demo, sem Fase 20).
 - Migração `20261112150000_login_mfa_challenge`; testes `login-mfa-challenge.test.ts`, E2E `17-login-two-step.spec.ts`, screenshots `output/login-screenshots/` (`e2e/17-login-screenshots.spec.ts`).
 - Portão local: `pnpm lint`, `pnpm typecheck`, `pnpm test` (**329** testes, 4 skipped DB), `pnpm build`, E2E produção **106** passed (1 skipped).
 
+### TOTP auto-verificação no login (2026-11-12)
+
+- Completar 6/6 dígitos (digitação, colar ou autofill) chama `form.requestSubmit()` uma vez; deduplicação em `totp-auto-submit.ts` + remount via `totpResetNonce` no `LoginFlowState`.
+- UI: spinner «A verificar código…», shake/bordas vermelhas em erro, mensagens `MFA_TOTP_INVALID_MESSAGE` / `MFA_TOTP_NETWORK_MESSAGE`; botão «Verificar identidade» mantém o mesmo POST.
+- Componentes: `LoginMfaTotpField`, `TotpOtpInput` (microanimações, `prefers-reduced-motion`), CSS em `login.css`.
+- Testes: `totp-auto-submit.test.ts`, `totp-visual-status.test.ts`, E2E `18-login-totp-auto-verify.spec.ts`; `16-security-totp` actualizado (auto-submit sem clicar).
+- Portão local (esta entrega): lint, typecheck, **334** testes unitários, build OK, E2E focados **8** passed (Maria com MFA dependente do serial `16-security-totp`).
+
 ## Portão
 
 ```bash
