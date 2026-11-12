@@ -32,6 +32,7 @@ export function ThemeBootstrap() {
     if (!document.cookie.includes(`${THEME_COOKIE}=`)) {
       document.cookie = themeCookieHeader(dark ? "dark" : "light");
     }
+    document.documentElement.dataset.appHydrated = "true";
   }, []);
 
   return null;
