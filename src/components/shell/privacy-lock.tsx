@@ -98,11 +98,14 @@ function maskPrivateAmounts(root: ParentNode) {
   }
 
   for (const node of root.querySelectorAll<SVGElement>("svg text, svg tspan")) {
-    if (node.dataset.privacyOriginal != null) continue;
+    if (node.dataset.privacyOriginal != null) {
+      node.textContent = node.dataset.privacyOriginal;
+      delete node.dataset.privacyOriginal;
+    }
     const text = node.textContent ?? "";
     if (!isChartAmount(text) && !isPrivateAmount(text)) continue;
-    node.dataset.privacyOriginal = text;
-    node.textContent = "••••";
+    node.dataset.privacySensitive = "";
+    node.dataset.privacyChart = "";
   }
 }
 
@@ -110,6 +113,9 @@ function clearPrivateAmounts(root: ParentNode) {
   for (const node of root.querySelectorAll<SVGElement>("[data-privacy-original]")) {
     node.textContent = node.dataset.privacyOriginal ?? "";
     delete node.dataset.privacyOriginal;
+  }
+  for (const node of root.querySelectorAll<SVGElement>("[data-privacy-chart]")) {
+    delete node.dataset.privacyChart;
   }
   for (const wrap of root.querySelectorAll<HTMLElement>("[data-privacy-wrap]")) {
     const text = wrap.firstChild;

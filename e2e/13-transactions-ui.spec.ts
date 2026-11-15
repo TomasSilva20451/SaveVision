@@ -40,6 +40,20 @@ test.describe("Transações — layout e filtros", () => {
     await expect(page.getByRole("button", { name: "Gerar sugestões" })).toBeVisible();
   });
 
+  test("proteção de privacidade desfoca os valores sem os substituir por pontos", async ({ page }) => {
+    await page.goto("/transacoes");
+    await page.getByRole("button", { name: "Ocultar montantes" }).click();
+
+    const protectedValues = page.locator("[data-privacy-sensitive]");
+    await expect(protectedValues.first()).toBeVisible();
+    expect(await protectedValues.count()).toBeGreaterThan(0);
+    expect((await protectedValues.allTextContents()).join(" ")).not.toContain("••••");
+    await expect(protectedValues.first()).toHaveCSS("filter", /blur\(/);
+
+    await page.getByRole("button", { name: "Mostrar montantes" }).click();
+    await expect(page.locator("[data-privacy-sensitive]")).toHaveCount(0);
+  });
+
   test("filtros cabem na página e o drawer abre à direita", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/transacoes");

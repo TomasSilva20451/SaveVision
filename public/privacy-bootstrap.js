@@ -6,12 +6,10 @@
   var style = document.createElement("style");
   style.setAttribute("data-privacy-style", "");
   style.textContent = [
-    "html.privacy-hidden [data-privacy-sensitive]{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important;position:relative;user-select:none;caret-color:transparent}",
-    "html.privacy-hidden [data-privacy-sensitive]::after{content:\"••••\";color:var(--foreground,#0f172a);-webkit-text-fill-color:var(--foreground,#0f172a);position:absolute;inset:0;display:flex;align-items:center;font-size:.9em;letter-spacing:.14em;pointer-events:none}",
-    "html.privacy-hidden td[data-privacy-sensitive]::after,html.privacy-hidden .text-right[data-privacy-sensitive]::after{justify-content:flex-end}",
-    "html.privacy-hidden input[data-privacy-sensitive],html.privacy-hidden textarea[data-privacy-sensitive]{-webkit-text-security:disc;color:inherit!important;-webkit-text-fill-color:currentColor!important;caret-color:auto}",
-    "html.privacy-hidden input[data-privacy-sensitive]::after,html.privacy-hidden textarea[data-privacy-sensitive]::after{content:none}",
-    "html.privacy-hidden input[data-privacy-sensitive]:focus,html.privacy-hidden textarea[data-privacy-sensitive]:focus{-webkit-text-security:none}",
+    "html.privacy-hidden [data-privacy-sensitive]:not(input):not(textarea){filter:blur(.4rem);opacity:.68;user-select:none;caret-color:transparent;transition:filter 160ms ease-out,opacity 160ms ease-out}",
+    "html.privacy-hidden input[data-privacy-sensitive],html.privacy-hidden textarea[data-privacy-sensitive]{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:0 0 .42rem color-mix(in srgb,var(--foreground,#0f172a) 72%,transparent)!important;caret-color:transparent;user-select:none}",
+    "html.privacy-hidden input[data-privacy-sensitive]:focus,html.privacy-hidden textarea[data-privacy-sensitive]:focus{color:inherit!important;-webkit-text-fill-color:currentColor!important;text-shadow:none!important;caret-color:auto;user-select:text}",
+    "@media (prefers-reduced-motion:reduce){html.privacy-hidden [data-privacy-sensitive]{transition:none!important}}",
   ].join("");
   document.head.appendChild(style);
   var AMOUNT = /[+\-−]?\s?(?:\d{1,3}(?:[.\s\u00a0\u202f]\d{3})+|\d+)(?:[.,]\d+)?\s?[kK]?\s?€/g;
@@ -105,7 +103,7 @@
       var aria = labelledNode.getAttribute("aria-label") || "";
       if (rangesOf(title).length) {
         labelledNode.dataset.privacyTitle = title;
-        labelledNode.setAttribute("title", "••••");
+        labelledNode.setAttribute("title", "Montante oculto");
       }
       if (rangesOf(aria).length) {
         labelledNode.dataset.privacyAria = aria;
@@ -116,11 +114,14 @@
     var charts = root.querySelectorAll("svg text, svg tspan");
     for (var c = 0; c < charts.length; c++) {
       var chart = charts[c];
-      if (chart.dataset.privacyOriginal != null) continue;
+      if (chart.dataset.privacyOriginal != null) {
+        chart.textContent = chart.dataset.privacyOriginal;
+        delete chart.dataset.privacyOriginal;
+      }
       var label = chart.textContent || "";
       if (!isChartAmount(label) && !isWholeAmount(label)) continue;
-      chart.dataset.privacyOriginal = label;
-      chart.textContent = "••••";
+      chart.dataset.privacySensitive = "";
+      chart.dataset.privacyChart = "";
     }
   }
 
@@ -140,6 +141,8 @@
       charts[i].textContent = charts[i].dataset.privacyOriginal || "";
       delete charts[i].dataset.privacyOriginal;
     }
+    var chartMarks = root.querySelectorAll("[data-privacy-chart]");
+    for (var c = 0; c < chartMarks.length; c++) delete chartMarks[c].dataset.privacyChart;
     var wraps = root.querySelectorAll("[data-privacy-wrap]");
     for (var w = 0; w < wraps.length; w++) {
       var text = wraps[w].firstChild;

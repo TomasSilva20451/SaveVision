@@ -48,43 +48,30 @@ body {
   font-family: var(--font-sans), sans-serif;
 }
 
-html.privacy-hidden [data-privacy-sensitive] {
-  color: transparent;
-  text-shadow: none;
-  position: relative;
+html.privacy-hidden [data-privacy-sensitive]:not(input):not(textarea) {
+  filter: blur(0.4rem);
+  opacity: 0.68;
   user-select: none;
   caret-color: transparent;
+  transition: filter 160ms ease-out, opacity 160ms ease-out;
 }
 
-html.privacy-hidden [data-privacy-sensitive]::after {
-  content: "••••";
-  color: var(--foreground);
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  font-size: 0.9em;
-  letter-spacing: 0.14em;
-  pointer-events: none;
+html.privacy-hidden input[data-privacy-sensitive],
+html.privacy-hidden textarea[data-privacy-sensitive] {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: 0 0 0.42rem color-mix(in srgb, var(--foreground) 72%, transparent);
+  caret-color: transparent;
+  user-select: none;
 }
 
-html.privacy-hidden td[data-privacy-sensitive]::after,
-html.privacy-hidden .text-right[data-privacy-sensitive]::after {
-  justify-content: flex-end;
-}
-
-html.privacy-hidden input[data-privacy-sensitive] {
-  -webkit-text-security: disc;
-  color: inherit;
+html.privacy-hidden input[data-privacy-sensitive]:focus,
+html.privacy-hidden textarea[data-privacy-sensitive]:focus {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+  text-shadow: none;
   caret-color: auto;
-}
-
-html.privacy-hidden input[data-privacy-sensitive]::after {
-  content: none;
-}
-
-html.privacy-hidden input[data-privacy-sensitive]:focus {
-  -webkit-text-security: none;
+  user-select: text;
 }
 
 @keyframes app-route-enter {
@@ -238,6 +225,10 @@ html.privacy-hidden input[data-privacy-sensitive]:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html.privacy-hidden [data-privacy-sensitive] {
+    transition: none !important;
+  }
+
   ::view-transition-old(.app-route),
   ::view-transition-new(.app-route),
   .animated-financial-value[data-changing="true"],
