@@ -24,9 +24,15 @@ export function SavingsPlanDashboardCard({ data }: { data: CardData }) {
             {data.name}
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {formatEUR(data.progress.contributed)} de {formatEUR(data.progress.target)} ·{" "}
+            {formatEUR(data.progress.contributed)} reservados de {formatEUR(data.progress.target)} ·{" "}
             {data.remainingWeeks} semanas restantes · faltam {formatEUR(data.progress.amountRemaining)}
           </p>
+          {data.progress.netWithdrawn !== "0.00" ? (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {formatEUR(data.progress.recordedContributions)} contribuídos no total ·{" "}
+              {formatEUR(data.progress.netWithdrawn)} retirados desde então
+            </p>
+          ) : null}
         </div>
         <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
           {data.status === "PAUSED" ? "Pausado" : data.status === "COMPLETED" ? "Concluído" : "Activo"}

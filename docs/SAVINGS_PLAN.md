@@ -16,6 +16,10 @@ Wizard em `/plano` (botão «Criar plano de poupança»; modelo «Desafio 300 �
 
 Tipos `SAVINGS_PLAN_*` e orçamentos do plano aos 75% (dedupe separado do limite global de 85%).
 
+## Progresso e levantamentos
+
+Quando um objetivo tem uma conta associada, o **saldo real dessa conta** é a fonte de verdade do montante atualmente reservado e da percentagem de progresso. As contribuições continuam guardadas como histórico imutável. Se houver uma transferência ou levantamento posterior, o cartão distingue o total contribuído do valor que ainda permanece reservado e recalcula o montante em falta. Objetivos sem conta associada continuam a usar a soma das contribuições registadas.
+
 ## Deploy
 
 1. Migrações Prisma na **mesma** base que o Vercel (`DATABASE_URL` Production), incluindo `20261031120000_savings_plan_source_transfer` (origem + `transferId` na contribuição). Passo a passo: [VERCEL_GITHUB_DEPLOY.md § Migrações Neon](VERCEL_GITHUB_DEPLOY.md#migrações-neon-manualmente-savevision--vercel) — comando habitual: `pnpm db:deploy:vercel-neon`.

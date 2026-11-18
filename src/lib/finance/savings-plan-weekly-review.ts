@@ -28,6 +28,7 @@ export type WeeklyReviewInput = {
   targetAmount: string;
   targetDateIso: string | null;
   contributionAmounts: readonly string[];
+  currentSavedAmount?: string | null;
   plannedWeeklyContribution: string;
   checkIns: readonly WeeklyReviewCheckIn[];
   budgetLines: readonly BudgetLineSnapshot[];
@@ -39,6 +40,8 @@ export type WeeklyReviewSnapshot = {
   isReviewDay: boolean;
   contributionRegisteredThisWeek: boolean;
   contributedTotal: string;
+  recordedContributions: string;
+  netWithdrawn: string;
   categoriesAboveThreshold: { name: string; utilizationPercent: number }[];
   protectedAccountWithdrawals: WeeklyReviewWithdrawal[];
   amountRemaining: string;
@@ -57,6 +60,7 @@ export function buildWeeklyReviewSnapshot(input: WeeklyReviewInput): WeeklyRevie
   const progress = computePlanProgress({
     targetAmount: input.targetAmount,
     contributionAmounts: input.contributionAmounts,
+    currentSavedAmount: input.currentSavedAmount,
     targetDateIso: input.targetDateIso,
     asOf: input.asOf,
   });
@@ -95,7 +99,7 @@ export function buildWeeklyReviewSnapshot(input: WeeklyReviewInput): WeeklyRevie
   let projectionNote =
     "Projeção determinística: mantendo o ritmo semanal planeado, o objetivo mantém-se alinhado com a data-alvo.";
   if (progress.targetReached) {
-    projectionNote = "Objectivo já atingido com contribuições registadas.";
+    projectionNote = "Objectivo já atingido com o montante atualmente reservado.";
   } else if (weeksLeft === 0 && !progress.targetReached) {
     projectionNote = "Data-alvo ultrapassada — revê o montante semanal necessário para fechar a diferença.";
   } else if (decimal(weeklyNeeded).gt(input.plannedWeeklyContribution)) {
@@ -106,6 +110,8 @@ export function buildWeeklyReviewSnapshot(input: WeeklyReviewInput): WeeklyRevie
     isReviewDay: isReviewCivilDay(input.today, input.reviewWeekday),
     contributionRegisteredThisWeek,
     contributedTotal: progress.contributed,
+    recordedContributions: progress.recordedContributions,
+    netWithdrawn: progress.netWithdrawn,
     categoriesAboveThreshold,
     protectedAccountWithdrawals: [...input.withdrawalsThisWeek],
     amountRemaining: remaining,

@@ -24,7 +24,7 @@ export function SavingsPlanWeeklyReview({ review }: { review: WeeklyReviewSnapsh
           <strong>{review.contributionRegisteredThisWeek ? "Sim" : "Ainda não"}</strong>
         </li>
         <li>
-          Poupado (total): <strong>{formatEUR(review.contributedTotal)}</strong>
+          Reservado atualmente: <strong>{formatEUR(review.contributedTotal)}</strong>
         </li>
         <li>
           Em falta: <strong>{formatEUR(review.amountRemaining)}</strong>
@@ -39,6 +39,11 @@ export function SavingsPlanWeeklyReview({ review }: { review: WeeklyReviewSnapsh
           Progresso: <strong>{review.progressPercent ?? 0}%</strong>
         </li>
       </ul>
+      {review.netWithdrawn !== "0.00" ? (
+        <p className="mt-3 text-xs text-slate-500">
+          Contribuições registadas: {formatEUR(review.recordedContributions)} · retirado desde então: {formatEUR(review.netWithdrawn)}
+        </p>
+      ) : null}
       {review.categoriesAboveThreshold.length > 0 ? (
         <div className="mt-4">
           <p className="text-sm font-medium">Orçamentos acima do limite do plano</p>

@@ -26,6 +26,7 @@ export type SavingsPlanAlertPlanSnapshot = {
   targetAmount: string;
   targetDateIso: string | null;
   contributionAmounts: readonly string[];
+  currentSavedAmount?: string | null;
   budgetRules: readonly {
     categoryId: string;
     categoryName: string;
@@ -126,6 +127,7 @@ export function evaluateSavingsPlanAlertCandidates(
     const progress = computePlanProgress({
       targetAmount: plan.targetAmount,
       contributionAmounts: plan.contributionAmounts,
+      currentSavedAmount: plan.currentSavedAmount,
       targetDateIso: plan.targetDateIso,
       asOf: input.asOf,
     });

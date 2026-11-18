@@ -16,8 +16,8 @@ import {
 } from "@/lib/finance/goal-projection";
 import {
   emergencyFundTargetAmount,
+  goalFundingSnapshot,
   goalProgressPercent,
-  sumContributions,
 } from "@/lib/finance/goal-progress";
 import { calculateFinancialHealthScore } from "@/lib/finance/health-score";
 import { decimal } from "@/lib/finance/money";
@@ -30,7 +30,7 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
-  const [storedSettings, goals, cgdProducts, dashboard] = await Promise.all([
+  const [storedSettings, goals, cgdProducts, dashboard, movements] = await Promise.all([
     db.workspacePlanningSettings.findUnique({ where: { workspaceId } }),
     db.savingsGoal.findMany({
       where: { workspaceId, archived: false },
@@ -45,6 +45,7 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
       orderBy: { label: "asc" },
     }),
     getDashboardMetrics(userId, workspaceId),
+    listWorkspaceMovements(workspaceId),
   ]);
 
   if (!dashboard) return null;
@@ -59,9 +60,18 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
   const today = civilDateFromInstant(new Date());
 
   const goalsWithProgress = goals.map((goal) => {
-    const contributed = sumContributions(
+    const linkedAccountBalance = goal.account
+      ? calculateAccountBalance(
+          goal.account.openingBalance.toString(),
+          movements,
+          goal.account.id,
+        ).toFixed(2)
+      : null;
+    const funding = goalFundingSnapshot(
       goal.contributions.map((c) => c.amount.toString()),
-    ).toString();
+      linkedAccountBalance,
+    );
+    const contributed = funding.currentAmount;
     const target = goal.targetAmount.toString();
     let monthsRemaining = 24;
     if (goal.targetDate) {
@@ -87,6 +97,9 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
     return {
       ...goal,
       contributedTotal: contributed,
+      recordedContributionsTotal: funding.recordedContributions,
+      netWithdrawn: funding.netWithdrawn,
+      usesLinkedAccountBalance: funding.usesLinkedAccountBalance,
       progressPercent: goalProgressPercent(contributed, target),
       monthsRemaining,
       monthlyRequired,
@@ -119,7 +132,6 @@ export async function getPlanningOverview(userId: string, workspaceId: string) {
     goalProgressAverage,
   });
 
-  const movements = await listWorkspaceMovements(workspaceId);
   const currentAccounts = await db.financialAccount.findMany({
     where: { workspaceId, type: "CURRENT", isArchived: false },
   });
@@ -274,20 +286,36 @@ export async function listSavingsGoalSummaries(userId: string, workspaceId: stri
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
-  const goals = await db.savingsGoal.findMany({
-    where: { workspaceId, archived: false },
-    include: { contributions: true },
-    orderBy: { createdAt: "asc" },
-    take: 4,
-  });
+  const [goals, movements] = await Promise.all([
+    db.savingsGoal.findMany({
+      where: { workspaceId, archived: false },
+      include: { contributions: true, account: true },
+      orderBy: { createdAt: "asc" },
+      take: 4,
+    }),
+    listWorkspaceMovements(workspaceId),
+  ]);
 
   return goals.map((goal) => {
-    const contributed = sumContributions(goal.contributions.map((row) => row.amount.toString())).toFixed(2);
+    const linkedAccountBalance = goal.account
+      ? calculateAccountBalance(
+          goal.account.openingBalance.toString(),
+          movements,
+          goal.account.id,
+        ).toFixed(2)
+      : null;
+    const funding = goalFundingSnapshot(
+      goal.contributions.map((row) => row.amount.toString()),
+      linkedAccountBalance,
+    );
+    const contributed = funding.currentAmount;
     return {
       id: goal.id,
       title: goal.title,
       targetAmount: goal.targetAmount.toString(),
       contributed,
+      recordedContributions: funding.recordedContributions,
+      netWithdrawn: funding.netWithdrawn,
       progressPercent: goalProgressPercent(contributed, goal.targetAmount.toString()),
     };
   });

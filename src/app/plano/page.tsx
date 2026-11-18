@@ -253,6 +253,14 @@ async function PlanoContent({ searchParams }: { searchParams: SearchParams }) {
                       <p className="mt-1 text-xs text-slate-500">
                         {formatEUR(goal.contributedTotal)} de {formatEUR(goal.targetAmount.toString())}
                       </p>
+                      {goal.usesLinkedAccountBalance ? (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Saldo atual de {goal.account?.name ?? "conta associada"}
+                          {goal.netWithdrawn !== "0.00"
+                            ? ` · ${formatEUR(goal.recordedContributionsTotal)} contribuídos no total`
+                            : ""}
+                        </p>
+                      ) : null}
                     </div>
                     <strong className="text-blue-600">{goal.progressPercent ?? 0}%</strong>
                   </div>

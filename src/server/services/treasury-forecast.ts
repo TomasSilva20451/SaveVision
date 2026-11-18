@@ -18,7 +18,7 @@ import {
   type TreasuryForecastEvent,
   type TreasuryHorizonDays,
 } from "@/lib/finance/treasury-forecast";
-import { goalProgressPercent, sumContributions } from "@/lib/finance/goal-progress";
+import { goalFundingSnapshot, goalProgressPercent } from "@/lib/finance/goal-progress";
 import { decimal } from "@/lib/finance/money";
 import { describeRecurringLiabilityMismatch } from "@/lib/finance/liability-recurring-link";
 import { db } from "@/lib/db";
@@ -306,20 +306,30 @@ export async function getTreasuryForecastDashboard(
     assumptions: { incomePercentChange: "-10", recurringExpensePercentChange: "10" },
   });
 
-  const [configurationWarnings, goals] = await Promise.all([
+  const [configurationWarnings, goals, movements] = await Promise.all([
     collectForecastConfigurationWarnings(workspaceId),
     db.savingsGoal.findMany({
       where: { workspaceId, archived: false },
-      include: { contributions: true },
+      include: { contributions: true, account: true },
       orderBy: { createdAt: "asc" },
       take: 4,
     }),
+    listWorkspaceMovements(workspaceId),
   ]);
 
   const goalRows = goals.map((goal) => {
-    const currentAmount = sumContributions(
+    const linkedAccountBalance = goal.account
+      ? calculateAccountBalance(
+          goal.account.openingBalance.toString(),
+          movements,
+          goal.account.id,
+        ).toFixed(2)
+      : null;
+    const funding = goalFundingSnapshot(
       goal.contributions.map((row) => row.amount.toString()),
-    ).toFixed(2);
+      linkedAccountBalance,
+    );
+    const currentAmount = funding.currentAmount;
     return {
       id: goal.id,
       title: goal.title,

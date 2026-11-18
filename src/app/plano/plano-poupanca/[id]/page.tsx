@@ -44,6 +44,7 @@ async function PlanDetailContent({ planId }: { planId: string }) {
   const progress = computePlanProgress({
     targetAmount: plan.goal.targetAmount.toString(),
     contributionAmounts: plan.goal.contributions.map((c) => c.amount.toString()),
+    currentSavedAmount: plan.currentSavedAmount,
     targetDateIso: plan.goal.targetDate
       ? formatCivilDateIso(civilDateFromInstant(plan.goal.targetDate))
       : null,
@@ -76,6 +77,12 @@ async function PlanDetailContent({ planId }: { planId: string }) {
           <p className="mt-2 text-2xl font-semibold">
             {formatEUR(progress.contributed)} / {formatEUR(progress.target)}
           </p>
+          <p className="mt-1 text-sm text-slate-500">Montante atualmente reservado na conta associada.</p>
+          {progress.netWithdrawn !== "0.00" ? (
+            <p className="mt-1 text-xs text-slate-500">
+              Contribuições registadas: {formatEUR(progress.recordedContributions)} · retirado desde então: {formatEUR(progress.netWithdrawn)}
+            </p>
+          ) : null}
           {targetIso ? <p className="text-sm text-slate-500">Data-alvo: {targetIso}</p> : null}
           <ProgressBar value={Math.min(100, progress.progressPercent ?? 0)} className="mt-4" />
           {!progress.targetReached && plan.investmentGuardEnabled ? (

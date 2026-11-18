@@ -36,6 +36,22 @@ describe("savings-plan-engine", () => {
     expect(snap.targetReached).toBe(true);
   });
 
+  it("calcula o progresso pelo montante ainda reservado após levantamentos", () => {
+    const snap = computePlanProgress({
+      targetAmount: "300.00",
+      contributionAmounts: ["25.00", "25.00", "20.00"],
+      currentSavedAmount: "56.37",
+      targetDateIso: "2027-01-20",
+      asOf: new Date("2026-11-18T12:00:00Z"),
+    });
+
+    expect(snap.contributed).toBe("56.37");
+    expect(snap.recordedContributions).toBe("70.00");
+    expect(snap.netWithdrawn).toBe("13.63");
+    expect(snap.amountRemaining).toBe("243.63");
+    expect(snap.progressPercent).toBe(18.8);
+  });
+
   it("nextOrSameWeekday encontra domingo", () => {
     const wed = parseIso("2026-10-28");
     const sun = nextOrSameWeekday(wed, 7);

@@ -8,7 +8,7 @@ import {
   type CivilDate,
 } from "@/lib/datetime/civil-date";
 import { budgetUtilizationPercent } from "@/lib/finance/budget";
-import { goalProgressPercent, sumContributions } from "@/lib/finance/goal-progress";
+import { goalFundingSnapshot, goalProgressPercent } from "@/lib/finance/goal-progress";
 import { decimal } from "@/lib/finance/money";
 
 function compareCivil(a: CivilDate, b: CivilDate): number {
@@ -114,6 +114,9 @@ export function amountRemaining(target: string, contributed: string): string {
 
 export type PlanProgressSnapshot = {
   contributed: string;
+  recordedContributions: string;
+  netWithdrawn: string;
+  usesLinkedAccountBalance: boolean;
   target: string;
   progressPercent: number | null;
   amountRemaining: string;
@@ -125,10 +128,15 @@ export type PlanProgressSnapshot = {
 export function computePlanProgress(input: {
   targetAmount: string;
   contributionAmounts: readonly string[];
+  currentSavedAmount?: string | null;
   targetDateIso: string | null;
   asOf: Date;
 }): PlanProgressSnapshot {
-  const contributed = sumContributions(input.contributionAmounts).toFixed(2);
+  const funding = goalFundingSnapshot(
+    input.contributionAmounts,
+    input.currentSavedAmount,
+  );
+  const contributed = funding.currentAmount;
   const target = decimal(input.targetAmount).toFixed(2);
   const progressPercent = goalProgressPercent(contributed, target);
   const remaining = amountRemaining(target, contributed);
@@ -142,6 +150,9 @@ export function computePlanProgress(input: {
   }
   return {
     contributed,
+    recordedContributions: funding.recordedContributions,
+    netWithdrawn: funding.netWithdrawn,
+    usesLinkedAccountBalance: funding.usesLinkedAccountBalance,
     target,
     progressPercent,
     amountRemaining: remaining,

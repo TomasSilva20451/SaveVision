@@ -30,6 +30,7 @@ export type SavingsPlanReportInput = {
     description: string | null;
   }[];
   allContributionAmounts: readonly string[];
+  currentSavedAmount?: string | null;
 };
 
 export type SavingsPlanReportSection = {
@@ -45,6 +46,8 @@ export type SavingsPlanReportSection = {
   budgetExecution: { categoryName: string; limit: string; spent: string; utilizationPercent: number | null }[];
   withdrawalsInMonth: { dateIso: string; amount: string; description: string | null }[];
   contributedTotal: string;
+  recordedContributionsTotal: string;
+  netWithdrawn: string;
   amountRemaining: string;
   weeksRemaining: number;
   projectionNote: string;
@@ -72,6 +75,7 @@ export function buildSavingsPlanReportSection(input: SavingsPlanReportInput): Sa
   const progress = computePlanProgress({
     targetAmount: input.targetAmount,
     contributionAmounts: input.allContributionAmounts,
+    currentSavedAmount: input.currentSavedAmount,
     targetDateIso: input.targetDateIso,
     asOf: input.asOf,
   });
@@ -83,7 +87,7 @@ export function buildSavingsPlanReportSection(input: SavingsPlanReportInput): Sa
 
   let projectionNote = "Ritmo mensal comparado com contribuições confirmadas (sem valores fictícios).";
   if (progress.targetReached) {
-    projectionNote = "Objectivo concluído com base nas contribuições registadas.";
+    projectionNote = "Objectivo concluído com base no montante atualmente reservado.";
   } else if (decimal(recordedInMonth).lt(plannedInMonth)) {
     projectionNote = `Registado ${recordedInMonth} € vs. planeado ${plannedInMonth} € no mês.`;
   }
@@ -110,6 +114,8 @@ export function buildSavingsPlanReportSection(input: SavingsPlanReportInput): Sa
       description: w.description,
     })),
     contributedTotal: progress.contributed,
+    recordedContributionsTotal: progress.recordedContributions,
+    netWithdrawn: progress.netWithdrawn,
     amountRemaining: progress.amountRemaining,
     weeksRemaining: weeksLeft,
     projectionNote,
@@ -134,7 +140,9 @@ export function formatSavingsPlanReportCsvBlock(section: SavingsPlanReportSectio
     `"Check-ins concluídos","${section.checkInsCompleted}"`,
     `"Check-ins em falta","${section.checkInsMissed}"`,
     `"Taxa cumprimento %","${section.complianceRatePercent}"`,
-    `"Acumulado","${section.contributedTotal}"`,
+    `"Reservado atualmente","${section.contributedTotal}"`,
+    `"Contribuições registadas","${section.recordedContributionsTotal}"`,
+    `"Retirado desde então","${section.netWithdrawn}"`,
     `"Em falta","${section.amountRemaining}"`,
     `"Semanas restantes","${section.weeksRemaining}"`,
     `"Projeção","${section.projectionNote.replace(/"/g, '""')}"`,
@@ -170,7 +178,12 @@ export function appendSavingsPlanReportPdf(doc: ReportPdfDoc, section: SavingsPl
   doc.text(
     `Check-ins: ${section.checkInsCompleted}/${section.checkInsExpected} concluídos, ${section.checkInsMissed} em falta (${section.complianceRatePercent}% cumprimento)`,
   );
-  doc.text(`Acumulado: ${section.contributedTotal} € · Em falta: ${section.amountRemaining} €`);
+  doc.text(`Reservado atualmente: ${section.contributedTotal} € · Em falta: ${section.amountRemaining} €`);
+  if (decimal(section.netWithdrawn).gt(0)) {
+    doc.text(
+      `Contribuições registadas: ${section.recordedContributionsTotal} € · Retirado desde então: ${section.netWithdrawn} €`,
+    );
+  }
   doc.text(`Semanas restantes: ${section.weeksRemaining}`);
   doc.text(section.projectionNote);
   doc.moveDown();

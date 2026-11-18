@@ -4,7 +4,7 @@ import { requireWorkspaceAccess } from "@/lib/auth/workspace-access";
 import { civilDateFromInstant, startOfCivilMonth } from "@/lib/datetime/civil-date";
 import { calculateCashFlow } from "@/lib/finance/aggregates";
 import { treasuryHorizonEnd, treasuryHorizonStart } from "@/lib/finance/treasury-forecast";
-import { sumContributions } from "@/lib/finance/goal-progress";
+import { goalFundingSnapshot } from "@/lib/finance/goal-progress";
 import { decimal } from "@/lib/finance/money";
 import type { LedgerMovement } from "@/lib/finance/types";
 import {
@@ -72,7 +72,7 @@ export async function getAdvancedFinancialIntelligence(userId: string, workspace
     ),
     db.savingsGoal.findFirst({
       where: { workspaceId, archived: false, kind: "EMERGENCY_FUND" },
-      include: { contributions: true },
+      include: { contributions: true, account: true },
     }),
   ]);
   if (!accounts || !events) return null;
@@ -99,8 +99,14 @@ export async function getAdvancedFinancialIntelligence(userId: string, workspace
     .reduce((sum, event) => sum.plus(decimal(event.amount).abs()), decimal(0))
     .toFixed(2);
   const liquidityRisk = assessLiquidityRisk({ forecast, currentBalance, next30DaysKnownOutflows });
+  const linkedGoalAccount = goal?.accountId
+    ? accounts.find((account) => account.id === goal.accountId)
+    : null;
   const emergencyFundCurrent = goal
-    ? sumContributions(goal.contributions.map((row) => row.amount.toString())).toFixed(2)
+    ? goalFundingSnapshot(
+        goal.contributions.map((row) => row.amount.toString()),
+        linkedGoalAccount?.currentBalance ?? null,
+      ).currentAmount
     : "0.00";
   const emergencyGapRaw = goal
     ? decimal(goal.targetAmount.toString()).minus(emergencyFundCurrent)

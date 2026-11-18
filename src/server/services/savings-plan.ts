@@ -8,6 +8,7 @@ import {
   startOfCivilDay,
 } from "@/lib/datetime/civil-date";
 import { decimal } from "@/lib/finance/money";
+import { calculateAccountBalance } from "@/lib/finance/aggregates";
 import {
   buildWeeklyPeriods,
   civilMonthsThroughTarget,
@@ -24,6 +25,7 @@ import { db } from "@/lib/db";
 import type { CategoryBehavior, CategoryNature } from "@/generated/prisma/client";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
 import { writeFinancialAuditLog } from "@/server/audit/financial-audit";
+import { listWorkspaceMovements } from "@/server/repositories/ledger";
 import { createTransferInTransaction } from "@/server/services/transfers";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -200,7 +202,7 @@ export async function buildSavingsPlanActivationPreview(
     `Orçamentos do plano: alerta aos ${input.alertThresholdPercent}% (não altera o limite global de 85%).`,
     "Contribuição semanal não confirmada até ao fim da semana.",
     "Saída de dinheiro da conta de poupança associada.",
-    "Objetivo concluído quando as contribuições confirmadas atingirem o alvo.",
+    "Objetivo concluído quando o saldo atual da conta de poupança atingir o alvo.",
   ];
 
   return {
@@ -638,9 +640,16 @@ export async function getSavingsPlanDashboardCard(
   const targetIso = plan.goal.targetDate
     ? formatCivilDateIso(civilDateFromInstant(plan.goal.targetDate))
     : null;
+  const movements = await listWorkspaceMovements(workspaceId);
+  const currentSavedAmount = calculateAccountBalance(
+    plan.savingsAccount.openingBalance.toString(),
+    movements,
+    plan.savingsAccountId,
+  ).toFixed(2);
   const progress = computePlanProgress({
     targetAmount: plan.goal.targetAmount.toString(),
     contributionAmounts: plan.goal.contributions.map((c) => c.amount.toString()),
+    currentSavedAmount,
     targetDateIso: targetIso,
     asOf: new Date(),
   });
@@ -766,16 +775,29 @@ export async function registerSavingsPlanWeeklyContribution(
       where: { savingsPlanId: plan.id, status: "DUE" },
       orderBy: { periodStart: "asc" },
     });
-    const totalContributions = await tx.savingsGoalContribution.aggregate({
-      where: { goalId: plan.goalId },
-      _sum: { amount: true },
-    });
-    const contributedTotal = totalContributions._sum.amount?.toString() ?? "0";
+    const [savingsAccount, movementRows] = await Promise.all([
+      tx.financialAccount.findUniqueOrThrow({ where: { id: plan.savingsAccountId } }),
+      tx.transaction.findMany({
+        where: { workspaceId, deletedAt: null },
+        select: {
+          accountId: true,
+          type: true,
+          status: true,
+          amount: true,
+          deletedAt: true,
+        },
+      }),
+    ]);
+    const currentSavedAmount = calculateAccountBalance(
+      savingsAccount.openingBalance.toString(),
+      movementRows.map((row) => ({ ...row, amount: row.amount.toString() })),
+      plan.savingsAccountId,
+    );
     await tx.savingsPlan.update({
       where: { id: plan.id },
       data: {
         nextContributionDueAt: nextDue?.periodStart ?? null,
-        status: decimal(contributedTotal).gte(plan.goal.targetAmount.toString())
+        status: currentSavedAmount.gte(plan.goal.targetAmount.toString())
           ? "COMPLETED"
           : "ACTIVE",
       },
@@ -827,15 +849,28 @@ export async function setSavingsPlanStatus(
 export async function getSavingsPlanDetail(userId: string, workspaceId: string, planId: string) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
-  return db.savingsPlan.findFirst({
-    where: { id: planId, workspaceId },
-    include: {
-      goal: { include: { contributions: { orderBy: { contributedAt: "desc" } } } },
-      savingsAccount: true,
-      budgetRules: { include: { category: true } },
-      checkIns: { orderBy: { periodStart: "desc" }, include: { contribution: true } },
-    },
-  });
+  const [plan, movements] = await Promise.all([
+    db.savingsPlan.findFirst({
+      where: { id: planId, workspaceId },
+      include: {
+        goal: { include: { contributions: { orderBy: { contributedAt: "desc" } } } },
+        savingsAccount: true,
+        budgetRules: { include: { category: true } },
+        checkIns: { orderBy: { periodStart: "desc" }, include: { contribution: true } },
+      },
+    }),
+    listWorkspaceMovements(workspaceId),
+  ]);
+  if (!plan) return null;
+
+  return {
+    ...plan,
+    currentSavedAmount: calculateAccountBalance(
+      plan.savingsAccount.openingBalance.toString(),
+      movements,
+      plan.savingsAccountId,
+    ).toFixed(2),
+  };
 }
 
 export async function loadSavingsPlanAlertContext(workspaceId: string, asOf: Date) {
@@ -850,9 +885,12 @@ export async function loadSavingsPlanAlertContext(workspaceId: string, asOf: Dat
   if (plans.length === 0) return null;
 
   const civil = civilDateFromInstant(asOf);
-  const checkIns = await db.savingsPlanCheckIn.findMany({
-    where: { workspaceId, savingsPlanId: { in: plans.map((p) => p.id) }, status: "DUE" },
-  });
+  const [checkIns, movements] = await Promise.all([
+    db.savingsPlanCheckIn.findMany({
+      where: { workspaceId, savingsPlanId: { in: plans.map((p) => p.id) }, status: "DUE" },
+    }),
+    listWorkspaceMovements(workspaceId),
+  ]);
 
   const accountIds = plans.map((p) => p.savingsAccountId);
   const withdrawals = await db.transaction.findMany({
@@ -880,6 +918,11 @@ export async function loadSavingsPlanAlertContext(workspaceId: string, asOf: Dat
         ? formatCivilDateIso(civilDateFromInstant(p.goal.targetDate))
         : null,
       contributionAmounts: p.goal.contributions.map((c) => c.amount.toString()),
+      currentSavedAmount: calculateAccountBalance(
+        p.savingsAccount.openingBalance.toString(),
+        movements,
+        p.savingsAccountId,
+      ).toFixed(2),
       budgetRules: p.budgetRules.map((r) => ({
         categoryId: r.categoryId,
         categoryName: r.category.name,
@@ -986,6 +1029,13 @@ export async function getWeeklyReviewForPlan(
     ? formatCivilDateIso(civilDateFromInstant(plan.goal.targetDate))
     : null;
 
+  const movements = await listWorkspaceMovements(workspaceId);
+  const currentSavedAmount = calculateAccountBalance(
+    plan.savingsAccount.openingBalance.toString(),
+    movements,
+    plan.savingsAccountId,
+  ).toFixed(2);
+
   return buildWeeklyReviewSnapshot({
     asOf,
     today,
@@ -993,6 +1043,7 @@ export async function getWeeklyReviewForPlan(
     targetAmount: plan.goal.targetAmount.toString(),
     targetDateIso: targetIso,
     contributionAmounts: plan.goal.contributions.map((c) => c.amount.toString()),
+    currentSavedAmount,
     plannedWeeklyContribution: plan.plannedContributionAmount.toString(),
     checkIns: plan.checkIns.map((c) => ({
       status: c.status,
@@ -1068,6 +1119,13 @@ export async function buildSavingsPlanReportSectionForPeriod(
     ? formatCivilDateIso(civilDateFromInstant(plan.goal.targetDate))
     : null;
 
+  const movements = await listWorkspaceMovements(workspaceId);
+  const currentSavedAmount = calculateAccountBalance(
+    plan.savingsAccount.openingBalance.toString(),
+    movements,
+    plan.savingsAccountId,
+  ).toFixed(2);
+
   return buildSavingsPlanReportSection({
     planName: plan.name,
     targetAmount: plan.goal.targetAmount.toString(),
@@ -1095,5 +1153,6 @@ export async function buildSavingsPlanReportSectionForPeriod(
       description: tx.description,
     })),
     allContributionAmounts: plan.goal.contributions.map((c) => c.amount.toString()),
+    currentSavedAmount,
   });
 }
