@@ -13,6 +13,7 @@ import {
   buildWeeklyPeriods,
   civilMonthsThroughTarget,
   computePlanProgress,
+  computeSavingsCheckInFunding,
   normalizeCategoryLabel,
   proportionalMonthLimit,
   weeksRemaining,
@@ -675,6 +676,11 @@ export async function getSavingsPlanDashboardCard(
           id: currentCheckIn.id,
           status: currentCheckIn.status,
           periodEnd: currentCheckIn.periodEnd,
+          contributedAmount: currentCheckIn.contributedAmount.toFixed(2),
+          remainingAmount: computeSavingsCheckInFunding(
+            currentCheckIn.expectedAmount.toString(),
+            currentCheckIn.contributedAmount.toString(),
+          ).remainingAmount,
         }
       : null,
     reviewWeekday: plan.reviewWeekday,
@@ -694,7 +700,12 @@ export async function registerSavingsPlanWeeklyContribution(
     notes?: string;
     transferConfirmed: boolean;
   },
-): Promise<{ contributionId: string; transferCreated?: boolean } | null> {
+): Promise<{
+  contributionId: string;
+  transferCreated?: boolean;
+  checkInCompleted?: boolean;
+  remainingAmount?: string;
+} | null> {
   if (!input.transferConfirmed) return null;
   const membership = await requireWorkspaceEditor(userId, workspaceId);
   if (!membership) return null;
@@ -727,10 +738,24 @@ export async function registerSavingsPlanWeeklyContribution(
     return null;
   }
 
+  const firstDue = await db.savingsPlanCheckIn.findFirst({
+    where: { savingsPlanId: plan.id, workspaceId, status: "DUE" },
+    orderBy: { periodStart: "asc" },
+    select: { id: true },
+  });
+  if (!firstDue || firstDue.id !== checkIn.id) return null;
+
   const sourceAccountId = await resolveSavingsPlanSourceAccountId(db, workspaceId, plan);
   if (!sourceAccountId) return null;
 
-  const amountStr = decimal(input.amount).toString();
+  const amountValue = decimal(input.amount);
+  if (!amountValue.isFinite() || amountValue.lte(0)) return null;
+  const amountStr = amountValue.toFixed(2);
+  const checkInFunding = computeSavingsCheckInFunding(
+    checkIn.expectedAmount.toString(),
+    checkIn.contributedAmount.toString(),
+    amountStr,
+  );
 
   const result = await db.$transaction(async (tx) => {
     const transferResult = await createTransferInTransaction(tx, userId, workspaceId, {
@@ -765,9 +790,10 @@ export async function registerSavingsPlanWeeklyContribution(
     await tx.savingsPlanCheckIn.update({
       where: { id: checkIn.id },
       data: {
-        status: "COMPLETED",
+        status: checkInFunding.complete ? "COMPLETED" : "DUE",
+        contributedAmount: checkInFunding.contributedAmount,
         contributionId: contribution.id,
-        completedAt: new Date(),
+        completedAt: checkInFunding.complete ? new Date() : null,
         notes: input.notes,
       },
     });
@@ -813,10 +839,22 @@ export async function registerSavingsPlanWeeklyContribution(
     resourceId: result.id,
     outcome: "SUCCESS",
     source: "financial-service",
-    metadata: { planId: plan.id, checkInId: checkIn.id },
+    metadata: {
+      planId: plan.id,
+      checkInId: checkIn.id,
+      amount: amountStr,
+      contributedAmount: checkInFunding.contributedAmount,
+      expectedAmount: checkIn.expectedAmount.toFixed(2),
+      checkInCompleted: checkInFunding.complete,
+    },
   });
 
-  return { contributionId: result.id, transferCreated: true };
+  return {
+    contributionId: result.id,
+    transferCreated: true,
+    checkInCompleted: checkInFunding.complete,
+    remainingAmount: checkInFunding.remainingAmount,
+  };
 }
 
 export async function setSavingsPlanStatus(

@@ -110,7 +110,7 @@ async function OpenBankingPageContent() {
 
 export default function OpenBankingPage() {
   return (
-    <RequestDynamicPage contentShape="accounts">
+    <RequestDynamicPage contentShape="open-banking">
       <OpenBankingPageContent />
     </RequestDynamicPage>
   );

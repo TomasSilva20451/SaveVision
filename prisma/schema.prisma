@@ -1200,6 +1200,7 @@ model SavingsPlanCheckIn {
   periodStart        DateTime
   periodEnd          DateTime
   expectedAmount     Decimal                  @db.Decimal(19, 4)
+  contributedAmount  Decimal                  @default(0) @db.Decimal(19, 4)
   status             SavingsPlanCheckInStatus @default(DUE)
   contributionId     String?
   completedAt        DateTime?

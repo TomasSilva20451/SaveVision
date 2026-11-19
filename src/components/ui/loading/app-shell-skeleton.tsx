@@ -11,7 +11,7 @@ const navWidths = ["w-28", "w-20", "w-24", "w-32", "w-20", "w-24", "w-20", "w-24
 export function AppShellSkeleton({ children, label }: AppShellSkeletonProps) {
   return (
     <div
-      className="app-shell aurora-shell flex min-h-full w-full max-w-[100vw] bg-[var(--background)]"
+      className="app-shell aurora-shell flex min-h-dvh w-full max-w-[100vw] bg-[var(--background)]"
       aria-busy="true"
       aria-label={label}
       role="status"

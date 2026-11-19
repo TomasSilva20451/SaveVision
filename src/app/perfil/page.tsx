@@ -132,5 +132,5 @@ async function PerfilContent() {
 }
 
 export default function PerfilPage() {
-  return <Suspense fallback={<PageSuspenseFallback shape="table" />}><PerfilContent/></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback shape="profile" />}><PerfilContent/></Suspense>;
 }

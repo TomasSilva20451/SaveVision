@@ -9,6 +9,7 @@ import {
   FinanceTableHeaderCell,
   FinanceTableRow,
 } from "@/components/ui/finance-table";
+import { PaginationNav } from "@/components/ui/pagination-nav";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { readPageFlash } from "@/lib/ui/page-shell";
@@ -18,7 +19,7 @@ import { listUnavailableDocumentsForWorkspace } from "@/server/services/document
 import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-type Props = { searchParams: Promise<{ action?: string }> };
+type Props = { searchParams: Promise<{ action?: string; page?: string }> };
 
 async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
   await ensureRequestDynamic();
@@ -30,8 +31,9 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
   if (!selected) redirect("/inicio");
 
   const params = await searchParams;
-  const [events, unavailableDocs, unseenCount] = await Promise.all([
-    searchWorkspaceAuditEvents(user.id, selected.id, { action: params.action, limit: 80 }),
+  const requestedPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
+  const [auditPage, unavailableDocs, unseenCount] = await Promise.all([
+    searchWorkspaceAuditEvents(user.id, selected.id, { action: params.action, page: requestedPage, pageSize: 10 }),
     listUnavailableDocumentsForWorkspace(user.id, selected.id),
     countUnseenFinancialAlerts(user.id, selected.id),
   ]);
@@ -51,7 +53,7 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
         </div>
       }
     >
-      {!events ? (
+      {!auditPage ? (
         <p className="text-sm text-slate-600">Acesso reservado a gestores do workspace.</p>
       ) : (
         <>
@@ -101,7 +103,7 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
               </FinanceTableRow>
             </FinanceTableHead>
             <FinanceTableBody>
-              {events.map((ev) => (
+              {auditPage.events.map((ev) => (
                 <FinanceTableRow key={ev.id}>
                   <FinanceTableCell>{ev.occurredAt.toISOString()}</FinanceTableCell>
                   <FinanceTableCell>{ev.action}</FinanceTableCell>
@@ -113,6 +115,14 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
               ))}
             </FinanceTableBody>
           </FinanceTable>
+          <PaginationNav
+            pathname="/empresa/auditoria"
+            page={auditPage.page}
+            pageCount={auditPage.pageCount}
+            pageSize={auditPage.pageSize}
+            total={auditPage.total}
+            params={{ action: params.action }}
+          />
         </>
       )}
     </AppShell>
@@ -121,7 +131,7 @@ async function EmpresaAuditoriaPageContent({ searchParams }: Props) {
 
 export default function EmpresaAuditoriaPage(props: Props) {
   return (
-    <RequestDynamicPage contentShape="table">
+    <RequestDynamicPage contentShape="audit">
       <EmpresaAuditoriaPageContent {...props} />
     </RequestDynamicPage>
   );

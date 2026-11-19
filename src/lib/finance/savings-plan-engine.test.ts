@@ -3,6 +3,7 @@ import { parseCivilDateIso as parseIso } from "@/lib/datetime/civil-date";
 import {
   amountRemaining,
   buildWeeklyPeriods,
+  computeSavingsCheckInFunding,
   computePlanProgress,
   nextOrSameWeekday,
   proportionalMonthLimit,
@@ -22,6 +23,19 @@ describe("savings-plan-engine", () => {
     const asOf = parseIso("2026-10-28");
     const target = parseIso("2027-01-20");
     expect(weeksRemaining(asOf, target, 7)).toBeGreaterThan(0);
+  });
+
+  it("mantém a semana parcial até atingir o valor planeado", () => {
+    expect(computeSavingsCheckInFunding("25.00", "0", "13.63")).toEqual({
+      contributedAmount: "13.63",
+      remainingAmount: "11.37",
+      complete: false,
+    });
+    expect(computeSavingsCheckInFunding("25.00", "13.63", "11.37")).toEqual({
+      contributedAmount: "25.00",
+      remainingAmount: "0.00",
+      complete: true,
+    });
   });
 
   it("montante em falta e progresso", () => {

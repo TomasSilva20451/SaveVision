@@ -3,7 +3,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { formatEUR } from "@/lib/finance/money";
 import { primaryButtonClassName, secondaryButtonClassName } from "@/components/ui/form-styles";
 import { registerSavingsPlanContributionAction } from "@/lib/finance/savings-plan-actions";
-import { formatCivilDate, civilDateFromInstant } from "@/lib/datetime/civil-date";
+import { formatCivilDate, civilDateFromInstant, formatCivilDateIso } from "@/lib/datetime/civil-date";
 import type { getSavingsPlanDashboardCard } from "@/server/services/savings-plan";
 
 type CardData = NonNullable<Awaited<ReturnType<typeof getSavingsPlanDashboardCard>>>;
@@ -44,7 +44,7 @@ export function SavingsPlanDashboardCard({ data }: { data: CardData }) {
         {checkIn
           ? checkIn.status === "COMPLETED"
             ? "contribuição registada"
-            : `pendente até ${formatCivilDate(civilDateFromInstant(checkIn.periodEnd))}`
+            : `${Number(checkIn.contributedAmount) > 0 ? `parcial (${formatEUR(checkIn.contributedAmount)})` : "pendente"} até ${formatCivilDate(civilDateFromInstant(checkIn.periodEnd))}`
           : "sem check-ins"}
         · esperado {formatEUR(data.weeklyExpected)}
       </p>
@@ -61,12 +61,16 @@ export function SavingsPlanDashboardCard({ data }: { data: CardData }) {
           <form action={registerSavingsPlanContributionAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="planId" value={data.planId} />
             <input type="hidden" name="checkInId" value={checkIn.id} />
-            <input type="hidden" name="contributedAtIso" value={new Date().toISOString().slice(0, 10)} />
+            <input type="hidden" name="contributedAtIso" value={formatCivilDateIso(civilDateFromInstant(new Date()))} />
             <label className="text-xs">
               Valor (€)
               <input
                 name="amount"
-                defaultValue={data.weeklyExpected}
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                defaultValue={checkIn.remainingAmount}
                 className="mt-1 block rounded-lg border px-2 py-1 text-sm"
                 required
               />

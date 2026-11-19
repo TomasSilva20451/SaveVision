@@ -158,7 +158,7 @@ async function InteligenciaPageContent() {
 
 export default function InteligenciaPage() {
   return (
-    <RequestDynamicPage contentShape="dashboard">
+    <RequestDynamicPage contentShape="intelligence">
       <InteligenciaPageContent />
     </RequestDynamicPage>
   );

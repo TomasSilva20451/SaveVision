@@ -75,5 +75,5 @@ async function AnalisesInner({ searchParams }: PageProps) {
 }
 
 export default function AnalisesPage(props: PageProps) {
-  return <Suspense fallback={<PageSuspenseFallback shape="expenses" />}><AnalisesInner searchParams={props.searchParams}/></Suspense>;
+  return <Suspense fallback={<PageSuspenseFallback shape="analytics" />}><AnalisesInner searchParams={props.searchParams}/></Suspense>;
 }

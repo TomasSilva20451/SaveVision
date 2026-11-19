@@ -63,7 +63,7 @@ async function AssistenteContent() {
 
 export default function AssistentePage() {
   return (
-    <Suspense fallback={<PageSuspenseFallback shape="chat-panel" />}>
+    <Suspense fallback={<PageSuspenseFallback shape="assistant" />}>
       <AssistenteContent />
     </Suspense>
   );

@@ -11,6 +11,7 @@ import {
 import { mapOpenBankingTransactions } from "@/lib/finance/open-banking-feed";
 import { decimal } from "@/lib/finance/money";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { appendAuditEvent } from "@/server/audit/audit-ledger";
 import { resolveOpenBankingProvider } from "@/server/providers/open-banking/registry";
 import { importBankFeedRows } from "@/server/services/bank-feed-import";
@@ -29,13 +30,19 @@ function startOfCivilMonthsAgo(months: number): Date {
   return startOfCivilMonth(year, month);
 }
 
-export async function getReconciliationPageData(userId: string, workspaceId: string) {
+export async function getReconciliationPageData(
+  userId: string,
+  workspaceId: string,
+  query: { page?: number; pageSize?: number } = {},
+) {
   const membership = await requireWorkspaceAccess(userId, workspaceId);
   if (!membership) return null;
 
   const canEdit = hasCorporateCapability(membership.role, "reconcile");
 
-  const [accounts, unmatchedCount, matchedCount, duplicateCount, exceptionCount, recentUnmatched, lastClose] =
+  const pageSize = Math.min(Math.max(query.pageSize ?? 10, 1), 50);
+  const requestedPage = Math.max(query.page ?? 1, 1);
+  const [accounts, unmatchedCount, matchedCount, duplicateCount, exceptionCount, lastClose] =
     await Promise.all([
     db.financialAccount.findMany({
       where: { workspaceId, isArchived: false },
@@ -46,18 +53,22 @@ export async function getReconciliationPageData(userId: string, workspaceId: str
     db.bankReconciliationMatch.count({ where: { workspaceId } }),
     db.bankFeedLine.count({ where: { workspaceId, status: "DUPLICATE" } }),
     db.bankFeedLine.count({ where: { workspaceId, status: "EXCEPTION" } }),
-    db.bankFeedLine.findMany({
-      where: { workspaceId, status: "UNMATCHED" },
-      orderBy: { bookingDate: "desc" },
-      take: 40,
-      include: { account: { select: { name: true } } },
-    }),
     db.reconciliationDayClose.findFirst({
       where: { workspaceId },
       orderBy: { closedAt: "desc" },
       select: { civilDate: true, closedAt: true, autoMatchRate: true, unmatchedCount: true, exceptionCount: true },
     }),
   ]);
+
+  const pageCount = Math.max(1, Math.ceil(unmatchedCount / pageSize));
+  const page = Math.min(requestedPage, pageCount);
+  const recentUnmatched = await db.bankFeedLine.findMany({
+    where: { workspaceId, status: "UNMATCHED" },
+    orderBy: [{ bookingDate: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    include: { account: { select: { name: true } } },
+  });
 
   const from = startOfCivilMonthsAgo(UNMATCHED_TX_MONTHS);
   const unmatchedTransactions = await db.transaction.findMany({
@@ -102,6 +113,7 @@ export async function getReconciliationPageData(userId: string, workspaceId: str
     role: membership.role,
     accounts,
     kpis: { unmatchedCount, matchedCount, duplicateCount, exceptionCount },
+    pagination: { page, pageSize, pageCount, total: unmatchedCount },
     lastClose,
     feedLines: recentUnmatched.map((line) => ({
       id: line.id,
@@ -517,14 +529,14 @@ export async function closeReconciliationDay(userId: string, workspaceId: string
 export async function searchWorkspaceAuditEvents(
   userId: string,
   workspaceId: string,
-  query: { action?: string; from?: Date; to?: Date; limit?: number },
+  query: { action?: string; from?: Date; to?: Date; page?: number; pageSize?: number },
 ) {
   const membership = await requireWorkspaceManager(userId, workspaceId);
   if (!membership || !hasCorporateCapability(membership.role, "search-audit")) return null;
 
-  const limit = Math.min(query.limit ?? 100, 200);
-  return db.auditEvent.findMany({
-    where: {
+  const pageSize = Math.min(Math.max(query.pageSize ?? 10, 1), 100);
+  const requestedPage = Math.max(query.page ?? 1, 1);
+  const where = {
       workspaceId,
       ...(query.action ? { action: { contains: query.action, mode: "insensitive" } } : {}),
       ...(query.from || query.to
@@ -535,9 +547,15 @@ export async function searchWorkspaceAuditEvents(
             },
           }
         : {}),
-    },
-    orderBy: { occurredAt: "desc" },
-    take: limit,
+    } satisfies Prisma.AuditEventWhereInput;
+  const total = await db.auditEvent.count({ where });
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, pageCount);
+  const events = await db.auditEvent.findMany({
+    where,
+    orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+    skip: (page - 1) * pageSize,
+    take: pageSize,
     select: {
       id: true,
       occurredAt: true,
@@ -549,4 +567,5 @@ export async function searchWorkspaceAuditEvents(
       source: true,
     },
   });
+  return { events, page, pageSize, pageCount, total };
 }

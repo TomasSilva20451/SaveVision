@@ -174,9 +174,11 @@ export async function registerSavingsPlanContributionAction(formData: FormData):
     return;
   }
   await flashSuccess(
-    result.transferCreated
-      ? "Contribuição registada e transferência criada entre contas."
-      : "Contribuição registada.",
+    result.checkInCompleted === false
+      ? `Contribuição parcial registada. Faltam ${result.remainingAmount?.replace(".", ",")} € para concluir esta semana.`
+      : result.transferCreated
+        ? "Contribuição registada, transferência criada e semana concluída."
+        : "Contribuição registada.",
   );
   revalidatePath("/dashboard");
   revalidatePath("/plano");

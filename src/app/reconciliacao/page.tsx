@@ -10,6 +10,7 @@ import {
   FinanceTableHeaderCell,
   FinanceTableRow,
 } from "@/components/ui/finance-table";
+import { PaginationNav } from "@/components/ui/pagination-nav";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
 import { formatCivilDate } from "@/lib/datetime/civil-date";
@@ -27,7 +28,9 @@ import { getReconciliationPageData } from "@/server/services/bank-reconciliation
 import { countUnseenFinancialAlerts } from "@/server/services/financial-alerts";
 import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 
-async function ReconciliacaoPageContent() {
+type Props = { searchParams: Promise<{ page?: string }> };
+
+async function ReconciliacaoPageContent({ searchParams }: Props) {
   await ensureRequestDynamic();
   const flash = await readPageFlash("/reconciliacao");
   const user = await requireAuthenticatedUser();
@@ -36,8 +39,10 @@ async function ReconciliacaoPageContent() {
   const { workspaces, selected } = await resolveWorkspaceContext(user.id);
   if (!selected) redirect("/inicio");
 
+  const params = await searchParams;
+  const requestedPage = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const [data, unseenCount] = await Promise.all([
-    getReconciliationPageData(user.id, selected.id),
+    getReconciliationPageData(user.id, selected.id, { page: requestedPage, pageSize: 10 }),
     countUnseenFinancialAlerts(user.id, selected.id),
   ]);
   if (!data) redirect("/inicio");
@@ -202,15 +207,22 @@ async function ReconciliacaoPageContent() {
             )}
           </FinanceTableBody>
         </FinanceTable>
+        <PaginationNav
+          pathname="/reconciliacao"
+          page={data.pagination.page}
+          pageCount={data.pagination.pageCount}
+          pageSize={data.pagination.pageSize}
+          total={data.pagination.total}
+        />
       </section>
     </AppShell>
   );
 }
 
-export default function ReconciliacaoPage() {
+export default function ReconciliacaoPage(props: Props) {
   return (
     <RequestDynamicPage contentShape="transactions">
-      <ReconciliacaoPageContent />
+      <ReconciliacaoPageContent {...props} />
     </RequestDynamicPage>
   );
 }

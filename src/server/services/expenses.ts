@@ -121,7 +121,6 @@ export async function listExpenses(userId: string, workspaceId: string) {
     db.transaction.findMany({
       where: { workspaceId, type: "EXPENSE", deletedAt: null },
       orderBy: { occurredAt: "desc" },
-      take: 50,
       include: { category: true, account: { select: { name: true } } },
     }),
   ]);

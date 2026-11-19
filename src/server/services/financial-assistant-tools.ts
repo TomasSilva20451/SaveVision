@@ -194,7 +194,9 @@ export async function runAssistantTool(
       };
     }
     case "reconciliation_status": {
-      const reconciliation = await getReconciliationPageData(userId, workspaceId);
+      // The assistant keeps the wider evidence window it used before the UI
+      // became paginated. Pagination is a presentation concern here.
+      const reconciliation = await getReconciliationPageData(userId, workspaceId, { pageSize: 40 });
       if (!reconciliation) throw new Error("NO_RECONCILIATION_DATA");
       return {
         summaryKey: "reconciliation_status",

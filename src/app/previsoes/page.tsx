@@ -91,7 +91,7 @@ async function PrevisoesContent({ searchParams }: PageProps) {
 
 export default function PrevisoesPage(props: PageProps) {
   return (
-    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
+    <Suspense fallback={<PageSuspenseFallback shape="forecast" />}>
       <PrevisoesContent searchParams={props.searchParams} />
     </Suspense>
   );

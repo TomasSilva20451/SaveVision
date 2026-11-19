@@ -112,6 +112,32 @@ export function amountRemaining(target: string, contributed: string): string {
   return diff.gt(0) ? diff.toFixed(2) : "0.00";
 }
 
+export type SavingsCheckInFunding = {
+  contributedAmount: string;
+  remainingAmount: string;
+  complete: boolean;
+};
+
+/**
+ * A semana só fica concluída quando o acumulado atinge o valor planeado.
+ * Contribuições inferiores continuam visíveis como parciais e podem ser completadas.
+ */
+export function computeSavingsCheckInFunding(
+  expectedAmount: string,
+  contributedAmount: string,
+  additionalAmount = "0",
+): SavingsCheckInFunding {
+  const expected = decimal(expectedAmount);
+  const contributed = decimal(contributedAmount).plus(additionalAmount);
+  const remaining = expected.minus(contributed);
+
+  return {
+    contributedAmount: contributed.toFixed(2),
+    remainingAmount: remaining.gt(0) ? remaining.toFixed(2) : "0.00",
+    complete: contributed.gte(expected),
+  };
+}
+
 export type PlanProgressSnapshot = {
   contributed: string;
   recordedContributions: string;

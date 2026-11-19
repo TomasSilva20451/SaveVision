@@ -55,7 +55,7 @@ async function SimulacoesContent() {
 
 export default function SimulacoesPage() {
   return (
-    <Suspense fallback={<PageSuspenseFallback shape="dashboard" />}>
+    <Suspense fallback={<PageSuspenseFallback shape="simulations" />}>
       <SimulacoesContent />
     </Suspense>
   );

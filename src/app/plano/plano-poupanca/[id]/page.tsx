@@ -16,7 +16,7 @@ import {
   setSavingsPlanStatusAction,
   syncSavingsPlanTransfersAction,
 } from "@/lib/finance/savings-plan-actions";
-import { formatEUR } from "@/lib/finance/money";
+import { decimal, formatEUR } from "@/lib/finance/money";
 import { readPageFlash } from "@/lib/ui/page-shell";
 import { SavingsPlanWeeklyReview } from "@/components/planning/savings-plan-weekly-review";
 import { getSavingsPlanDetail, getWeeklyReviewForPlan } from "@/server/services/savings-plan";
@@ -51,7 +51,9 @@ async function PlanDetailContent({ planId }: { planId: string }) {
     asOf: new Date(),
   });
 
-  const dueCheckIn = plan.checkIns.find((c) => c.status === "DUE");
+  const dueCheckIn = [...plan.checkIns]
+    .reverse()
+    .find((c) => c.status === "DUE");
   const missingTransfers = plan.goal.contributions.some((c) => !c.transferId);
 
   return (
@@ -157,10 +159,25 @@ async function PlanDetailContent({ planId }: { planId: string }) {
           <form action={registerSavingsPlanContributionAction} className="mt-3 flex flex-wrap gap-3">
             <input type="hidden" name="planId" value={plan.id} />
             <input type="hidden" name="checkInId" value={dueCheckIn.id} />
-            <input type="hidden" name="contributedAtIso" value={new Date().toISOString().slice(0, 10)} />
+            <input
+              type="hidden"
+              name="contributedAtIso"
+              value={formatCivilDateIso(civilDateFromInstant(new Date()))}
+            />
             <label className="text-sm">
               Valor (€)
-              <input name="amount" defaultValue={plan.plannedContributionAmount.toString()} className="mt-1 block rounded-lg border px-2 py-1" required />
+              <input
+                name="amount"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                defaultValue={decimal(dueCheckIn.expectedAmount.toString())
+                  .minus(dueCheckIn.contributedAmount.toString())
+                  .toFixed(2)}
+                className="mt-1 block rounded-lg border px-2 py-1"
+                required
+              />
             </label>
             <input type="hidden" name="transferConfirmed" value="on" />
             <button className={primaryButtonClassName}>Registar e transferir</button>
@@ -171,15 +188,33 @@ async function PlanDetailContent({ planId }: { planId: string }) {
       <section className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h2 className="font-semibold">Check-ins semanais</h2>
         <ul className="mt-3 divide-y text-sm">
-          {plan.checkIns.map((c) => (
-            <li key={c.id} className="flex justify-between py-2">
-              <span>
-                {formatCivilDate(civilDateFromInstant(c.periodStart))} –{" "}
-                {formatCivilDate(civilDateFromInstant(c.periodEnd))}
-              </span>
-              <span>{c.status}</span>
-            </li>
-          ))}
+          {plan.checkIns.map((c) => {
+            const contributed = c.contributedAmount.toString();
+            const hasPartialContribution = decimal(contributed).gt(0) && c.status === "DUE";
+            const statusLabel = c.status === "COMPLETED"
+              ? "Concluído"
+              : hasPartialContribution
+                ? "Parcial"
+                : c.status === "DUE"
+                  ? "Pendente"
+                  : c.status === "MISSED"
+                    ? "Em falta"
+                    : "Ignorado";
+            return (
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span>
+                  {formatCivilDate(civilDateFromInstant(c.periodStart))} –{" "}
+                  {formatCivilDate(civilDateFromInstant(c.periodEnd))}
+                </span>
+                <span className="text-right">
+                  <span className="block font-medium">{statusLabel}</span>
+                  <span className="block text-xs text-slate-500">
+                    {formatEUR(contributed)} de {formatEUR(c.expectedAmount.toString())}
+                  </span>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </section>
     </AppShell>

@@ -167,7 +167,7 @@ describe("SavingsPlan (PostgreSQL)", () => {
     expect(plan?.status).toBe("CANCELLED");
   });
 
-  it("contribuição manual completa check-in", async () => {
+  it("contribuições parciais acumulam no mesmo check-in até ao valor semanal", async () => {
     if (!ready) return;
     const suffix = `contrib-${Date.now()}`;
     const input = wizardInput(suffix);
@@ -179,19 +179,39 @@ describe("SavingsPlan (PostgreSQL)", () => {
     });
     if (!checkIn) return;
     const txBefore = await db.transaction.count({ where: { workspaceId: joaoPersonalWs } });
-    const result = await registerSavingsPlanWeeklyContribution(joaoId, joaoPersonalWs, {
+    const partial = await registerSavingsPlanWeeklyContribution(joaoId, joaoPersonalWs, {
       planId: activated.planId,
       checkInId: checkIn.id,
-      amount: "25.00",
+      amount: "13.63",
       contributedAt: new Date(),
       transferConfirmed: true,
     });
-    expect(result).not.toBeNull();
-    expect(result!.transferCreated).toBe(true);
+    expect(partial).not.toBeNull();
+    expect(partial!.transferCreated).toBe(true);
+    expect(partial!.checkInCompleted).toBe(false);
+    expect(partial!.remainingAmount).toBe("11.37");
+
+    const afterPartial = await db.savingsPlanCheckIn.findUnique({ where: { id: checkIn.id } });
+    expect(afterPartial?.status).toBe("DUE");
+    expect(afterPartial?.contributedAmount.toFixed(2)).toBe("13.63");
+
+    const completed = await registerSavingsPlanWeeklyContribution(joaoId, joaoPersonalWs, {
+      planId: activated.planId,
+      checkInId: checkIn.id,
+      amount: "11.37",
+      contributedAt: new Date(),
+      transferConfirmed: true,
+    });
+    expect(completed).not.toBeNull();
+    expect(completed!.transferCreated).toBe(true);
+    expect(completed!.checkInCompleted).toBe(true);
+    expect(completed!.remainingAmount).toBe("0.00");
+
     const txAfter = await db.transaction.count({ where: { workspaceId: joaoPersonalWs } });
-    expect(txAfter).toBe(txBefore + 2);
+    expect(txAfter).toBe(txBefore + 4);
     const updated = await db.savingsPlanCheckIn.findUnique({ where: { id: checkIn.id } });
     expect(updated?.status).toBe("COMPLETED");
+    expect(updated?.contributedAmount.toFixed(2)).toBe("25.00");
     expect(updated?.contributionId).not.toBeNull();
     const contribution = await db.savingsGoalContribution.findUnique({
       where: { id: updated!.contributionId! },
