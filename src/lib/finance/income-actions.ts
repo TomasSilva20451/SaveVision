@@ -7,6 +7,8 @@ import { resolveWorkspaceContext } from "@/server/services/workspace-context";
 import {
   confirmIncomeOccurrence,
   confirmOneOffExpectedIncome,
+  restoreIncomeOccurrence,
+  restoreOneOffConfirmedIncome,
   createEcommerceSaleRecord,
   createFamilyIncomeSeries,
   createOneOffIncome,
@@ -128,6 +130,42 @@ export async function confirmOccurrenceAction(formData: FormData): Promise<void>
   revalidatePath("/receitas");
   revalidatePath("/transacoes");
   revalidatePath("/contas");
+}
+
+export async function restoreIncomeConfirmationAction(formData: FormData): Promise<void> {
+  const user = await requireAuthenticatedUser();
+  if (!user) return;
+  const { selected } = await workspaceOrAbort(user.id);
+  if (!selected) return;
+
+  const occurrenceId = String(formData.get("occurrenceId") || "").trim();
+  const transactionId = String(formData.get("transactionId") || "").trim();
+
+  const result = occurrenceId
+    ? await restoreIncomeOccurrence(user.id, selected.id, occurrenceId)
+    : transactionId
+      ? await restoreOneOffConfirmedIncome(user.id, selected.id, transactionId)
+      : { ok: false as const, error: "Identificador em falta." };
+
+  if (!result.ok) {
+    await flashError(result.error, INCOME_PATH);
+    return;
+  }
+
+  const balanceHint = result.accountName
+    ? ` O saldo foi reposto em «${result.accountName}».`
+    : "";
+  await flashSuccess(
+    `Confirmação anulada; a receita voltou a prevista.${balanceHint}`,
+    INCOME_PATH,
+  );
+
+  revalidatePath("/receitas");
+  revalidatePath("/transacoes");
+  revalidatePath("/contas");
+  revalidatePath("/dashboard");
+  revalidatePath("/previsoes");
+  revalidatePath("/analises");
 }
 
 export async function createEcommerceAction(formData: FormData): Promise<void> {

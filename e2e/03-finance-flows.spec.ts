@@ -100,6 +100,20 @@ test("G2. confirmar receita familiar esperada (determinístico + idempotente)", 
   await page.reload();
   const balanceAfterReload = await balanceLocator.textContent();
   expect(balanceAfterReload).toEqual(balanceAfterFirst);
+
+  await page.goto("/receitas");
+  const rowRestore = page.getByRole("row").filter({ hasText: uniqueOrigin }).first();
+  await expect(rowRestore).toContainText("Confirmada");
+  const restoreButton = rowRestore.getByRole("button", { name: "Anular confirmação" });
+  await expect(restoreButton).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await restoreButton.click();
+  await expect(rowRestore).toContainText("Prevista", { timeout: 15_000 });
+
+  await page.goto("/contas");
+  const balanceAfterRestore = await balanceLocator.textContent();
+  expect(balanceAfterRestore).toEqual(balanceBefore);
 });
 
 test("I. transferências", async ({ page }) => {

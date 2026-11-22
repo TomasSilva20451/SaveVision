@@ -240,6 +240,142 @@ export async function confirmIncomeOccurrence(
   }
 }
 
+export async function restoreIncomeOccurrence(
+  userId: string,
+  workspaceId: string,
+  occurrenceId: string,
+): Promise<
+  | { ok: true; accountName: string | null; amount: string }
+  | { ok: false; error: string }
+> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return { ok: false, error: "Sem permissão para reverter esta confirmação." };
+
+  const occurrence = await db.incomeOccurrence.findFirst({
+    where: { id: occurrenceId, workspaceId, status: "RECEIVED" },
+    include: {
+      transaction: { include: { account: { select: { name: true } } } },
+    },
+  });
+  if (!occurrence?.transactionId) {
+    return { ok: false, error: "Esta ocorrência não pode ser reposta." };
+  }
+  if (occurrence.transaction?.deletedAt) {
+    return { ok: false, error: "O movimento associado já foi anulado." };
+  }
+
+  const accountName = occurrence.transaction?.account.name ?? null;
+  const amount = occurrence.expectedAmount.toString();
+  const linkedTransactionId = occurrence.transactionId;
+  const now = new Date();
+
+  const restored = await db.$transaction(async (tx) => {
+    const removed = await tx.transaction.updateMany({
+      where: { id: linkedTransactionId, workspaceId, deletedAt: null },
+      data: { deletedAt: now },
+    });
+    if (removed.count !== 1) return false;
+
+    const updated = await tx.incomeOccurrence.updateMany({
+      where: {
+        id: occurrenceId,
+        workspaceId,
+        status: "RECEIVED",
+        transactionId: linkedTransactionId,
+      },
+      data: { status: "EXPECTED", transactionId: null },
+    });
+    return updated.count === 1;
+  });
+
+  if (!restored) {
+    return { ok: false, error: "Não foi possível reverter a confirmação." };
+  }
+
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "INCOME_CONFIRMATION_REVERSED",
+    entityType: "IncomeOccurrence",
+    entityId: occurrenceId,
+    metadata: { transactionId: linkedTransactionId },
+  });
+
+  return { ok: true, accountName, amount };
+}
+
+export async function restoreOneOffConfirmedIncome(
+  userId: string,
+  workspaceId: string,
+  transactionId: string,
+): Promise<
+  | { ok: true; accountName: string | null; amount: string }
+  | { ok: false; error: string }
+> {
+  const membership = await requireWorkspaceEditor(userId, workspaceId);
+  if (!membership) return { ok: false, error: "Sem permissão para reverter esta confirmação." };
+
+  const transaction = await db.transaction.findFirst({
+    where: {
+      id: transactionId,
+      workspaceId,
+      type: "INCOME",
+      status: "COMPLETED",
+      deletedAt: null,
+    },
+    include: {
+      incomeOccurrence: { select: { id: true } },
+      account: { select: { name: true } },
+    },
+  });
+  if (!transaction || transaction.incomeOccurrence) {
+    return { ok: false, error: "Esta receita não pode ser reposta." };
+  }
+
+  const confirmedVia = await db.financialAuditLog.findFirst({
+    where: {
+      workspaceId,
+      action: "INCOME_CONFIRMED",
+      entityType: "Transaction",
+      entityId: transactionId,
+    },
+    select: { id: true },
+  });
+  if (!confirmedVia) {
+    return { ok: false, error: "Só é possível reverter receitas que foram confirmadas a partir de previstas." };
+  }
+
+  const updated = await db.transaction.updateMany({
+    where: {
+      id: transactionId,
+      workspaceId,
+      type: "INCOME",
+      status: "COMPLETED",
+      deletedAt: null,
+    },
+    data: { status: "EXPECTED" },
+  });
+
+  if (updated.count !== 1) {
+    return { ok: false, error: "Não foi possível reverter a confirmação." };
+  }
+
+  await writeFinancialAuditLog({
+    workspaceId,
+    actorUserId: userId,
+    action: "INCOME_CONFIRMATION_REVERSED",
+    entityType: "Transaction",
+    entityId: transactionId,
+    metadata: { oneOff: true },
+  });
+
+  return {
+    ok: true,
+    accountName: transaction.account.name,
+    amount: transaction.amount.toString(),
+  };
+}
+
 export async function confirmOneOffExpectedIncome(
   userId: string,
   workspaceId: string,
@@ -572,6 +708,26 @@ export async function listIncomeOverview(
         inMonth(occurrence.scheduledFor, targetYear, targetMonth),
     );
 
+  const monthTransactionIds = transactions
+    .filter((transaction) => inMonth(transaction.occurredAt, year, month))
+    .filter((transaction) => transaction.status === "COMPLETED" && !transaction.incomeOccurrence)
+    .map((transaction) => transaction.id);
+  const confirmedOneOffTransactionIds = monthTransactionIds.length
+    ? new Set(
+        (
+          await db.financialAuditLog.findMany({
+            where: {
+              workspaceId,
+              action: "INCOME_CONFIRMED",
+              entityType: "Transaction",
+              entityId: { in: monthTransactionIds },
+            },
+            select: { entityId: true },
+          })
+        ).map((row) => row.entityId),
+      )
+    : new Set<string>();
+
   const completed = completedFor(year, month);
   const expectedTransactions = expectedTransactionsFor(year, month);
   const expectedOccurrences = expectedOccurrencesFor(year, month);
@@ -640,6 +796,7 @@ export async function listIncomeOverview(
 
   const seriesRows = series.map((incomeSeries) => {
     const occurrence =
+      incomeSeries.occurrences.find((item) => inMonth(item.scheduledFor, year, month)) ??
       incomeSeries.occurrences
         .filter((item) => item.status === "EXPECTED")
         .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())[0] ??
@@ -650,12 +807,14 @@ export async function listIncomeOverview(
       title: incomeSeries.title,
       sourceType: incomeSeries.sourceType,
       sourceLabel: SOURCE_LABELS[incomeSeries.sourceType],
-      amount: incomeSeries.amount.toString(),
+      amount: (occurrence?.expectedAmount ?? incomeSeries.amount).toString(),
       frequency: FREQUENCY_LABELS[incomeSeries.frequency] ?? incomeSeries.frequency,
       nextDate: occurrence?.scheduledFor ?? incomeSeries.nextDueAt,
       status: occurrence?.status ?? (incomeSeries.active ? "EXPECTED" : "CANCELLED"),
       occurrenceId: occurrence?.status === "EXPECTED" ? occurrence.id : null,
       transactionId: null,
+      restoreOccurrenceId: occurrence?.status === "RECEIVED" ? occurrence.id : null,
+      restoreTransactionId: null,
     };
   });
   const transactionRows = transactions
@@ -673,6 +832,11 @@ export async function listIncomeOverview(
         status: transaction.status === "COMPLETED" ? "RECEIVED" : transaction.status,
         occurrenceId: null,
         transactionId: transaction.status === "EXPECTED" ? transaction.id : null,
+        restoreOccurrenceId: null,
+        restoreTransactionId:
+          transaction.status === "COMPLETED" && confirmedOneOffTransactionIds.has(transaction.id)
+            ? transaction.id
+            : null,
       };
     });
 
