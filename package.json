@@ -106,7 +106,7 @@
     "ioredis": "^6.0.0",
     "next": "16.4.5",
     "next-auth": "5.0.0-beta.32",
-    "nodemailer": "^10.3.1",
+    "nodemailer": "^10.5.0",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.1",
     "react": "19.3.1",
