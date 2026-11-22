@@ -5,8 +5,8 @@ import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card";
 import { AppShell } from "@/components/shell/app-shell";
 import { CategorizationReviewPanel } from "@/components/transactions/categorization-review-panel";
 import { NewTransactionDrawer } from "@/components/transactions/new-transaction-drawer";
-import { MonthFilterSelect } from "@/components/transactions/month-filter-select";
 import { TransactionCharts } from "@/components/transactions/transaction-charts";
+import { TransactionsFilters } from "@/components/transactions/transactions-filters";
 import {
   FinanceTable,
   FinanceTableBody,
@@ -16,7 +16,6 @@ import {
   FinanceTableRow,
 } from "@/components/ui/finance-table";
 import { PageSuspenseFallback } from "@/components/ui/loading";
-import { filterApplyButtonClassName, inputClassName } from "@/components/ui/form-styles";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAuthenticatedUser } from "@/lib/auth/auth";
 import { ensureRequestDynamic } from "@/lib/auth/ensure-dynamic";
@@ -139,66 +138,19 @@ async function TransacoesContent({ searchParams }: { searchParams: SearchParams 
         </Link>
       </p>
       <CategorizationReviewPanel open={showReview} />
-      <section className="mb-5 min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
-        <form method="get" className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          {data.filters.q ? <input type="hidden" name="q" value={data.filters.q} /> : null}
-          {data.filters.accountId ? <input type="hidden" name="accountId" value={data.filters.accountId} /> : null}
-          {data.filters.categoryId ? <input type="hidden" name="categoryId" value={data.filters.categoryId} /> : null}
-          {data.filters.type ? <input type="hidden" name="type" value={data.filters.type} /> : null}
-          {showReview ? <input type="hidden" name="review" value="1" /> : null}
-          <label className="block min-w-0 flex-1 text-sm font-medium text-slate-700">
-            Mês
-            <MonthFilterSelect value={data.period} options={months} />
-          </label>
-          <button type="submit" className={filterApplyButtonClassName}>
-            Ver mês
-          </button>
-        </form>
-        <form method="get" className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="min-w-0 text-sm sm:col-span-2 lg:col-span-3">
-            <span className="sr-only">Pesquisar</span>
-            <input
-              name="q"
-              defaultValue={data.filters.q}
-              placeholder="Pesquisar por descrição"
-              className={`${inputClassName} min-w-0`}
-            />
-          </label>
-          <select name="accountId" defaultValue={data.filters.accountId} className={`${inputClassName} min-w-0`} aria-label="Conta">
-            <option value="">Todas as contas</option>
-            {data.accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
-          <select name="categoryId" defaultValue={data.filters.categoryId} className={`${inputClassName} min-w-0`} aria-label="Categoria">
-            <option value="">Todas as categorias</option>
-            {data.categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-          <select name="type" defaultValue={data.filters.type} className={`${inputClassName} min-w-0`} aria-label="Tipo">
-            <option value="">Todos os tipos</option>
-            <option value="INCOME">Receita</option>
-            <option value="EXPENSE">Despesa</option>
-            <option value="TRANSFER">Transferência</option>
-            <option value="ADJUSTMENT">Ajustamento</option>
-          </select>
-          <input name="from" type="date" defaultValue={data.from} className={`${inputClassName} min-w-0 max-w-full`} aria-label="De" />
-          <input name="to" type="date" defaultValue={data.to} className={`${inputClassName} min-w-0 max-w-full`} aria-label="Até" />
-          <div className="flex gap-3 sm:col-span-2 lg:col-span-3">
-            <button type="submit" className={filterApplyButtonClassName}>
-              Aplicar filtros
-            </button>
-            <Link href="/transacoes" className="text-sm text-slate-500 hover:underline">
-              Limpar filtros
-            </Link>
-          </div>
-        </form>
-      </section>
+      <TransactionsFilters
+        period={data.period}
+        months={months}
+        from={data.from}
+        to={data.to}
+        q={data.filters.q}
+        accountId={data.filters.accountId}
+        categoryId={data.filters.categoryId}
+        type={data.filters.type}
+        accounts={data.accounts}
+        categories={data.categories}
+        showReview={showReview}
+      />
       <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <DashboardKpiCard label="Entradas" value={data.kpis.income} tone="income" icon="↑" />
         <DashboardKpiCard label="Saídas" value={data.kpis.expense} tone="expense" icon="↓" />

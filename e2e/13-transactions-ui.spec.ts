@@ -25,7 +25,7 @@ test.describe("Transações — layout e filtros", () => {
   test("pesquisa sem resultados e limpa filtros", async ({ page }) => {
     await page.goto("/transacoes");
     await page.getByPlaceholder("Pesquisar por descrição").fill("movimento-inexistente-e2e");
-    await page.getByRole("button", { name: "Aplicar filtros" }).click();
+    await page.getByRole("button", { name: "Filtrar" }).click();
     await expect(page.getByText("Nenhum movimento corresponde a estes filtros.")).toBeVisible();
     await page.getByRole("link", { name: "Limpar filtros" }).click();
     await expect(page).toHaveURL(/\/transacoes$/);
@@ -73,6 +73,7 @@ test.describe("Transações — layout e filtros", () => {
     const fits = () =>
       page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
     expect(await fits()).toBe(true);
+    await page.getByText("Mais filtros").click();
     await expect(page.getByLabel("De", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Até", { exact: true })).toBeVisible();
 
