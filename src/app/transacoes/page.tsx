@@ -5,6 +5,7 @@ import { DashboardKpiCard } from "@/components/dashboard/dashboard-kpi-card";
 import { AppShell } from "@/components/shell/app-shell";
 import { CategorizationReviewPanel } from "@/components/transactions/categorization-review-panel";
 import { NewTransactionDrawer } from "@/components/transactions/new-transaction-drawer";
+import { MonthFilterSelect } from "@/components/transactions/month-filter-select";
 import { TransactionCharts } from "@/components/transactions/transaction-charts";
 import {
   FinanceTable,
@@ -33,6 +34,7 @@ type SearchParams = Promise<{
   type?: string;
   from?: string;
   to?: string;
+  period?: string;
   page?: string;
   review?: string;
 }>;
@@ -43,6 +45,31 @@ function typeBadge(type: string) {
   if (type === "TRANSFER") return <StatusBadge variant="info">Transferência</StatusBadge>;
   if (type === "ADJUSTMENT") return <StatusBadge variant="muted">Ajustamento</StatusBadge>;
   return <StatusBadge variant="muted">{type}</StatusBadge>;
+}
+
+function monthOptions(anchor: { year: number; month: number }, selected: string) {
+  const options = Array.from({ length: 24 }, (_, index) => {
+    const date = new Date(Date.UTC(anchor.year, anchor.month - 1 - index, 15, 12));
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const value = `${year}-${String(month).padStart(2, "0")}`;
+    const label = new Intl.DateTimeFormat("pt-PT", {
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Lisbon",
+    }).format(date);
+    return { value, label: label.charAt(0).toUpperCase() + label.slice(1) };
+  });
+  if (selected && !options.some((option) => option.value === selected)) {
+    const [year, month] = selected.split("-").map(Number);
+    const label = new Intl.DateTimeFormat("pt-PT", {
+      month: "long",
+      year: "numeric",
+      timeZone: "Europe/Lisbon",
+    }).format(new Date(Date.UTC(year!, month! - 1, 15, 12)));
+    options.push({ value: selected, label: label.charAt(0).toUpperCase() + label.slice(1) });
+  }
+  return options;
 }
 
 function hrefWith(current: URLSearchParams, patch: Record<string, string | null>) {
@@ -76,9 +103,14 @@ async function TransacoesContent({ searchParams }: { searchParams: SearchParams 
   if (data.filters.accountId) query.set("accountId", data.filters.accountId);
   if (data.filters.categoryId) query.set("categoryId", data.filters.categoryId);
   if (data.filters.type) query.set("type", data.filters.type);
-  query.set("from", data.from);
-  query.set("to", data.to);
+  if (data.period) query.set("period", data.period);
+  else {
+    query.set("from", data.from);
+    query.set("to", data.to);
+  }
   const showReview = params.review === "1";
+  const today = civilDateFromInstant(new Date());
+  const months = monthOptions(today, data.period);
 
   return (
     <AppShell
@@ -107,30 +139,22 @@ async function TransacoesContent({ searchParams }: { searchParams: SearchParams 
         </Link>
       </p>
       <CategorizationReviewPanel open={showReview} />
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <DashboardKpiCard label="Entradas" value={data.kpis.income} tone="income" icon="↑" />
-        <DashboardKpiCard label="Saídas" value={data.kpis.expense} tone="expense" icon="↓" />
-        <DashboardKpiCard label="Resultado económico" value={data.kpis.result} tone="accent" icon="=" />
-        <DashboardKpiCard
-          label="Total de transações"
-          value={String(data.kpis.count)}
-          rawValue
-          tone="analytic"
-          icon="#"
-          trendLabel="No período filtrado, não só nesta página"
-        />
-      </div>
-
-      <div className="mt-5">
-        <TransactionCharts
-          daily={data.daily}
-          categories={data.categoriesBreakdown}
-          expenseTotal={data.kpis.expense}
-        />
-      </div>
-
-      <section className="mt-5 min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
-        <form method="get" className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mb-5 min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
+        <form method="get" className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {data.filters.q ? <input type="hidden" name="q" value={data.filters.q} /> : null}
+          {data.filters.accountId ? <input type="hidden" name="accountId" value={data.filters.accountId} /> : null}
+          {data.filters.categoryId ? <input type="hidden" name="categoryId" value={data.filters.categoryId} /> : null}
+          {data.filters.type ? <input type="hidden" name="type" value={data.filters.type} /> : null}
+          {showReview ? <input type="hidden" name="review" value="1" /> : null}
+          <label className="block min-w-0 flex-1 text-sm font-medium text-slate-700">
+            Mês
+            <MonthFilterSelect value={data.period} options={months} />
+          </label>
+          <button type="submit" className={filterApplyButtonClassName}>
+            Ver mês
+          </button>
+        </form>
+        <form method="get" className="mt-3 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="min-w-0 text-sm sm:col-span-2 lg:col-span-3">
             <span className="sr-only">Pesquisar</span>
             <input
@@ -174,7 +198,30 @@ async function TransacoesContent({ searchParams }: { searchParams: SearchParams 
             </Link>
           </div>
         </form>
+      </section>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <DashboardKpiCard label="Entradas" value={data.kpis.income} tone="income" icon="↑" />
+        <DashboardKpiCard label="Saídas" value={data.kpis.expense} tone="expense" icon="↓" />
+        <DashboardKpiCard label="Resultado económico" value={data.kpis.result} tone="accent" icon="=" />
+        <DashboardKpiCard
+          label="Total de transações"
+          value={String(data.kpis.count)}
+          rawValue
+          tone="analytic"
+          icon="#"
+          trendLabel="No período filtrado, não só nesta página"
+        />
+      </div>
 
+      <div className="mt-5">
+        <TransactionCharts
+          daily={data.daily}
+          categories={data.categoriesBreakdown}
+          expenseTotal={data.kpis.expense}
+        />
+      </div>
+
+      <section className="mt-5 min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-card)]">
         {data.rows.length === 0 ? (
           <p className="mt-6 text-sm text-slate-600">Nenhum movimento corresponde a estes filtros.</p>
         ) : (

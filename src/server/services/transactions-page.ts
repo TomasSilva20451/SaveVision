@@ -22,6 +22,7 @@ export type TransactionPageQuery = {
   type?: string;
   from?: string;
   to?: string;
+  period?: string;
   page?: string;
 };
 
@@ -35,12 +36,40 @@ function addCivilDay(iso: string): Date {
   });
 }
 
+function parsePeriod(value: string | undefined) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (year < 2000 || year > 2100 || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+function monthBounds(year: number, month: number) {
+  const from = formatCivilDateIso({ year, month, day: 1 });
+  const last = new Date(Date.UTC(year, month, 0));
+  const to = formatCivilDateIso({
+    year: last.getUTCFullYear(),
+    month: last.getUTCMonth() + 1,
+    day: last.getUTCDate(),
+  });
+  return { from, to, period: `${year}-${String(month).padStart(2, "0")}` };
+}
+
 function defaultRange() {
   const today = civilDateFromInstant(new Date());
-  return {
-    from: formatCivilDateIso({ year: today.year, month: today.month, day: 1 }),
-    to: formatCivilDateIso(today),
-  };
+  return monthBounds(today.year, today.month);
+}
+
+function isIsoDate(value: string | undefined): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+function periodForRange(from: string, to: string) {
+  const start = parseCivilDateIso(from);
+  if (start.day !== 1) return "";
+  const bounds = monthBounds(start.year, start.month);
+  return bounds.from === from && bounds.to === to ? bounds.period : "";
 }
 
 function toMovement(row: {
@@ -70,8 +99,20 @@ export async function getTransactionsPage(
   await ensureDefaultCategories(workspaceId);
 
   const defaults = defaultRange();
-  const from = query.from && /^\d{4}-\d{2}-\d{2}$/.test(query.from) ? query.from : defaults.from;
-  const to = query.to && /^\d{4}-\d{2}-\d{2}$/.test(query.to) ? query.to : defaults.to;
+  const selectedPeriod = parsePeriod(query.period);
+  const from = selectedPeriod
+    ? monthBounds(selectedPeriod.year, selectedPeriod.month).from
+    : isIsoDate(query.from)
+      ? query.from
+      : defaults.from;
+  const to = selectedPeriod
+    ? monthBounds(selectedPeriod.year, selectedPeriod.month).to
+    : isIsoDate(query.to)
+      ? query.to
+      : defaults.to;
+  const period = selectedPeriod
+    ? monthBounds(selectedPeriod.year, selectedPeriod.month).period
+    : periodForRange(from, to);
   const page = Math.max(1, Number(query.page) || 1);
   const type = TYPES.includes(query.type as (typeof TYPES)[number]) ? query.type : undefined;
 
@@ -152,6 +193,7 @@ export async function getTransactionsPage(
   return {
     from,
     to,
+    period,
     page,
     pageSize: PAGE_SIZE,
     pageCount: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),

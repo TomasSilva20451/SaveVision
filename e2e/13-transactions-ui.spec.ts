@@ -9,6 +9,19 @@ test.describe("Transações — layout e filtros", () => {
     await expect(page.getByRole("heading", { name: "Despesas por categoria" })).toBeVisible();
   });
 
+  test("filtra o mês atual e um mês passado", async ({ page }) => {
+    await page.goto("/transacoes");
+    const month = page.getByLabel("Mês");
+    await expect(month).toBeVisible();
+    await expect(month).toHaveValue(/^\d{4}-\d{2}$/);
+    await expect(month.locator("option")).toHaveCount(24);
+    const previous = await month.locator("option").nth(1).getAttribute("value");
+    expect(previous).toMatch(/^\d{4}-\d{2}$/);
+    await month.selectOption(previous!);
+    await expect(page).toHaveURL(new RegExp(`period=${previous}`));
+    await expect(month).toHaveValue(previous!);
+  });
+
   test("pesquisa sem resultados e limpa filtros", async ({ page }) => {
     await page.goto("/transacoes");
     await page.getByPlaceholder("Pesquisar por descrição").fill("movimento-inexistente-e2e");
