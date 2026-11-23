@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 import { loginFlowAction, type LoginFlowState } from "@/lib/auth/actions";
 import { LoginBrand } from "@/components/auth/login-brand";
 import { LoginMfaStep } from "@/components/auth/login-mfa-step";
+import { LoginSessionNotice } from "@/components/auth/login-session-notice";
 
 const initialState: LoginFlowState = {
   step: "credentials",
@@ -11,7 +12,7 @@ const initialState: LoginFlowState = {
   fieldErrors: {},
 };
 
-export function LoginForm() {
+export function LoginForm({ sessionExpired = false }: { sessionExpired?: boolean }) {
   const [state, action, pending] = useActionState(loginFlowAction, initialState);
   const deviceIdRef = useRef<HTMLInputElement>(null);
 
@@ -44,6 +45,7 @@ export function LoginForm() {
   return (
     <div className="login-card" data-testid="login-credentials-step">
       <LoginBrand />
+      {sessionExpired ? <LoginSessionNotice /> : null}
       <h1 className="login-title">Bem-vindo de volta</h1>
       <form action={action} className="login-form" noValidate>
         <input ref={deviceIdRef} type="hidden" name="deviceId" defaultValue="" />

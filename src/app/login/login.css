@@ -128,6 +128,50 @@
   color: rgb(153 27 27);
 }
 
+.login-session-notice {
+  margin-top: 1.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border-radius: 0.875rem;
+  border: 1px solid rgb(191 219 254);
+  background: linear-gradient(180deg, rgb(239 246 255) 0%, rgb(248 250 252) 100%);
+  padding: 0.875rem 1rem;
+  text-align: left;
+  box-shadow: 0 1px 2px rgb(37 99 235 / 0.06);
+}
+
+.login-session-notice-icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: rgb(219 234 254);
+  color: rgb(29 78 216);
+}
+
+.login-session-notice-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.login-session-notice-title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(30 64 175);
+}
+
+.login-session-notice-text {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: rgb(51 65 85);
+}
+
 .login-primary-button {
   margin-top: 0.25rem;
   border: none;

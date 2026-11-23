@@ -20,18 +20,8 @@ export default async function LoginPage({
   const showDevelopmentCredentials = process.env.NODE_ENV !== "production";
   return (
     <main className="login-page">
-      {expired === "1" ? (
-        <p className="sr-only" role="status">
-          A sessão expirou. Entra novamente para continuar.
-        </p>
-      ) : null}
       <div className="w-full max-w-md">
-        {expired === "1" ? (
-          <p className="mb-4 text-center text-sm text-slate-600" role="status">
-            A sessão expirou. Entra novamente para continuar.
-          </p>
-        ) : null}
-        <LoginForm />
+        <LoginForm sessionExpired={expired === "1"} />
         {showDevelopmentCredentials ? (
           <ul className="mt-6 flex flex-col gap-2 text-center text-xs text-slate-500">
             {demoUsers.map((demoUser) => (
